@@ -39,6 +39,6 @@ vignettes/*.pdf
 .Renviron
 
 # Don't add /renv
-*/renv*
+*/renv/*
 *.Rprofile*
 *.DS_Store*
