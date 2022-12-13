@@ -37,3 +37,8 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+# Don't add /renv
+*/renv*
+*.Rprofile*
+*.DS_Store*
