@@ -1,31 +1,9 @@
 # ODK Forms Extraction
 @author: Aryton Tediarjo (atediarjo@gmail.com)
-
 @reviewedBy: Joe Brew
 
 ## About
 This Github repository is used as a microservice for extracting forms (from selected projects) to be stored to S3. This microservice assumes databrew.org as the default server. 
-
-## Contributing Guidelines
-
-### Clone Repository
-```zsh
-git clone https://github.com/arytontediarjo/extract-bohemia-kenya-project.git
-```
-
-### Create a new branch
-```zsh
-git checkout -b feature_branch
-git push origin feature_branch
-```
-
-### Indexing new project for extraction
-This microservice uses a config file for indexing projects, to index/add a new project. Append this block to config.yml to have new projects added to the data pipeline.
-```
-    - name: [NEW PROJECT NAME IN ODK COLLECT]
-      bucket_name: [DESIRED BUCKET NAME]
-      folder_name: [FOLDER NAME]
-```
 
 ### Reproduce Analysis Environment
 This project uses [R renv](https://rstudio.github.io/renv/articles/renv.html) to act as a virtual environment and snapshots the library requirements and the version being used during the analysis. 
@@ -63,12 +41,6 @@ docker build -t odk-form-extraction .
 Before pushing to Dockerhub, test it locally:
 
 ```zsh
-docker run odk-form-extraction
-```
-
-On certain cases, you need to test pass environment variables for AWS and ODK authentication:
-
-```zsh
 docker run \
 -e AWS_ACCESS_KEY=... \ 
 -e AWS_SECRET_ACCESS_KEY=... \
@@ -78,14 +50,6 @@ docker run \
 odk-form-extraction
 ```
 
-## Pushing to Dockerhub
-
-To push to Dockerhub, you will only need to push your code to Github remote main branch, where Github Actions will do the CI/CD process for you.
-
-```zsh
-git push
-```
-
-You can find your Docker Image in Dockerhub under the name **databrewllc/odk-form-extraction**
+### Pushing to Dockerhub
 
 
