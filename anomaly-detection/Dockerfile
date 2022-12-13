@@ -6,7 +6,7 @@ RUN apt-get update -y\
     && apt-get install -y git
 
 # clone github repository
-RUN git clone https://github.com/databrew/anomaly-detection.git /root/anomaly-detection
+COPY . /root/anomaly-detection
 
 # use the bohemia kenya work directory
 WORKDIR /root/anomaly-detection
