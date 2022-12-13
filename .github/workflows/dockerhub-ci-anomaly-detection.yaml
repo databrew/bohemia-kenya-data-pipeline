@@ -1,18 +1,18 @@
-name: dockerhub-ci-odk-form-extraction
+name: dockerhub-ci-anomaly-detection
 
 on:
   push:
     branches:
       - 'main'
     paths:
-      - odk-form-extraction/**
+      - anomaly-detection/**
 
 jobs:
   docker:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./odk-form-extraction
+        working-directory: ./anomaly-detection
     steps:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -26,6 +26,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
       - name: Build Dockerfile
-        run: docker build -f Dockerfile --progress=plain -t databrewllc/odk-form-extraction:latest .
+        run: docker build -f Dockerfile --progress=plain -t databrewllc/anomaly-detection:latest .
       - name: Push to Dockerhub
-        run: docker push databrewllc/odk-form-extraction:latest
+        run: docker push databrewllc/anomaly-detection:latest
