@@ -5,8 +5,8 @@ FROM rocker/tidyverse:4.2.1
 RUN apt-get update -y\
     && apt-get install -y git
 
-# clone github repository
-RUN git clone https://github.com/databrew/odk-form-extraction.git /root/odk-form-extraction
+# copy working directory
+COPY . /root/odk-form-extraction
 
 # use the bohemia kenya work directory
 WORKDIR /root/odk-form-extraction
