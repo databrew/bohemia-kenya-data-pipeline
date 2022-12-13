@@ -44,7 +44,7 @@ Each folder is a microservice used for data orchestration. Each folder will have
 
 To modify existing foler, you can directly work inside the folder. Ideally, you would create an `.Rproj` on that folder to work in your local RStudio.
 
-#### a. Reproducing Deployment R Environment using `Renv`
+#### a. Reproducing Production R Environment using `Renv` in RStudio
 Using this setting, your local R Environment will work in an isolated environment that resembles Production.
 
 ```R
@@ -62,7 +62,7 @@ renv::snapshot()
 ```
 
 #### c. Adding new R scripts
-To streamline running several R scripts, edit the `Makefile`/`bash` files and add your desired R scripts to run
+To streamline running several R scripts, edit the `Makefile`/`bash` files and add the new R Scripts
 
 ### Adding New Workflow Folder
 
