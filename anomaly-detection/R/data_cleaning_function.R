@@ -95,7 +95,7 @@ clean_household_data <- function(data, resolution_file){
     batch_set_row_values(
       mapping = set_rows_mapping,
       col = 'wid_manual',
-      change_data_type_funs = as.numeric)
+      change_data_type_funs = as.numeric) %>%
     delete_row_values(
       instanceIDs = delete_rows)
 
