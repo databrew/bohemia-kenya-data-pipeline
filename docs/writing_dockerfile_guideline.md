@@ -4,7 +4,7 @@ Docker is used to persist the analysis environment. For example, under each work
 
 
 ## Template
-```docker
+```dockerfile
 ## Start with the official rocker image (lightweight Debian)
 FROM rocker/tidyverse:4.2.1
 
