@@ -35,17 +35,17 @@ Each folder is a microservice used for data orchestration. Each folder will have
         |-- Makefile
         |-- R/
 ```
-- `renv.lock`: This is the file used to create virtual environment in R. It snapshots your local session library and locks the library versioning to make sure full-reproducibility of data pipeline
+- `renv.lock`: This is the file used to create virtual environment in R. It snapshots your local session library and locks the library versioning to make sure full-reproducibility of data pipeline.
 - `Dockerfile`: This is the Dockerfile used for creating fresh container to run the data workflow. Docker is used to help deploy resources to fresh AWS instance
 - `Makefile`: This file is a helper to streamline running R scripts (can be changed to .sh executable if needed)
 - `R/`: This is where your Rscript lives
 
 ### Modifying Existing Workflow Folder
 
-To modify existing foler, you can directly work inside the folder. Ideally, you would create an `.Rproj` on that folder to work in your local RStudio.
+To work/modify on existing folder, you can directly work inside the folder. Create an individual `.Rproj` on each of the folder in RStudio. 
 
-#### a. Reproducing Production R Environment using `Renv` in RStudio
-Using this setting, your local R Environment will work in an isolated environment that resembles Production.
+#### Reproducing Production R Environment using `Renv` in RStudio
+Once you are inside the folder, you will be able to reproduce the libaries used in production using following commands:
 
 ```R
 install.packages("renv")
@@ -53,18 +53,42 @@ renv::init(bare = TRUE)
 renv::restore()
 ```
 
-#### b. Adding new library to `Renv` virtual environment
-For every new libraries used, you will be required to record the changes to the `renv.lock`. Let's use installing R Lubridate for example:
+#### Adding new library to `Renv` virtual environment
+Adding new libraries will require you to record the changes to the `renv.lock`. Let's use installing R `Lubridate` for example:
 
 ```R
 install.packages("lubridate")
 renv::snapshot()
 ```
 
-#### c. Adding new R scripts
+Running this command will snapshot the lubridate package into the `renv.lock` library index
+
+#### Adding new R scripts
 To streamline running several R scripts, edit the `Makefile`/`bash` files and add the new R Scripts
 
 ### Adding New Workflow Folder
+To create a new worfklow, start by creating a new folder
+
+#### Create **R Project** as a New Folder
+```
+mkdir [your_new_workflow_folder]
+```
+Once directory is created, create RProject using the new directory
+
+#### Work like you normally would in R/
+You are free to design how your features look like, for best practice - **please put your RScripts under R/**
+
+#### Persist your RStudio Environment and Libraries into renv
+Once you are done with the new feature, save your environment into `renv.lock` by doing
+```R
+renv::init()
+```
+
+#### Create a Dockerfile
+Follow guidelines from [Writing Dockerfile](docs/writing_dockerfile_guideline.md)
+
+#### Add CI/CD to Dockerhub
+Follow guidelines from [Writing GH Action](docs/writing_gh_actions_guideline.md)
 
 
 ## Bug Reports
