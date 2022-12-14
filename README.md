@@ -11,13 +11,13 @@ Existing Data workflows ➜
 
 Each data processes above is represented as folders. Each folders will be configured with continuous integration process to our [DataBrew Dockerhub](https://hub.docker.com/search?q=databrewllc) using GitHub Actions. Each images stored in Dockerhub will then be captured by our [ETL Tool](https://github.com/databrew/ecs-data-workflow/tree/main) and deployed to our workflow in AWS.
 
-## Contributing
+
+## Getting Started
 
 ### Clone this repository
 ```
 git clone https://github.com/databrew/bohemia-kenya-data-pipeline.git
 ```
-
 ### Create a feature branch
 To make contribution to data workflow, start by creating a feature branch. 
 ```
@@ -40,11 +40,11 @@ Each folder is a microservice used for data orchestration. Each folder will have
 - `Makefile`: This file is a helper to streamline running R scripts (can be changed to .sh executable if needed)
 - `R/`: This is where your Rscript lives
 
-### Modifying Existing Workflow Folder
+## Modify Existing Workflow Folder
 
 To work/modify on existing folder, you can directly work inside the folder. Create an individual `.Rproj` on each of the folder in RStudio. 
 
-#### Reproducing Production R Environment using `Renv` in RStudio
+### Reproducing Production R Environment using `Renv` in RStudio
 Once you are inside the folder, you will be able to reproduce the libaries used in production using following commands:
 
 ```R
@@ -53,7 +53,7 @@ renv::init(bare = TRUE)
 renv::restore()
 ```
 
-#### Adding new library to `Renv` virtual environment
+### Adding new library to `Renv` virtual environment
 Adding new libraries will require you to record the changes to the `renv.lock`. Let's use installing R `Lubridate` for example:
 
 ```R
@@ -66,30 +66,30 @@ Running this command will snapshot the lubridate package into the `renv.lock` li
 #### Adding new R scripts
 To streamline running several R scripts, edit the `Makefile`/`bash` files and add the new R Scripts
 
-### Adding New Workflow Folder
-To create a new worfklow, start by creating a new folder
+## Creating New Workflow Folder
+To create a new worfklow, start by creating a new folder under this repository.
 
-#### Create **R Project** as a New Folder
+### Create `R Project` in New Folder
 ```
 mkdir [your_new_workflow_folder]
 ```
 Once directory is created, create RProject using the new directory
 
-#### Work like you normally would in R/
-You are free to design how your features look like, for best practice - **please put your RScripts under R/**
-
-#### Persist your RStudio Environment and Libraries into renv
+### Work like you normally would in `R/`
+You are free to design how your features look like and put your Rscripts under `R/` folder
+### Persist your RStudio Environment and Libraries into renv
 Once you are done with the new feature, save your environment into `renv.lock` by doing
 ```R
+library(renv)
 renv::init()
 ```
 
-#### Create a Dockerfile
+### Create a Dockerfile
 Follow guidelines from [Writing Dockerfile](docs/writing_dockerfile_guideline.md)
 
-#### Add CI/CD to Dockerhub
-Follow guidelines from [Writing GH Action](docs/writing_gh_actions_guideline.md)
+### Add CI/CD to Dockerhub
+Follow guidelines from [Writing GitHub Action for CI/CD](docs/writing_gh_actions_guideline.md)
 
 
 ## Bug Reports
-Bugs reports will be done via [Github Issues](https://github.com/databrew/bohemia-kenya-data-pipeline/issues)
+For any bug reports, please submit via [Github Issues](https://github.com/databrew/bohemia-kenya-data-pipeline/issues)
