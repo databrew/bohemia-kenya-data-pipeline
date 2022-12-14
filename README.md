@@ -11,8 +11,14 @@ Existing Data workflows ➜
 
 Each data processes above is represented as folders. Each folders will be configured with continuous integration process to our [DataBrew Dockerhub](https://hub.docker.com/search?q=databrewllc) using GitHub Actions. Each images stored in Dockerhub will then be captured by our [ETL Tool](https://github.com/databrew/ecs-data-workflow/tree/main) and deployed to our workflow in AWS.
 
-
 ## Getting Started
+
+![Image](images/gitflow.jpeg)
+This date pipeline uses a 4-step process for creating new data workflow for Bohemia Kenya.
+1. Clone and create feature branch
+2. Make changes into workflow folder
+3. Create a PR to `main` branch
+4. Merging to `main` will trigger CI/CD using Github Actions
 
 ### Clone this repository
 ```
