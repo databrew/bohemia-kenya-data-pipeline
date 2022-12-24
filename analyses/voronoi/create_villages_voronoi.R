@@ -5,9 +5,12 @@ library(magrittr)
 library(data.table)
 library(ggplot2)
 library(sp)
+library(sf)
 library(plotly)
 library(leaflet)
 library(RColorBrewer)
+library(rgeos)
+library(raster)
 
 # get household data and remove unused columns
 hh <- get_household_forms() %>%
@@ -27,75 +30,88 @@ kwale_fortified <- fortify(kwale, regions = ken3@data$NAME_3)
 pongwe_kikoneni <- ken3[ken3@data$NAME_3 == 'Pongwe/Kikoneni',]
 pongwe_kikoneni_fortified <- fortify(pongwe_kikoneni, regions = ken3@data$NAME_3)
 
+
+
+# create using shapefile
+studywards <- sf::st_read(dsn = "voronoi/StudyAreaWards") %>% st_transform(4326)
+spatial_dataframe <- sf::as_Spatial(studywards,IDs = studywards$Ward)
+wards_fortified <- broom::tidy(
+  spatial_dataframe,
+  regions = spatial_dataframe@data$Ward)
+ward_mapping <- tibble(id = seq(1, length(spatial_dataframe@data$Ward)), ward = spatial_dataframe@data$Ward) %>%
+  dplyr::mutate(id = as.character(id))
+
+list_wards <- c('Pongwekikoneni')
+wards_fortified <- wards_fortified %>%
+  dplyr::inner_join(ward_mapping, by = c("id")) %>%
+  dplyr::filter(ward %in% list_wards)
+
+
+
 # village color palette
 mycolors <- colorRampPalette(brewer.pal(8, "Set3"))(hh$village %>% unique() %>% length())
 
 # basic village plot
 p <- ggplot() +
-  geom_polygon(data = pongwe_kikoneni_fortified,
+  geom_polygon(data = wards_fortified,
                aes(x = long,
                    y = lat,
                    group = group),
                color = 'black',
-               fill = 'beige',
+               fill = 'white',
                alpha = 0.5) +
   geom_point(data = hh,
              aes(x = Longitude,
                  y = Latitude,
                  color = village),
-             alpha = 0.6,
+             alpha = 1,
              size = 0.9) +
   scale_color_manual(values = mycolors) +
   ggthemes::theme_map() +
-  theme(legend.position =  "none")
+  labs(title = "1. Household Forms Collected",
+       subtitle = "Ward: Pongwe") +
+  theme(legend.position =  "none", plot.title = element_text(face="bold"))
+p.interactive <- ggplotly(p)
+htmlwidgets::saveWidget(
+  p.interactive,
+  "villages_points.html")
+
 
 # create voronoi polygons with pongwe outline
 ox_diagram <- voronoi_polygon(
-  hh, x="Longitude",
+  hh,
+  x="Longitude",
   y="Latitude",
-  outline = pongwe_kikoneni)
-
-# create html for villages
-ox_data <- broom::tidy(
-  ox_diagram,
-  region = "village")
-p <- ox_data %>%
-  ggplot(aes(x=long,
-             y=lat,
-             fill=id,
-             group=group)) +
-  geom_polygon() +
-  geom_path() +
-  scale_fill_manual(values = mycolors) +
-  coord_equal() +
-  theme_minimal() +
-  theme(legend.position = "none")
-p.interactive <- ggplotly(p)
-htmlwidgets::saveWidget(p.interactive,
-                        "pongwe_villages_with_paths.html")
-
-
+  outline = spatial_dataframe[spatial_dataframe@data$Ward == 'Pongwekikoneni',])
 
 
 # clean paths inside convex hull
-ox_diagram_2 <- gUnaryUnion(
+ox_diagram_union<- gUnaryUnion(
   ox_diagram,
   id = ox_diagram$village)
-ox_data_2 <- broom::tidy(ox_diagram_2)
-pv2 <- ox_data_2 %>%
-  ggplot(aes(x=long,
-             y=lat,
-             fill=id,
-             group=group)) +
-  geom_polygon() +
-  geom_path() +
-  scale_fill_manual(values = mycolors) +
+ox_data_union <- broom::tidy(ox_diagram_union)
+pv2 <- ggplot() +
+  geom_polygon(
+    data = ox_data_union %>%
+      dplyr::select(village = id,
+                    everything()),
+    aes(x=long,
+        y=lat,
+        group=group,
+        fill = village)) +
+  geom_path(data = wards_fortified,
+            aes(x = long,
+                y = lat,
+                group = group)) +
   coord_equal() +
+  scale_fill_manual(values = mycolors) +
   theme_minimal() +
   theme(legend.position = "none")
 p.interactive <- ggplotly(pv2)
-htmlwidgets::saveWidget(p.interactive,
-                        "pongwe_villages_clean.html")
-shapefile(x = ox_diagram_2,
-          file = "pongwe.shp",
+htmlwidgets::saveWidget(
+  p.interactive,
+  "villages_voronoi.html")
+shapefile(x = ox_diagram_union,
+          file = "village.shp",
           overwrite=TRUE)
+
