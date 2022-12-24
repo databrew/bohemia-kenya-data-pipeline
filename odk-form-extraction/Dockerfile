@@ -18,5 +18,5 @@ RUN R -e "remotes::install_github('rstudio/renv@${RENV_VERSION}')"
 RUN R -e "renv::init(bare = TRUE)"
 RUN R -e "renv::restore()"
 
-# container run R script
+# run all pipeline
 CMD make pipeline
