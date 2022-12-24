@@ -1,6 +1,10 @@
 # Bohemia Kenya Data Pipeline
 Author: atediarjo@gmail.com
 
+## Docker CI/CD Status
+![example workflow](https://github.com/databrew/bohemia-kenya-data-pipeline/actions/workflows/dockerhub-ci-odk-form-extraction.yaml/badge.svg)
+![example workflow](https://github.com/databrew/bohemia-kenya-data-pipeline/actions/workflows/dockerhub-ci-anomaly-detection.yaml/badge.svg)
+
 ## About
 An end-to-end ETL tools used for Bohemia Kenya project. 
 
@@ -32,7 +36,7 @@ git push origin [name_of_your_new_branch]
 ```
 *Preferred git branch naming convention: [email_handle]_[feature_name]*
 
-### Understanding Folder Structure
+### Folder Structure Requirements for Workflow Orchestration
 Each folder is a microservice used for data orchestration. Each folder will have these 4 components:
 ```
 |-- your-workflow-folder
@@ -46,7 +50,7 @@ Each folder is a microservice used for data orchestration. Each folder will have
 - `Makefile`: This file is a helper to streamline running R scripts (can be changed to .sh executable if needed)
 - `R/`: This is where your Rscript lives
 
-## Modify Existing Workflow Folder
+## Modify Existing Docker Workflow
 
 To work/modify on existing folder, you can directly work inside the folder. Create an individual `.Rproj` on each of the folder in RStudio. 
 
@@ -72,7 +76,7 @@ Running this command will snapshot the lubridate package into the `renv.lock` li
 #### Adding new R scripts
 To streamline running several R scripts, edit the `Makefile`/`bash` files and add the new R Scripts
 
-## Creating New Workflow Folder
+## Creating New Docker Workflow
 To create a new worfklow, start by creating a new folder under this repository.
 
 ### Create `R Project` in New Folder
