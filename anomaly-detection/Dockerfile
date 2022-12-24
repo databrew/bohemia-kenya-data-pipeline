@@ -12,9 +12,7 @@ COPY . /root/anomaly-detection
 WORKDIR /root/anomaly-detection
 
 # use renv to replicate
-ENV RENV_VERSION 0.16.0
-RUN R -e "install.packages('remotes', repos = c(CRAN = 'https://cloud.r-project.org'))"
-RUN R -e "remotes::install_github('rstudio/renv@${RENV_VERSION}')"
+RUN R -e "install.packages('renv')"
 RUN R -e "renv::init(bare = TRUE)"
 RUN R -e "renv::restore()"
 
