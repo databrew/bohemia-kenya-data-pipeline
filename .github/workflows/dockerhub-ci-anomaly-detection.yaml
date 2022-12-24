@@ -28,4 +28,4 @@ jobs:
       - name: Build Dockerfile
         run: docker build -f Dockerfile --progress=plain -t databrewllc/anomaly-detection:latest .
       - name: Push to Dockerhub
-        run: docker push databrewllc/anomaly-detection:latest
+        run: docker push databrewllc/anomaly-detection:${GITHUB_SHA::7}
