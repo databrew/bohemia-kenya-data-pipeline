@@ -30,7 +30,7 @@ jobs:
       - name: Push to Dockerhub
         run: docker push databrewllc/odk-form-extraction:latest
       - name: Tag Image based on commit SHA
-        run: docker image tag databrewllc/anomaly-detection:latest databrewllc/odk-form-extraction:${GITHUB_SHA::7}
+        run: docker image tag databrewllc/odk-form-extraction:latest databrewllc/odk-form-extraction:${GITHUB_SHA::7}
       - name: Push to Dockerhub with commit sha for version tracking
         run: docker push databrewllc/odk-form-extraction:${GITHUB_SHA::7}
       - name: Push to Dockerhub as latest
