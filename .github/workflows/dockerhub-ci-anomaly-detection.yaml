@@ -1,11 +1,9 @@
 name: dockerhub-ci-anomaly-detection
 
-on:
-  push:
-    branches:
-      - 'main'
-    paths:
-      - anomaly-detection/**
+on: 
+    push:
+      paths:
+        - anomaly-detection/**
 
 jobs:
   
