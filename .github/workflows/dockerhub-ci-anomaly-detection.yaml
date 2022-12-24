@@ -25,7 +25,11 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Checkout Repository
         uses: actions/checkout@v3
-      - name: Build Dockerfile
+      - name: Build Dockerfile based on commit sha
         run: docker build -f Dockerfile --progress=plain -t databrewllc/anomaly-detection:latest .
-      - name: Push to Dockerhub
+      - name: Tag Image based on commit SHA
+        run: docker image tag databrewllc/anomaly-detection:latest databrewllc/anomaly-detection:${GITHUB_SHA::7}
+      - name: Push to Dockerhub with commit sha for version tracking
         run: docker push databrewllc/anomaly-detection:${GITHUB_SHA::7}
+      - name: Push to Dockerhub as latest
+        run: docker push databrewllc/anomaly-detection:latest
