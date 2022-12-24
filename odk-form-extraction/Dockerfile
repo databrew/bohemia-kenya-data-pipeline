@@ -2,8 +2,7 @@
 FROM rocker/tidyverse:4.2.1
 
 # install preliminary requirements
-RUN apt-get update -y\
-    && apt-get install -y git
+RUN apt-get update -y
 
 # copy working directory
 COPY . /root/odk-form-extraction

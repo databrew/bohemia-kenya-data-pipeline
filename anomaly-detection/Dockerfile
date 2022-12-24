@@ -1,7 +1,7 @@
 ## Start with the official rocker image (lightweight Debian)
 FROM rocker/tidyverse:4.2.1
 
-# install preliminary requirements
+# install updates for docker container
 RUN apt-get update -y
 
 # clone github repository
