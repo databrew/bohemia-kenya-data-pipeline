@@ -15,15 +15,16 @@ Data Workflow used for Bohemia Kenya project. This repository is used for managi
 
 ## Getting Started
 ### Understanding CI/CD Workflow
-*Note that this CI/CD workflow only applies if you would like your workflow to be autoamated in AWS ECS, otherwise it would be a lot of overhead to go through this process.*
+*Note that this CI/CD workflow only applies if you would like your workflow to be autoamated in AWS ECS, otherwise it would be a lot of overhead to go through this process.* 
 
 ![Image](images/gitflow.jpeg)
 1. Clone and make changes in your feature-branch
 2. Create Dockerfile based on your changes (library installation, new R script, bash script)
 3. Test Dockerfile locally, check whether everything runs based on your use-case
-4. Push your changes to `dev`: By pushing your changes to the dev branch, `github action` will trigger a job that automatically deploys your changes to Dockerhub - image will be tagged with version `:develop`
-5. Check `databrew-dev` to see whether data inputs/ouputs are behaving as expected
-6. Once done, push your changes to `databrew-prod`: Same process as 4, image will be tagged with version `:production`
+4. Push your changes to `dev branch`: By pushing your changes to the dev branch, `github action` will trigger a job that automatically deploys your changes to Dockerhub - image in Dockerhub will be tagged with version `:develop`
+5. Check `databrew-dev (aws)` to see whether data inputs/ouputs are behaving as expected
+6. Once done, push your changes to `main branch`: Same process as 4, image in Dockerhub will be tagged with version `:production`
+7. Changes will be sync-ed in `databrew-prod (aws)`
 
 Automation using github action is based on the `yaml` files specified under [github workflows folder](.github/workflows), it needs to be configured manually if the service you create not yet available.
 
