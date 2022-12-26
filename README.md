@@ -40,7 +40,7 @@ git push origin [name_of_your_new_branch]
 ```
 *Preferred git branch naming convention: [email_handle]_[feature_name]*
 
-### (Recommended) Folder Structure Requirements for Workflow Orchestration
+### Folder Structure Requirements for Workflow Orchestration
 Each folder is a microservice used for data orchestration. Each folder will have these 4 components:
 ```
 |-- your-workflow-folder
