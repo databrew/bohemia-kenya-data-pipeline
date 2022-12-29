@@ -6,23 +6,28 @@ Author: atediarjo@gmail.com
 ![example workflow](https://github.com/databrew/bohemia-kenya-data-pipeline/actions/workflows/dockerhub-ci-anomaly-detection.yaml/badge.svg)
 
 ## About
-An end-to-end ETL tools used for Bohemia Kenya project. 
+Data Workflow used for Bohemia Kenya project. This repository is used for managing end to end data workflow from odk extraction to insights. It is designed to enable users to do CI/CD their workflow image to [DataBrew Dockerhub](https://hub.docker.com/search?q=databrewllc), which willl be pulled by [DataBrew ECS Task](https://github.com/databrew/ecs-data-workflow/tree/main)
 
-Existing Data workflows ➜
+:stopwatch: Scheduled Workflows 
 1. ODK Form Extraction
 2. Data Cleaning
 3. Anomaly Identification
 
-Each data processes above is represented as folders. Each folders will be configured with continuous integration process to our [DataBrew Dockerhub](https://hub.docker.com/search?q=databrewllc) using GitHub Actions. Each images stored in Dockerhub will then be captured by our [ETL Tool](https://github.com/databrew/ecs-data-workflow/tree/main) and deployed to our workflow in AWS.
-
 ## Getting Started
+### Understanding CI/CD Workflow
+*Note that this CI/CD workflow only applies if you would like your workflow to be autoamated in AWS ECS, otherwise it would be a lot of overhead to go through this process.* 
 
 ![Image](images/gitflow.jpeg)
-This date pipeline uses a 4-step process for creating new data workflow for Bohemia Kenya.
-1. Clone and create feature branch
-2. Make changes into workflow folder
-3. Create a PR to `main` branch
-4. Merging to `main` will trigger CI/CD using Github Actions
+1. Clone and make changes in your feature-branch
+2. Create Dockerfile based on your changes (library installation, new R script, bash script)
+3. Test Dockerfile locally, check whether everything runs based on your use-case
+4. Push your changes to `dev branch`: By pushing your changes to the dev branch, `github action` will trigger a job that automatically deploys your changes to Dockerhub - image in Dockerhub will be tagged with version `:develop`
+5. Check `databrew-dev (aws)` to see whether data inputs/ouputs are behaving as expected
+6. Once done, push your changes to `main branch`: Same process as 4, image in Dockerhub will be tagged with version `:production`
+7. Changes will be sync-ed in `databrew-prod (aws)`
+
+Automation using github action is based on the `yaml` files specified under [github workflows folder](.github/workflows), it needs to be configured manually if the service you create not yet available.
+
 
 ### Clone this repository
 ```
