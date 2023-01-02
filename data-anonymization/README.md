@@ -15,12 +15,12 @@ This part of the pipeline will do data anonymization for data public release and
 
 There are 3 common cryptographic techniques such as MD5, SHA-1, SHA-2. SHA-2 is known to be the most secure, despite computationally 20-30% longer to calculate compared the other two. It is irreversible, so the only way to get PII Ids are through doing `hash join` with the non-anonymized / original table.
 
-### How to do Hash Joins to decrypt
+### How to do Hash-Joins to decrypt PII IDs
 ``` r
 non_anonymized_form %>%
     dplyr::select(id) %>%
-    dplyr::mutate(id = digest(id, algo = "sha256")) %>% 
-    dplyr::inner_join(anonymized_forms, by = c("id"))
+    dplyr::mutate(hash_id = digest(id, algo = "sha256")) %>% 
+    dplyr::inner_join(anonymized_forms, by = c("hash_id" = "id"))
 ```
 
 ## Anonymized Forms
