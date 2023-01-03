@@ -2,7 +2,7 @@
 
 ## Description
 
-This part of the pipeline will do data anonymization for data public release and monitoring dashboards.
+This part of the pipeline will do data anonymization on PII columns for Bohemia data public release / dashboards.
 
 ## Method
 
