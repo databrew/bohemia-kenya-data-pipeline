@@ -111,6 +111,30 @@
       "Hash": "96c01552bfd5661b9bbdefbc762f4bcd",
       "Requirements": []
     },
+    "cloudbrewr": {
+      "Package": "cloudbrewr",
+      "Version": "0.0.0.9000",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "databrew",
+      "RemoteRepo": "cloudbrewr",
+      "RemoteRef": "main",
+      "RemoteSha": "e188a23dfd425234438b0a0f451586738e56de83",
+      "Hash": "40f2853b1fed959f4d8cacbe7b1ede7d",
+      "Requirements": [
+        "data.table",
+        "dplyr",
+        "glue",
+        "lubridate",
+        "magrittr",
+        "paws",
+        "purrr",
+        "rlang",
+        "tibble",
+        "tidyr"
+      ]
+    },
     "config": {
       "Package": "config",
       "Version": "0.3.1",
