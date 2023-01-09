@@ -120,8 +120,8 @@
       "RemoteUsername": "databrew",
       "RemoteRepo": "cloudbrewr",
       "RemoteRef": "main",
-      "RemoteSha": "e188a23dfd425234438b0a0f451586738e56de83",
-      "Hash": "40f2853b1fed959f4d8cacbe7b1ede7d",
+      "RemoteSha": "7213a326ba230dc2da9c3e1a5fcdfc6b4c44602f",
+      "Hash": "63163e8fb8e5d512d4dcff9c9a78c45c",
       "Requirements": [
         "data.table",
         "dplyr",
