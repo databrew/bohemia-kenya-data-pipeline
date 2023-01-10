@@ -61,6 +61,7 @@ partition_file <- OUTPUT_KEY$anomalies_ts_placeholder
 current_anomaly_list %>%
   fwrite(filename, row.names = FALSE)
 cloudbrewr::aws_s3_store(
+  filename = filename,
   bucket = S3_BUCKET_NAME,
   key = partition_file
 )
