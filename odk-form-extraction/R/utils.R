@@ -46,8 +46,7 @@ create_s3_upload_manifest <- function(s3obj = NULL, server, projects){
       dir.create(t, showWarnings = FALSE, recursive = TRUE)
 
       # name bucket
-      bucket_name <- glue::glue(Sys.getenv('BUCKET_PREFIX'),
-                                gsub('https://', '', server, fixed = TRUE))
+      bucket_name <- glue::glue(gsub('https://', '', server, fixed = TRUE))
 
       # change project_name
       project_name <- tolower(gsub(' ', '', project, fixed = TRUE))

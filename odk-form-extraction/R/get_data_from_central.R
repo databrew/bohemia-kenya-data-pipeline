@@ -16,6 +16,7 @@ source("R/utils.R")
 
 
 # login to AWS
+# to test Sys.setenv(PIPELINE_STAGE = 'develop')
 cloudbrewr::aws_login(pipeline_stage = Sys.getenv("PIPELINE_STAGE"))
 
 # parse ruODK credentials
