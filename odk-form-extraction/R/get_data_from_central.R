@@ -16,7 +16,7 @@ source("R/utils.R")
 
 
 # login to AWS
-cloudbrewr::aws_login(stage = Sys.getenv("PIPELINE_STAGE"))
+cloudbrewr::aws_login(pipeline_stage = Sys.getenv("PIPELINE_STAGE"))
 
 # parse ruODK credentials
 CREDENTIALS_FILE_PATH <- "~/.bohemia_credentials"
