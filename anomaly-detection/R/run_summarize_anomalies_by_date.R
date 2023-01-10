@@ -6,6 +6,7 @@ library(paws)
 library(dplyr)
 library(lubridate)
 library(data.table)
+library(cloudbrewr)
 source('R/anomaly_detection_function.R')
 
 # set your pipeline stage here to define prod/dev environment
@@ -27,7 +28,7 @@ OUTPUT_KEY <- list(
 
 
 # get time series table
-anomalies_summary <- aws_s3_get_table_ts(
+anomalies_summary <- cloudbrewr::aws_s3_get_table_ts(
   bucket = S3_BUCKET_NAME,
   key = INPUT_KEY$partition_files) %>%
   dplyr::group_by(run_date, type) %>%
