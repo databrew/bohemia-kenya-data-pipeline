@@ -11,17 +11,20 @@ library(magrittr)
 library(aws.s3)
 library(paws)
 library(config)
+library(cloudbrewr)
 source("R/utils.R")
 
 
-# add in credentials
-CREDENTIALS_FILE_PATH <- "~/.bohemia_credentials"
+# login to AWS
+# to test Sys.setenv(PIPELINE_STAGE = 'develop')
+cloudbrewr::aws_login(pipeline_stage = Sys.getenv("PIPELINE_STAGE"))
 
-# instantiate credentials, s3 object
+# parse ruODK credentials
+CREDENTIALS_FILE_PATH <- "~/.bohemia_credentials"
 credentials_check(CREDENTIALS_FILE_PATH)
 creds <- yaml::yaml.load_file(Sys.getenv('bohemia_credentials'))
-s3obj <- paws::s3()
 
+# get configuration
 conf <- list(
   servers = c('https://databrew.org'),
   projects = c('kwale')
@@ -29,14 +32,14 @@ conf <- list(
 
 # odk setup
 # Set up some parameters
-ruODK::ru_setup(
-  fid = NULL,
-  # fid = 'ntd',
-  url = creds$url,
-  un = creds$un,
-  pw = creds$pw,
-  tz = 'UTC'
-)
+ruODK::ru_setup(fid = NULL,
+                url = creds$url,
+                un = creds$un,
+                pw = creds$pw,
+                tz = 'UTC')
+
+#' create bucket, will bypass creation if bucket already exist
+create_bucket <- cloudbrewr::aws_s3_create_bucket('databrew.org')
 
 # create s3 manifest file of all listed projects and forms from config file
 s3_manifest <- create_s3_upload_manifest(
@@ -44,20 +47,13 @@ s3_manifest <- create_s3_upload_manifest(
   server = conf$server,
   projects = conf$projects)
 
-# create s3 buckets
-create_bucket <- s3_manifest$bucket_name %>%
-  head(1) %>%
-  create_s3_bucket(
-  s3obj = s3obj,
-  bucket_name = .)
 
 # iteratively go through manifest and save to s3
 save_objects_to_s3 <- s3_manifest %>%
-  purrr::pmap(~save_to_s3_bucket(
-  s3obj = s3obj,
-  project_name = ..2,
-  fid = ..3,
-  file_path=..4,
-  bucket_name=..5,
-  object_key=..6))
+  dplyr::select(file_path, bucket_name, object_key) %>%
+  purrr::pmap(~cloudbrewr::aws_s3_store(
+    filename=..1,
+    bucket=..2,
+    key=..3
+  ))
 

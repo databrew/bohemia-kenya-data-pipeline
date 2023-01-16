@@ -1,51 +1,41 @@
-#' This script is purposed to run anomaly identification
-#' TBD on what kind of anomaly coding is required
+# This script is purposed to run anomaly identification
+# TBD on what kind of anomaly coding is required
+# Author: atediarjo@gmail.com
 library(dplyr)
 library(magrittr)
 library(purrr)
 library(tidyr)
 library(data.table)
 library(glue)
-source('R/utils.R')
 source('R/anomaly_detection_function.R')
 
-svc <- paws::s3()
-S3_BUCKET_NAME <- glue::glue(
-  Sys.getenv('BUCKET_PREFIX'),
-  'databrew.org')
-HH_S3_FILE_KEY <- 'kwale/clean-form/reconbhousehold/reconbhousehold.csv'
-REGISTRATION_S3_FILE_KEY <- "kwale/clean-form/reconaregistration/reconaregistration.csv"
-ANOMALIES_S3_FILE_KEY <- "kwale/anomalies/anomalies.csv"
+# set your pipeline stage here to define prod/dev environment
+# to test it locally do Sys.setenv(PIPELINE_STAGE = 'develop')
+cloudbrewr::aws_login(pipeline_stage = Sys.getenv('PIPELINE_STAGE'))
 
-get_registration_data <- function(){
-  # Kwale Registration Forms
-  filename <- tempfile(fileext = ".csv")
-  bucket_name <- S3_BUCKET_NAME
-  get_s3_data(
-    s3obj = svc,
-    bucket= S3_BUCKET_NAME,
-    object_key = REGISTRATION_S3_FILE_KEY, # change this to clean data
-    filename = filename) %>%
-    fread(.) %>%
-    as_tibble()
-}
+# bucket name
+S3_BUCKET_NAME <- 'databrew.org'
 
-get_household_data <- function(){
-  # Kwale Household Forms
-  filename <- tempfile(fileext = ".csv")
-  get_s3_data(
-    s3obj = svc,
-    bucket= S3_BUCKET_NAME,
-    object_key = HH_S3_FILE_KEY, # change this to clean data
-    filename = filename) %>%
-    fread(.) %>%
-    as_tibble()
-}
+# input
+INPUT_KEY <- list(
+  household = 'kwale/clean-form/reconbhousehold/reconbhousehold.csv',
+  registration = "kwale/clean-form/reconaregistration/reconaregistration.csv"
+)
+# output
+OUTPUT_KEY <- list(
+  anomalies_ts_placeholder = glue::glue(
+    "kwale/anomalies/anomalies-identification-history/run_date={date}/anomalies.csv",
+    date = as.Date(lubridate::now()))
+)
 
 
 # get registration data and its anomalies
-reconaregistration <- get_registration_data()
-reconbhousehold <- get_household_data()
+reconaregistration <- cloudbrewr::aws_s3_get_table(
+  bucket = S3_BUCKET_NAME,
+  key = INPUT_KEY$registration)
+reconbhousehold <- cloudbrewr::aws_s3_get_table(
+  bucket = S3_BUCKET_NAME,
+  key = INPUT_KEY$household)
 
 current_anomaly_list <- dplyr::bind_rows(
   reconaregistration %>%
@@ -64,28 +54,15 @@ current_anomaly_list <- dplyr::bind_rows(
 
 
 # save data to s3
-partition_key = glue::glue("kwale/anomalies/anomalies-identification-history/run_date={date}/anomalies.csv",
-                 date = as.Date(lubridate::now()))
+filename <- tempfile(fileext = ".csv")
+partition_file <- OUTPUT_KEY$anomalies_ts_placeholder
 
 # save as timestamp table
-filename <- tempfile(fileext = ".csv")
 current_anomaly_list %>%
   fwrite(filename, row.names = FALSE)
-save_to_s3_bucket(
-  s3obj = svc,
-  file_path = filename,
-  bucket_name = S3_BUCKET_NAME,
-  object_key = partition_key)
-
-
-# stopgap: save as is (will be deprecated) as we need time-series data to track
-# fieldworker performance
-filename <- tempfile(fileext = ".csv")
-current_anomaly_list %>%
-  fwrite(filename, row.names = FALSE)
-save_to_s3_bucket(
-  s3obj = svc,
-  file_path = filename,
-  bucket_name = S3_BUCKET_NAME,
-  object_key = ANOMALIES_S3_FILE_KEY)
+cloudbrewr::aws_s3_store(
+  filename = filename,
+  bucket = S3_BUCKET_NAME,
+  key = partition_file
+)
 
