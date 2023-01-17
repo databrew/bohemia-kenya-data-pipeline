@@ -96,10 +96,16 @@ clean_household_data <- function(data, resolution_file){
       mapping = set_rows_mapping,
       col = 'wid_manual',
       change_data_type_funs = as.numeric) %>%
+    batch_set_row_values(
+      mapping = set_rows_mapping,
+      col = 'village',
+      change_data_type_funs = as.character)  %>%
+    batch_set_row_values(
+      mapping = set_rows_mapping,
+      col = 'community_health_unit',
+      change_data_type_funs = as.character)  %>%
     delete_row_values(
       instanceIDs = delete_rows)
-
-
   return(data)
 }
 
@@ -127,6 +133,14 @@ clean_registration_data <- function(data, resolution_file){
       batch_set_row_values(
         mapping = set_rows_mapping,
         col = 'wid',
+        change_data_type_funs = as.numeric) %>%
+      batch_set_row_values(
+        mapping = set_rows_mapping,
+        col = 'cha_wid_manual',
+        change_data_type_funs = as.numeric) %>%
+      batch_set_row_values(
+        mapping = set_rows_mapping,
+        col = 'num_households',
         change_data_type_funs = as.numeric) %>%
       delete_row_values(
         instanceIDs = delete_rows)
