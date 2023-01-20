@@ -1,6 +1,6 @@
 #' Helper function manually append data
 #' @param data data input (tibble)
-#' return tibble data with new appended training data
+#' return tibble with append data
 manual_append_household_data <- function(data){
   dplyr::bind_rows(
     data,
