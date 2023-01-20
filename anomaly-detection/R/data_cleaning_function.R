@@ -1,3 +1,20 @@
+#' Helper function manually append data
+#' @param data data input (tibble)
+#' return tibble data with new appended training data
+manual_append_household_data <- function(data){
+  dplyr::bind_rows(
+    data,
+    # https://bohemiakenya.slack.com/archives/C042P3A05UP/p1674125355280049
+    # Eldo: CHV made an error in inputting to training data, append to clean dataset
+    cloudbrewr::aws_s3_get_table(
+      bucket = 'databrew.org',
+      key = 'kwale/anomalies/anomalies-manual-uploads/manual_household_upload_DeviceID=FgWKyEvEH2PrrtC2.csv') %>%
+      dplyr::select(-V1)
+  )
+}
+
+
+
 #' Helper function to set row values by uuid
 #' @param data data input (tibble)
 #' @param uuid the uuid of data (character)
@@ -88,6 +105,7 @@ clean_household_data <- function(data, resolution_file){
 
   # consolidate here
   data <- data %>%
+    manual_append_household_data() %>%
     batch_set_row_values(
       mapping = set_rows_mapping,
       col = 'hh_id',
