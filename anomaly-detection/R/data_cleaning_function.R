@@ -9,6 +9,10 @@ manual_append_household_data <- function(data){
     cloudbrewr::aws_s3_get_table(
       bucket = 'databrew.org',
       key = 'kwale/anomalies/anomalies-manual-uploads/manual_household_upload_DeviceID=FgWKyEvEH2PrrtC2.csv') %>%
+      dplyr::select(-V1),
+    cloudbrewr::aws_s3_get_table(
+      bucket = 'databrew.org',
+      key = 'kwale/anomalies/anomalies-manual-uploads/manual_household_upload_DeviceID=b2Ba11XHGHNnLLvL.csv') %>%
       dplyr::select(-V1)
   )
 }
