@@ -126,7 +126,7 @@ clean_household_data <- function(data, resolution_file){
       change_data_type_funs = as.character)  %>%
     delete_row_values(
       instanceIDs = delete_rows) %>%
-    dplyr::mutate(village = str_to_title(tolower(village)))
+    dplyr::mutate(village = stringr::str_to_title(tolower(village)))
   return(data)
 }
 
