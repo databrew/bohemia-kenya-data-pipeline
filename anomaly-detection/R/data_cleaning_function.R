@@ -126,7 +126,10 @@ clean_household_data <- function(data, resolution_file){
       change_data_type_funs = as.character)  %>%
     delete_row_values(
       instanceIDs = delete_rows) %>%
-    dplyr::mutate(village = stringr::str_to_title(tolower(village)))
+    # clean inconsistent uppercase lowercase pattern
+    dplyr::mutate(village = stringr::str_to_title(tolower(village))) %>%
+    # Isaiah: Club Bazo together into one as it is scattered: https://bohemiakenya.slack.com/archives/C04E6P97SJU/p1675777482592849?thread_ts=1675228333.353639&cid=C04E6P97SJU
+    dplyr::mutate(village = ifelse(stringr::str_detect(village, 'Bazo'), 'Bazo', village))
   return(data)
 }
 
