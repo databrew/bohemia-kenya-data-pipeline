@@ -12,22 +12,22 @@ clean_column_names <- function(data){
 #' @param bucket_name name of the bucket
 create_s3_bucket <- function(s3obj = NULL, bucket_name){
   tryCatch({
-    message(glue::glue("log_message: checking {bucket_name}"))
+    message(glue::glue("[{lubridate::now()} BOHEMIA_PIPELINE_LOGS]: checking {bucket_name}"))
     bucket_list <- s3obj$list_buckets() %>%
       .$Buckets %>%
       purrr::map_dfr(function(b){b})
     if(!bucket_name %in% bucket_list$Name){
       s3obj$create_bucket(Bucket = bucket_name)
-      message(glue::glue("log_message: {bucket_name} created"))
+      message(glue::glue("[{lubridate::now()} BOHEMIA_PIPELINE_LOGS]: {bucket_name} created"))
       s3obj$put_bucket_versioning(
         Bucket = bucket_name,
         VersioningConfiguration = list(Status = 'Enabled'))
-      message(glue::glue("log_message: {bucket_name} versioning enabled"))
+      message(glue::glue("[{lubridate::now()} BOHEMIA_PIPELINE_LOGS]: {bucket_name} versioning enabled"))
     }else{
-      message(glue::glue("log_message: {bucket_name} is available"))
+      message(glue::glue("[{lubridate::now()} BOHEMIA_PIPELINE_LOGS]: {bucket_name} is available"))
     }
   }, error = function(e){
-    message(glue::glue("error_message: ", e$message))
+    message(glue::glue("[{lubridate::now()} BOHEMIA_PIPELINE_LOGS]: ", e$message))
   })
 }
 
@@ -42,7 +42,8 @@ create_s3_upload_manifest <- function(s3obj = NULL, server, projects){
     # create dir
     # create save location
     tryCatch({
-      t <- glue::glue('~/.odk_cache/{project}')
+      message(glue::glue('[{lubridate::now()} BOHEMIA_PIPELINE_LOGS]: Extracting {project} ODK Project from {server}'))
+      t <- glue::glue('form_output')
       dir.create(t, showWarnings = FALSE, recursive = TRUE)
 
       # name bucket
@@ -69,28 +70,49 @@ create_s3_upload_manifest <- function(s3obj = NULL, server, projects){
           zip_path = ruODK::submission_export(pid = project_id,
                                               fid = fid,
                                               local_dir = t,
-                                              overwrite = TRUE),
-          file_path = unzip(zip_path, exdir = t),
-          bucket_name = bucket_name,
-          object_key = glue::glue("{prefix}{fid}/{fid}.csv")) %>%
-        dplyr::select(server_name,
-                      project_name,
-                      fid,
-                      file_path,
-                      bucket_name,
-                      object_key)
+                                              overwrite = TRUE))
+      # unload manifest files into zip files
+      dump_files_loc <- 'temp_form_output_file'
+      unlink(dump_files_loc)
+      dir.create(dump_files_loc)
+      file_map <- manifest$zip_path %>%
+        purrr::map_dfr(function(z){
+          tryCatch({
+            unzip(z, exdir = dump_files_loc)
+            unzip(z, exdir = dump_files_loc, list = TRUE)
+          }, error = function(e){
+            message(e$message)
+            messge(z)
+          })
+        }) %>%
+        dplyr::mutate(
+          file_path = glue::glue('{dump_files_loc}/{Name}'),
+          raw_name = stringr::str_remove(Name, '.csv')) %>%
+        tidyr::separate(raw_name, into = c('split_form0','split_form1'), "-") %>%
+        tibble::as_tibble() %>%
+        dplyr::mutate(
+          form = `split_form0`,
+          endpoint = case_when(is.na(`split_form1`) ~ `split_form0`,
+                              TRUE ~ paste0(`split_form1`)),
+          object_key = glue::glue("{prefix}{form}/{endpoint}.csv")
+        ) %>%
+        dplyr::mutate(bucket_name = bucket_name,
+                      project_name = project_name) %>%
+        dplyr::select(bucket_name, project_name, object_key, file_path)
+
       # # clean extraneous column names
-      manifest$file_path %>%
+      file_map$file_path %>%
         purrr::map(function(file_path){
           data <- data.table::fread(file_path) %>%
             clean_column_names() %>%
             data.table::fwrite(file_path)
         })
+      message(glue::glue('[{lubridate::now()} BOHEMIA_PIPELINE_LOGS] Successfully Extracted {project} ODK Project from {server}'))
     }, error = function(e){
-      message(glue::glue("error_message: Bug is coming from ", project, " project"))
-      message(glue::glue("error_message: ", e$message))
+      message(glue::glue("[{lubridate::now()} BOHEMIA_PIPELINE_LOGS] Error_message: Bug is coming from ", project, " ODK Project"))
+      message(glue::glue("[{lubridate::now()} BOHEMIA_PIPELINE_LOGS] Error_message: ", e$message))
     })
-    return(manifest)
+    return(file_map)
   })
 }
 
