@@ -20,15 +20,15 @@ cloudbrewr::aws_login(pipeline_stage = Sys.getenv('PIPELINE_STAGE'))
 # variables
 S3_BUCKET_NAME <- 'databrew.org'
 INPUT_KEY <- list(
-  household =  'kwale/raw-form/reconbhousehold/reconbhousehold.csv',
-  registration = "kwale/raw-form/reconaregistration/reconaregistration.csv",
-  resolution = "kwale/anomalies/anomalies-resolution/anomalies-resolution.csv"
+  household =  'kwale/recon/raw-form/reconbhousehold/reconbhousehold.csv',
+  registration = "kwale/recon/raw-form/reconaregistration/reconaregistration.csv",
+  resolution = "kwale/recon/anomalies/anomalies-resolution/anomalies-resolution.csv"
 )
 
 # output
 OUTPUT_KEY <- list(
-  household = 'kwale/clean-form/reconbhousehold/reconbhousehold.csv',
-  registration = "kwale/clean-form/reconaregistration/reconaregistration.csv"
+  household = 'kwale/recon/clean-form/reconbhousehold/reconbhousehold.csv',
+  registration = "kwale/recon/clean-form/reconaregistration/reconaregistration.csv"
 )
 
 
@@ -67,3 +67,35 @@ cloudbrewr::aws_s3_store(
   filename,
   bucket = S3_BUCKET_NAME,
   key = OUTPUT_KEY$household)
+
+
+
+
+household_not_curated <- cloudbrewr::aws_s3_get_table(
+  bucket = S3_BUCKET_NAME,
+  key = INPUT_KEY$household)
+
+household_curated <- cloudbrewr::aws_s3_get_table(
+  bucket = S3_BUCKET_NAME,
+  key = INPUT_KEY$household) %>%
+  clean_household_data(
+    resolution_file = resolution_data)
+
+household_curated %>%
+  dplyr::select(hh_id_clean = hh_id,
+                ward,
+                community_health_unit,
+                village,
+                roof_type,
+                instanceID,
+                todays_date) %>%
+  dplyr::left_join(household_not_curated %>% dplyr::select(instanceID, hh_id_raw = hh_id)) %>%
+  dplyr::select(instanceID, todays_date, hh_id_clean, hh_id_raw, ward,
+                community_health_unit, village, roof_type) %>%
+  fwrite('curated_recon_household_data.csv')
+
+cloudbrewr::aws_s3_store(
+  filename = 'curated_recon_household_data.csv',
+  bucket = S3_BUCKET_NAME,
+  key = 'kwale/recon/clean-form/reconbhousehold/curated_recon_household_data.csv'
+)
