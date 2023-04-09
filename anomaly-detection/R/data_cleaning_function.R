@@ -8,10 +8,10 @@ manual_append_household_data <- function(data){
     # Eldo: CHV made an error in inputting to training data, append to clean dataset
     cloudbrewr::aws_s3_get_table(
       bucket = 'databrew.org',
-      key = 'kwale/anomalies/anomalies-manual-uploads/manual_household_upload_DeviceID=FgWKyEvEH2PrrtC2.csv'),
+      key = 'kwale/recon/anomalies/anomalies-manual-uploads/manual_household_upload_DeviceID=FgWKyEvEH2PrrtC2.csv'),
     cloudbrewr::aws_s3_get_table(
       bucket = 'databrew.org',
-      key = 'kwale/anomalies/anomalies-manual-uploads/manual_household_upload_DeviceID=b2Ba11XHGHNnLLvL.csv')
+      key = 'kwale/recon/anomalies/anomalies-manual-uploads/manual_household_upload_DeviceID=b2Ba11XHGHNnLLvL.csv')
   )
 }
 
