@@ -1,8 +1,0 @@
-#' This is the config file used for extracting faw forms
-#' it is defaulted to databrew.org and to add new projects you will need to
-#' append the project name into the
-default:
-  servers:
-    - 'https://databrew.org'
-  projects:
-    - 'kwale'
