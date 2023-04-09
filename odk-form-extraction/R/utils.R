@@ -10,7 +10,8 @@ clean_column_names <- function(data){
 #'
 #' @param s3obj instantiation of s3 object
 #' @param bucket_name name of the bucket
-create_s3_bucket <- function(s3obj = NULL, bucket_name){
+create_s3_bucket <- function(bucket_name){
+  s3obj <- paws::s3()
   tryCatch({
     message(glue::glue("[{lubridate::now()} BOHEMIA_PIPELINE_LOGS]: checking {bucket_name}"))
     bucket_list <- s3obj$list_buckets() %>%
@@ -37,84 +38,74 @@ create_s3_bucket <- function(s3obj = NULL, bucket_name){
 #' @param s3obj instantiation of s3 object
 #' @param server name of the hosted server for ODK
 #' @param projects name of the projects
-create_s3_upload_manifest <- function(s3obj = NULL, server, projects){
-  purrr::map_dfr(projects, function(project){
-    # create dir
-    # create save location
-    tryCatch({
-      message(glue::glue('[{lubridate::now()} BOHEMIA_PIPELINE_LOGS]: Extracting {project} ODK Project from {server}'))
-      t <- glue::glue('form_output')
-      dir.create(t, showWarnings = FALSE, recursive = TRUE)
+create_s3_upload_manifest <- function(bucket_name = 'databrew.org',
+                                      server,
+                                      project){
+  manifest <- tryCatch({
+    logger::log_info(glue::glue('Extracting {project} forms from {server}'))
 
-      # name bucket
-      bucket_name <- glue::glue(gsub('https://', '', server, fixed = TRUE))
+    # get all project_id
+    project_id <- ruODK::project_list() %>%
+      dplyr::filter(!archived) %>%
+      dplyr::filter(name == project) %>%
+      .$id
 
-      # change project_name
-      project_name <- tolower(gsub(' ', '', project, fixed = TRUE))
 
-      # Establish a prefix (folder on AWS for saving everything)
-      prefix <- glue::glue("{project_name}/raw-form/")
+    # generate file mapping as a manifest
+    manifest <- ruODK::form_list(pid = project_id) %>%
+      dplyr::rowwise() %>%
+      dplyr::mutate(
+        project_name = project,
+        zip_path = ruODK::submission_export(pid = project_id,
+                                            fid = fid,
+                                            local_dir = '/tmp',
+                                            overwrite = TRUE))
+    # unload manifest files into zip files
+    dump_files_loc <- '/tmp'
+    file_map <- manifest$zip_path %>%
+      purrr::map_dfr(function(z){
+        unzip(z, exdir = dump_files_loc)
+        unzip(z, exdir = dump_files_loc, list = TRUE)
+      }) %>%
+      dplyr::mutate(
+        file_path = glue::glue('{dump_files_loc}/{Name}'),
+        raw_name = stringr::str_remove(Name, '.csv')) %>%
+      tidyr::separate(raw_name, into = c('split_form0','split_form1'), "-") %>%
+      tibble::as_tibble() %>%
+      dplyr::mutate(
+        form = `split_form0`,
+        endpoint = case_when(is.na(`split_form1`) ~ `split_form0`,
+                             TRUE ~ paste0(`split_form1`)),
+        object_key = glue::glue("odk-forms/{endpoint}.csv")
+      ) %>%
+      dplyr::mutate(bucket_name = bucket_name,
+                    project_name = project) %>%
+      dplyr::select(bucket_name,
+                    project_name,
+                    object_key,
+                    file_path)
 
-      # get all project_id
-      project_id <- ruODK::project_list() %>%
-        dplyr::filter(!archived) %>%
-        dplyr::filter(name == project) %>%
-        .$id
+    # # clean extraneous column names
+    file_map$file_path %>%
+      purrr::map(function(file_path){
+        data <- data.table::fread(file_path) %>%
+          clean_column_names() %>%
+          data.table::fwrite(file_path)
+        return(data)
 
-      # generate file mapping as a manifest
-      manifest <- ruODK::form_list(pid = project_id) %>%
-        dplyr::rowwise() %>%
-        dplyr::mutate(
-          server_name = server,
-          project_name = project_name,
-          zip_path = ruODK::submission_export(pid = project_id,
-                                              fid = fid,
-                                              local_dir = t,
-                                              overwrite = TRUE))
-      # unload manifest files into zip files
-      dump_files_loc <- 'temp_form_output_file'
-      unlink(dump_files_loc)
-      dir.create(dump_files_loc)
-      file_map <- manifest$zip_path %>%
-        purrr::map_dfr(function(z){
-          tryCatch({
-            unzip(z, exdir = dump_files_loc)
-            unzip(z, exdir = dump_files_loc, list = TRUE)
-          }, error = function(e){
-            message(e$message)
-            messge(z)
-          })
-        }) %>%
-        dplyr::mutate(
-          file_path = glue::glue('{dump_files_loc}/{Name}'),
-          raw_name = stringr::str_remove(Name, '.csv')) %>%
-        tidyr::separate(raw_name, into = c('split_form0','split_form1'), "-") %>%
-        tibble::as_tibble() %>%
-        dplyr::mutate(
-          form = `split_form0`,
-          endpoint = case_when(is.na(`split_form1`) ~ `split_form0`,
-                              TRUE ~ paste0(`split_form1`)),
-          object_key = glue::glue("{prefix}{form}/{endpoint}.csv")
-        ) %>%
-        dplyr::mutate(bucket_name = bucket_name,
-                      project_name = project_name) %>%
-        dplyr::select(bucket_name, project_name, object_key, file_path)
-
-      # # clean extraneous column names
-      file_map$file_path %>%
-        purrr::map(function(file_path){
-          data <- data.table::fread(file_path) %>%
-            clean_column_names() %>%
-            data.table::fwrite(file_path)
-        })
-      message(glue::glue('[{lubridate::now()} BOHEMIA_PIPELINE_LOGS] Successfully Extracted {project} ODK Project from {server}'))
-    }, error = function(e){
-      message(glue::glue("[{lubridate::now()} BOHEMIA_PIPELINE_LOGS] Error_message: Bug is coming from ", project, " ODK Project"))
-      message(glue::glue("[{lubridate::now()} BOHEMIA_PIPELINE_LOGS] Error_message: ", e$message))
-    })
-    return(file_map)
   })
+  return(file_map)
+
+  }, error = function(e){
+    logger::log_error(e$message)
+    stop()
+  }, finally = function(f){
+    logger::log_success('Created S3 manifest')
+  })
+
 }
+
+
 
 
 #' Credentials check
