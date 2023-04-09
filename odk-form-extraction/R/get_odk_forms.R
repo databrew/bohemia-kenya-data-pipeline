@@ -19,15 +19,13 @@ source("R/utils.R")
 # create log message
 logger::log_info('Starting ODK Form Extraction')
 
-# variables
-credentials_file_path <- "~/.bohemia_credentials"
+# variables / creds
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 env_server_endpoint <- Sys.getenv("ODK_SERVER_ENDPOINT")
 
-
 # create connection to AWS
 tryCatch({
-  # login to AWS
+  # login to AWS - this will be bypassed if executed in CI/CD environment
   cloudbrewr::aws_login(
     role_name = 'cloudbrewr-aws-role',
     profile_name =  'cloudbrewr-aws-role',
@@ -42,15 +40,26 @@ tryCatch({
 conf <- tryCatch({
   logger::log_info(glue::glue('Creating connection to {env_server_endpoint}'))
 
-  # parse ruODK credentials
-  credentials_check(credentials_file_path)
-  creds <- yaml::yaml.load_file(Sys.getenv('bohemia_credentials'))
+  if(env_pipeline_stage == 'production'){
+    env_odk_username <- Sys.getenv('ODK_USERNAME')
+    env_odk_password <- Sys.getenv('ODK_PASSWORD')
+  }
+
+  if(env_pipeline_stage == 'develop') {
+    # get ODK credentials from secrets manager
+    svc  <- paws::secretsmanager()
+    creds <- svc$get_secret_value(Sys.getenv('ODK_CREDENTIALS_SECRETS_NAME')) %>%
+      .$SecretString %>%
+      jsonlite::parse_json(.)
+    env_odk_username <- Sys.getenv('ODK_USERNAME')
+    env_odk_password <- creds
+  }
 
   # odk setup
   ruODK::ru_setup(fid = NULL,
                   url = env_server_endpoint,
-                  un = creds$un,
-                  pw = creds$pw,
+                  un = env_odk_username,
+                  pw = env_odk_password,
                   tz = 'UTC')
 
   # get configuration
@@ -96,7 +105,3 @@ tryCatch({
 
 # Finish code pipeline
 logger::log_success('ODK Forms Extracted to S3')
-
-
-
-
