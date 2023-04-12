@@ -2,27 +2,26 @@
 
 This pipeline section covers 2 data workflow:
 
-- 1. Development workflow: databrew.org
-- 2. Production workflow: Kwale Servers
+- Development workflow: databrew.org
+- Production workflow: Kwale Servers
 
 ## Production Workflow 
 
 ### Prerequisites
 
-- READ/WRITE AWS Access Keys and Secret Access Keys (contact [atediarjo\@gmail.com](mailto:atediarjo@gmail.com){.email})
+- READ/WRITE AWS Access Keys and Secret Access Keys
 - ODK Server
-- Git
 - Docker
 
 ### 1. Clone Repository
 
-```bash
+```zsh
 git clone https://github.com/databrew/bohemia-kenya-data-pipeline.git
 ```
 
 ### 2. Install Docker
 
-```bash
+```zsh
 (sudo) apt-get install docker.io
 ```
 
@@ -32,13 +31,13 @@ Use this documentation to install Docker in your [Server/VMs](https://docs.docke
 
 Before running Doc, you will be required to manually create a hidden file containing the credentials & environment variables that will be fed into the Docker Container. You can use [vim](https://www.tutorialspoint.com/vim/vim_installation_and_configuration.html) or any text editor of choice to edit the environment variables
 
-``` bash
+```zsh
 vim ~/.databrew_kwale_key_vars
 ```
 
 Paste the variables into the hidden files in home directory
 
-``` bash
+```zsh
 PIPELINE_STAGE=production
 ODK_SERVER_ENDPOINT=https://yourodkserver
 ODK_USERNAME=yourmail@mail.com
@@ -55,9 +54,9 @@ Note:
 
 ### 4. Run bash script to enable Docker and Cron Scheduler
 
-Go to where you 
+Go to the directory where you stored the cloned repo, and change go into the odk-form-extraction folder and run the Docker & Cron setup by running:
 
-``` bash
+```zsh
 cd bohemia-kenya-data-pipeline/odk-form-extraction
 bash create_cron_job.sh
 ```
