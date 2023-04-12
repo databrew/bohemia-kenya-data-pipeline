@@ -11,7 +11,7 @@ sudo docker run -itd --env-file ~/.databrew_kwale_key_vars --name odk_form_docke
 #write out current crontab
 crontab -l > odk_form_extraction_cron
 #echo new cron into cron file
-echo "* * * * * sudo docker exec -t odk_form_docker make pipeline >> ~/odk_run.log" > odk_form_extraction_cron
+echo "* * * * * sudo docker exec -t odk_form_docker make pipeline > ~/odk_run.log" > odk_form_extraction_cron
 #install new cron file
 crontab odk_form_extraction_cron
 # remove text
