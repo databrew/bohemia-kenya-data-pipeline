@@ -88,7 +88,6 @@ s3_manifest <- tryCatch({
 
 # save object to s3
 tryCatch({
-  create_bucket <- cloudbrewr::aws_s3_create_bucket('databrew.org')
   save_objects_to_s3 <- s3_manifest %>%
     dplyr::select(file_path, bucket_name, object_key) %>%
     dplyr::mutate_all(as.character) %>%
