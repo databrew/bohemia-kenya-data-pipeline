@@ -14,13 +14,16 @@ This pipeline section covers 2 data workflow:
 - ODK Project with name `project_forms_production`
 - Docker
 
-### 1. Clone Repository
+### 1. Create a ODK Project with name `project_forms_production`
+This is where the script will fetch the ODK Forms and crawl each XLS Forms
+
+### 2. Clone Repository
 
 ```zsh
 git clone https://github.com/databrew/bohemia-kenya-data-pipeline.git
 ```
 
-### 2. Install Docker
+### 3. Install Docker
 
 ```zsh
 (sudo) apt-get install docker.io
@@ -28,7 +31,7 @@ git clone https://github.com/databrew/bohemia-kenya-data-pipeline.git
 
 Use this documentation to install Docker in your [Server/VMs](https://docs.docker.com/engine/install/) if you are using other Operating Machine
 
-### 3. Build Configuration Files
+### 4. Build Configuration Files
 
 Before running Doc, you will be required to manually create a hidden file containing the credentials & environment variables that will be fed into the Docker Container. You can use [vim](https://www.tutorialspoint.com/vim/vim_installation_and_configuration.html) or any text editor of choice to edit the environment variables
 
@@ -53,7 +56,7 @@ Note:
 - No need to put quotes or double quotes or spacing
 - Access Key and Secret Access Key will be provided by DataBrew Team
 
-### 4. Run bash script to enable Docker and Cron Scheduler
+### 5. Run bash script to enable Docker and Cron Scheduler
 
 Go to the directory where you stored the cloned repo, and change go into the odk-form-extraction folder and run the Docker & Cron setup by running:
 
