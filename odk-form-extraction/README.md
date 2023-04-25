@@ -9,8 +9,9 @@ This pipeline section covers 2 data workflow:
 
 ### Prerequisites
 
-- READ/WRITE AWS Access Keys and Secret Access Keys
+- READ/WRITE AWS Access Keys and Secret Access Keys to DataBrew Prod Account
 - ODK Server
+- ODK Project with name `project_forms_production`
 - Docker
 
 ### 1. Clone Repository
