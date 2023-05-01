@@ -50,7 +50,6 @@ create_s3_upload_manifest <- function(bucket_name = 'databrew.org',
       dplyr::filter(name == project) %>%
       .$id
 
-
     # generate file mapping as a manifest
     manifest <- ruODK::form_list(pid = project_id) %>%
       dplyr::rowwise() %>%
@@ -61,14 +60,13 @@ create_s3_upload_manifest <- function(bucket_name = 'databrew.org',
                                             local_dir = '/tmp',
                                             overwrite = TRUE))
     # unload manifest files into zip files
-    dump_files_loc <- '/tmp'
     file_map <- manifest$zip_path %>%
       purrr::map_dfr(function(z){
-        unzip(z, exdir = dump_files_loc)
-        unzip(z, exdir = dump_files_loc, list = TRUE)
+        unzip(z, exdir = output_dir)
+        unzip(z, exdir = output_dir, list = TRUE)
       }) %>%
       dplyr::mutate(
-        file_path = glue::glue('{dump_files_loc}/{Name}'),
+        file_path = glue::glue('{output_dir}/{Name}'),
         raw_name = stringr::str_remove(Name, '.csv')) %>%
       tidyr::separate(raw_name, into = c('split_form0','split_form1'), "-") %>%
       tibble::as_tibble() %>%
@@ -76,7 +74,7 @@ create_s3_upload_manifest <- function(bucket_name = 'databrew.org',
         form = `split_form0`,
         endpoint = case_when(is.na(`split_form1`) ~ `split_form0`,
                              TRUE ~ paste0(`split_form1`)),
-        object_key = glue::glue("odk-forms/{endpoint}.csv")
+        object_key = glue::glue("raw-form/{endpoint}.csv")
       ) %>%
       dplyr::mutate(bucket_name = bucket_name,
                     project_name = project) %>%

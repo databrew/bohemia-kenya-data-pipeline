@@ -1,4 +1,3 @@
 # run data pipeline:
 pipeline:
-	Rscript R/get_odk_forms.R
-
+	Rscript R/get_odk_forms_dbrew.R
