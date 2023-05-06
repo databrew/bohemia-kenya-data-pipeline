@@ -20,9 +20,9 @@ cloudbrewr::aws_login(pipeline_stage = Sys.getenv('PIPELINE_STAGE'))
 # variables
 S3_BUCKET_NAME <- 'databrew.org'
 INPUT_KEY <- list(
-  household =  'kwale/recon/raw-form/reconbhousehold/reconbhousehold.csv',
-  registration = "kwale/recon/raw-form/reconaregistration/reconaregistration.csv",
-  resolution = "kwale/recon/anomalies/anomalies-resolution/anomalies-resolution.csv"
+  household =  'raw-form/reconbhousehold/reconbhousehold.csv',
+  registration = "raw-form/reconaregistration/reconaregistration.csv",
+  resolution = "anomalies/anomalies-resolution/anomalies-resolution.csv"
 )
 
 # output

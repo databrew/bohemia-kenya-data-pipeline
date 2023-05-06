@@ -19,8 +19,8 @@ cloudbrewr::aws_login(pipeline_stage = Sys.getenv('PIPELINE_STAGE'))
 
 # input
 INPUT_KEY <- list(
-  household = 'kwale/clean-form/reconbhousehold/reconbhousehold.csv',
-  shapefiles = 'kwale/shapefiles/StudyAreaWards.zip'
+  household = 'raw-form/reconbhousehold/reconbhousehold.csv',
+  shapefiles = 'shapefiles/StudyAreaWards.zip'
 )
 # bucket name
 S3_BUCKET_NAME <- 'databrew.org'
