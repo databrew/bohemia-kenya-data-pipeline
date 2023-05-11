@@ -1,4 +1,4 @@
-name: dockerhub-ci-odk-form-extraction
+name: dockerhub-ci-pipeline-ento
 
 on:
   push:
