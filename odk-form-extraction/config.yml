@@ -5,10 +5,8 @@ default:
 develop:
   secret_name: 'test/odk-credentials'
   odk_projects:
-    - 'Kwale Ento Testing'
-    - 'kwale_testing'
+    - 'kwale'
 production:
   secret_name: 'prod/odk-credentials'
   odk_projects:
-    - 'Kwale Ento Testing'
-    - 'kwale_testing'
+    - 'kwale'
