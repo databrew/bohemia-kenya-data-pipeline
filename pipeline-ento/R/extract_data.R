@@ -6,7 +6,7 @@ library(data.table)
 library(sf)
 library(lubridate)
 
-# create log message
+# create log messages
 logger::log_info('Extract Screening Form')
 
 # variables / creds
