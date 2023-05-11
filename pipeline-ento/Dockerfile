@@ -4,7 +4,7 @@ FROM rocker/tidyverse:4.2.1
 # install preliminary requirements
 RUN apt-get update -y\
     && apt-get install -y git\
-    && apt-get install libudunits2-dev
+    && apt-get install -y libudunits2-dev
 
 # copy working directory
 COPY . /pipeline-ento
