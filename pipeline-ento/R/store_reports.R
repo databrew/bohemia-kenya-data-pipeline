@@ -60,6 +60,4 @@ tryCatch({
   stop()
 })
 
-unlink('report/clean_form', recursive = TRUE)
-
 

@@ -14,12 +14,13 @@ library(smoothr)
 Sys.setenv(SHAPE_RESTORE_SHX = 'YES')
 
 # set your pipeline stage here to define prod/dev environment
-# to test it locally do Sys.setenv(PIPELINE_STAGE = 'develop')
+# to test it locally do
+Sys.setenv(PIPELINE_STAGE = 'production')
 cloudbrewr::aws_login(pipeline_stage = Sys.getenv('PIPELINE_STAGE'))
 
 # input
 INPUT_KEY <- list(
-  household = 'raw-form/reconbhousehold/reconbhousehold.csv',
+  household = 'clean-form/reconbhousehold/reconbhousehold.csv',
   shapefiles = 'shapefiles/StudyAreaWards.zip'
 )
 # bucket name

@@ -119,3 +119,4 @@ tryCatch({
 
 # stop timer
 toc()
+unlink('odk_output_dir', recursive = TRUE)
