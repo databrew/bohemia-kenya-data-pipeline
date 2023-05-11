@@ -9,7 +9,7 @@ library(lubridate)
 # create log messages
 logger::log_info('Extract Screening Form')
 
-# variables / creds
+# variables / creds for ento
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 bucket <- 'databrew.org'
 input_key <- list(
