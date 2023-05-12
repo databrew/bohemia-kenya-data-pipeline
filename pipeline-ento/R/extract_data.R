@@ -6,8 +6,13 @@ library(data.table)
 library(sf)
 library(lubridate)
 
+
 # create log messages
 logger::log_info('Extract Screening Form')
+
+output_dir <-'report/clean_form'
+unlink(output_dir, recursive = TRUE)
+dir.create(output_dir)
 
 # variables / creds for ento
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
@@ -120,7 +125,7 @@ monitoring_tbl %>%
     site,
     active_or_withdrawn,
     withdrawal_date) %>%
-  fwrite('report/clean_form/ento_monitoring_hh_recruitment_withdrawal.csv')
+  fwrite(glue::glue('{output_dir}/ento_monitoring_hh_recruitment_withdrawal.csv'))
 
 
 # Form Monitoring 3: Light Trap Mosquito Collections

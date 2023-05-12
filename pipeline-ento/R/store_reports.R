@@ -32,10 +32,14 @@ tryCatch({
 
 
 # create log message
+bucket_name <- glue::glue('{bucket}-{stage}',
+                          bucket = 'kwale-reporting-bucket',
+                          stage = env_pipeline_stage)
 logger::log_info('Uploading')
 cloudbrewr::aws_s3_bulk_store(
-  bucket = 'databrew-static-content',
-  target_dir = 'report/html_report'
+  bucket = bucket_name,
+  target_dir = 'report/html_report',
+  prefix = '/ento'
 )
 
 
