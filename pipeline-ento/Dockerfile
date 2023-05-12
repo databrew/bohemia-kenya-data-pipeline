@@ -5,6 +5,7 @@ FROM rocker/tidyverse:4.2.1
 RUN apt-get update -y\
     && apt-get install -y git\
     && apt-get install -y libudunits2-dev
+    && apt-get install -y libgdal-dev
 
 # copy working directory
 COPY . /pipeline-ento
