@@ -14,7 +14,8 @@ logger::log_info('Running Bulk Storing Reports')
 # variables / creds
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 distribution_id <- Sys.getenv("CF_DISTRIBUTION_ID")
-bucket <- 'databrew-static-content'
+report_bucket_name <- 'kenya-reporting-bucket'
+data_bucket_name <- 'databrew.org'
 target_dir <- glue::glue('{here::here()}/report/html_report')
 
 tryCatch({
@@ -32,16 +33,12 @@ tryCatch({
 
 
 # create log message
-bucket_name <- glue::glue('{bucket}-{stage}',
-                          bucket = 'kwale-reporting-bucket',
-                          stage = env_pipeline_stage)
-logger::log_info('Uploading')
+logger::log_info('Uploading reports')
 cloudbrewr::aws_s3_bulk_store(
-  bucket = bucket_name,
+  bucket = report_bucket_name,
   target_dir = 'report/html_report',
   prefix = '/ento'
 )
-
 
 # invalidate cloudfront cache
 tryCatch({

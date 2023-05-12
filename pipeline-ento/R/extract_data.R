@@ -11,6 +11,8 @@ library(lubridate)
 logger::log_info('Extract Screening Form')
 
 output_dir <-'report/clean_form'
+bucket_name <- 'databrew.org'
+
 unlink(output_dir, recursive = TRUE)
 dir.create(output_dir)
 
@@ -117,6 +119,8 @@ active <- base_tbl %>%
 
 monitoring_tbl <- dplyr::bind_rows(active, withdrawals) %>%
   dplyr::mutate(id = as.character(id))
+
+output_filename <- glue::glue('{output_dir}/ento_monitoring_hh_recruitment_withdrawal.csv')
 monitoring_tbl %>%
   dplyr::select(
     cluster_number,
@@ -125,7 +129,13 @@ monitoring_tbl %>%
     site,
     active_or_withdrawn,
     withdrawal_date) %>%
-  fwrite(glue::glue('{output_dir}/ento_monitoring_hh_recruitment_withdrawal.csv'))
+  fwrite(output_filename)
+
+cloudbrewr::aws_s3_store(
+  bucket = bucket_name,
+  key = 'clean-form/ento-monitoring-hh-recruitment-withdrawal/ento-monitoring-hh-recruitment-withdrawal.csv',
+  filename = as.character(output_filename)
+)
 
 
 # Form Monitoring 3: Light Trap Mosquito Collections
