@@ -11,7 +11,7 @@ cf <- paws::cloudfront()
 # create log message
 logger::log_info('Running Bulk Storing Reports')
 
-# variables / creds
+# variables / creds and bucket target
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 distribution_id <- Sys.getenv("CF_DISTRIBUTION_ID")
 report_bucket_name <- 'bohemia-reporting'
