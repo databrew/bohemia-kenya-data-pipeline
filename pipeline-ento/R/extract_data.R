@@ -50,6 +50,7 @@ data <- cloudbrewr::aws_s3_get_table(
   key = input_key$screening) %>%
   dplyr::filter(
     site != "Larval Habitat",
+    # removal of accidental input on forms
     instanceID != 'uuid:1caec6f9-4193-4442-8079-4e5a53b74f14')
 
 orig_les <- data %>%
@@ -65,6 +66,8 @@ le_data <- data %>%
                 longitude = Longitude,
                 latitude = Latitude) %>%
   dplyr::mutate(
+    id = as.character(id),
+    orig_le = as.character(orig_le),
     todays_date = lubridate::date(todays_date),
     id_type = 'livestock_enclosure',
   )
@@ -77,6 +80,8 @@ hh_data <- data %>%
                 longitude = Longitude,
                 latitude = Latitude) %>%
   dplyr::mutate(
+    id = as.character(id),
+    orig_hhid = as.character(orig_hhid),
     todays_date = lubridate::date(todays_date),
     id_type = 'household')
 
