@@ -8,10 +8,10 @@ manual_append_household_data <- function(data){
     # Eldo: CHV made an error in inputting to training data, append to clean dataset
     cloudbrewr::aws_s3_get_table(
       bucket = 'databrew.org',
-      key = 'kwale/recon/anomalies/anomalies-manual-uploads/manual_household_upload_DeviceID=FgWKyEvEH2PrrtC2.csv'),
+      key = 'anomalies/anomalies-manual-uploads/manual_household_upload_DeviceID=FgWKyEvEH2PrrtC2.csv'),
     cloudbrewr::aws_s3_get_table(
       bucket = 'databrew.org',
-      key = 'kwale/recon/anomalies/anomalies-manual-uploads/manual_household_upload_DeviceID=b2Ba11XHGHNnLLvL.csv')
+      key = 'anomalies/anomalies-manual-uploads/manual_household_upload_DeviceID=b2Ba11XHGHNnLLvL.csv')
   )
 }
 
@@ -127,32 +127,34 @@ clean_household_data <- function(data, resolution_file){
     delete_row_values(
       instanceIDs = delete_rows) %>%
     # clean inconsistent uppercase lowercase pattern
-    dplyr::mutate(village = stringr::str_to_title(tolower(village))) %>%
+    dplyr::mutate(
+      village = stringr::str_to_title(tolower(village)),
+      village = stringr::str_replace(village, "-", " ")) %>%
     # Isaiah: Club Bazo together into one as it is scattered: https://bohemiakenya.slack.com/archives/C04E6P97SJU/p1675777482592849?thread_ts=1675228333.353639&cid=C04E6P97SJU
-    dplyr::mutate(village = ifelse(stringr::str_detect(village, 'Bazo'), 'Bazo', village),
-                  village = ifelse(stringr::str_detect(village, 'Barabarani'), 'Barabarani', village),
-                  village = ifelse(stringr::str_detect(village, 'Fingirika'), 'Fingirika', village),
-                  village = ifelse(stringr::str_detect(village, 'Jitegemee'), 'Jitegemee', village),
-                  village = ifelse(stringr::str_detect(village, 'Kisimachande'), 'Kisimachande', village),
-                  village = ifelse(stringr::str_detect(village, 'Lolagako'), 'Lolagako', village),
-                  village = ifelse(stringr::str_detect(village, 'Kiwambale'), 'Kiwambale', village),
-                  village = ifelse(stringr::str_detect(village, 'Mabatani'), 'Mabatani', village),
-                  village = ifelse(stringr::str_detect(village, 'Mafisini'), 'Mafisini', village),
-                  village = ifelse(stringr::str_detect(village, 'Mchinjirini'), 'Mchinjirini', village),
-                  village = ifelse(stringr::str_detect(village, 'Mlachake'), 'Mlachake', village),
-                  village = ifelse(stringr::str_detect(village, 'Mnarani'), 'Mnarani', village),
-                  village = ifelse(stringr::str_detect(village, 'Mivumoni'), 'Mivumoni', village),
-                  village = ifelse(stringr::str_detect(village, 'Mvumoni'), 'Mvumoni', village),
-                  village = ifelse(stringr::str_detect(village, 'Mwachande'), 'Mwachande', village),
-                  village = ifelse(stringr::str_detect(village, 'Mwaembe'), 'Mwaembe', village),
-                  village = ifelse(stringr::str_detect(village, 'Mwangwei'), 'Mwangwei', village),
-                  village = ifelse(stringr::str_detect(village, 'Nguzo'), 'Nguzo', village),
-                  village = ifelse(stringr::str_detect(village, 'Pido'), 'Pido', village),
-                  village = ifelse(stringr::str_detect(village, 'Ramisi-Barabarani'), 'Ramisi-Barabarani', village),
-                  village = ifelse(stringr::str_detect(village, 'Rangwi'), 'Rangwi', village),
-                  village = ifelse(stringr::str_detect(village, 'Taveta'), 'Taveta', village),
-                  village = ifelse(stringr::str_detect(village, 'Vichangalaweni'), 'Vichangalaweni', village)
-                )
+    # dplyr::mutate(village = ifelse(stringr::str_detect(village, 'Bazo'), 'Bazo', village),
+    #               village = ifelse(stringr::str_detect(village, 'Barabarani'), 'Barabarani', village),
+    #               village = ifelse(stringr::str_detect(village, 'Fingirika'), 'Fingirika', village),
+    #               village = ifelse(stringr::str_detect(village, 'Jitegemee'), 'Jitegemee', village),
+    #               village = ifelse(stringr::str_detect(village, 'Kisimachande'), 'Kisimachande', village),
+    #               village = ifelse(stringr::str_detect(village, 'Lolagako'), 'Lolagako', village),
+    #               village = ifelse(stringr::str_detect(village, 'Kiwambale'), 'Kiwambale', village),
+    #               village = ifelse(stringr::str_detect(village, 'Mabatani'), 'Mabatani', village),
+    #               village = ifelse(stringr::str_detect(village, 'Mafisini'), 'Mafisini', village),
+    #               village = ifelse(stringr::str_detect(village, 'Mchinjirini'), 'Mchinjirini', village),
+    #               village = ifelse(stringr::str_detect(village, 'Mlachake'), 'Mlachake', village),
+    #               village = ifelse(stringr::str_detect(village, 'Mnarani'), 'Mnarani', village),
+    #               village = ifelse(stringr::str_detect(village, 'Mivumoni'), 'Mivumoni', village),
+    #               village = ifelse(stringr::str_detect(village, 'Mvumoni'), 'Mvumoni', village),
+    #               village = ifelse(stringr::str_detect(village, 'Mwachande'), 'Mwachande', village),
+    #               village = ifelse(stringr::str_detect(village, 'Mwaembe'), 'Mwaembe', village),
+    #               village = ifelse(stringr::str_detect(village, 'Mwangwei'), 'Mwangwei', village),
+    #               village = ifelse(stringr::str_detect(village, 'Nguzo'), 'Nguzo', village),
+    #               village = ifelse(stringr::str_detect(village, 'Pido'), 'Pido', village),
+    #               village = ifelse(stringr::str_detect(village, 'Ramisi-Barabarani'), 'Ramisi-Barabarani', village),
+    #               village = ifelse(stringr::str_detect(village, 'Rangwi'), 'Rangwi', village),
+    #               village = ifelse(stringr::str_detect(village, 'Taveta'), 'Taveta', village),
+    #               village = ifelse(stringr::str_detect(village, 'Vichangalaweni'), 'Vichangalaweni', village)
+    #             )
   return(data)
 }
 

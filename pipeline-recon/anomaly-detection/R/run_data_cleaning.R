@@ -20,15 +20,15 @@ cloudbrewr::aws_login(pipeline_stage = Sys.getenv('PIPELINE_STAGE'))
 # variables
 S3_BUCKET_NAME <- 'databrew.org'
 INPUT_KEY <- list(
-  household =  'kwale/recon/raw-form/reconbhousehold/reconbhousehold.csv',
-  registration = "kwale/recon/raw-form/reconaregistration/reconaregistration.csv",
-  resolution = "kwale/recon/anomalies/anomalies-resolution/anomalies-resolution.csv"
+  household =  'raw-form/reconbhousehold/reconbhousehold.csv',
+  registration = "raw-form/reconaregistration/reconaregistration.csv",
+  resolution = "anomalies/anomalies-resolution/anomalies-resolution.csv"
 )
 
 # output
 OUTPUT_KEY <- list(
-  household = 'kwale/recon/clean-form/reconbhousehold/reconbhousehold.csv',
-  registration = "kwale/recon/clean-form/reconaregistration/reconaregistration.csv"
+  household = 'clean-form/reconbhousehold/reconbhousehold.csv',
+  registration = "clean-form/reconaregistration/reconaregistration.csv"
 )
 
 
@@ -62,18 +62,13 @@ household <- cloudbrewr::aws_s3_get_table(
   clean_household_data(
     resolution_file = resolution_data)  %>%
   fwrite(filename, row.names = FALSE)
-# save registration data to s3 bucket
+# save household data to s3 bucket
 cloudbrewr::aws_s3_store(
   filename,
   bucket = S3_BUCKET_NAME,
   key = OUTPUT_KEY$household)
 
 
-
-
-household_not_curated <- cloudbrewr::aws_s3_get_table(
-  bucket = S3_BUCKET_NAME,
-  key = INPUT_KEY$household)
 
 household_curated <- cloudbrewr::aws_s3_get_table(
   bucket = S3_BUCKET_NAME,

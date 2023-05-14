@@ -42,3 +42,15 @@ vignettes/*.pdf
 */renv/*
 *.Rprofile*
 *.DS_Store*
+*/analyses/voronoi/StudyAreaWards/
+*/analyses/voronoi/output/
+*/output*
+*.cpg
+*.dbf
+*.prj
+*.shp
+*.shx
+
+
+
+
