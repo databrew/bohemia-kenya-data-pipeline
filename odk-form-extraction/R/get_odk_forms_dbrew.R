@@ -47,20 +47,13 @@ tryCatch({
 tryCatch({
   logger::log_info(glue::glue('Creating connection to {env_server_endpoint}'))
 
-  if(env_pipeline_stage == 'production'){
-    env_odk_username <- Sys.getenv('ODK_USERNAME')
-    env_odk_password <- Sys.getenv('ODK_PASSWORD')
-  }
-
-  if(env_pipeline_stage == 'develop') {
-    # get ODK credentials from secrets manager
-    svc  <- paws::secretsmanager()
-    creds <- svc$get_secret_value(config::get('secret_name')) %>%
-      .$SecretString %>%
-      jsonlite::parse_json(.)
-    env_odk_username <- creds$username
-    env_odk_password <- creds$password
-  }
+  # get ODK credentials via secrets manager
+  svc  <- paws::secretsmanager()
+  creds <- svc$get_secret_value(config::get('secret_name')) %>%
+    .$SecretString %>%
+    jsonlite::parse_json(.)
+  env_odk_username <- creds$username
+  env_odk_password <- creds$password
 
   # odk setup
   ruODK::ru_setup(fid = NULL,
