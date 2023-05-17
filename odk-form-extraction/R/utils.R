@@ -1,11 +1,3 @@
-#' @description clean column names
-#' @param data dataset to clean
-clean_column_names <- function(data){
-  names(data) <- unlist(lapply(strsplit(names(data), '-'), function(a){a[length(a)]}))
-  return(data)
-}
-
-
 #' @description: Function to create S3 bucket with versioning enabled
 #'
 #' @param s3obj instantiation of s3 object
@@ -60,39 +52,17 @@ create_s3_upload_manifest <- function(bucket_name = 'databrew.org',
                                             local_dir = '/tmp',
                                             overwrite = TRUE))
     # unload manifest files into zip files
-    file_map <- manifest$zip_path %>%
+    manifest$zip_path %>%
       purrr::map_dfr(function(z){
-        unzip(z, exdir = output_dir)
-        unzip(z, exdir = output_dir, list = TRUE)
-      }) %>%
-      dplyr::mutate(
-        file_path = glue::glue('{output_dir}/{Name}'),
-        raw_name = stringr::str_remove(Name, '.csv')) %>%
-      tidyr::separate(raw_name, into = c('split_form0','split_form1'), "-") %>%
-      tibble::as_tibble() %>%
-      dplyr::mutate(
-        form = `split_form0`,
-        endpoint = case_when(is.na(`split_form1`) ~ `split_form0`,
-                             TRUE ~ paste0(`split_form1`)),
-        object_key = glue::glue("raw-form/{endpoint}.csv")
-      ) %>%
-      dplyr::mutate(bucket_name = bucket_name,
-                    project_name = project) %>%
-      dplyr::select(bucket_name,
-                    project_name,
-                    object_key,
-                    file_path)
-
-    # # clean extraneous column names
-    file_map$file_path %>%
-      purrr::map(function(file_path){
-        data <- data.table::fread(file_path) %>%
-          clean_column_names() %>%
-          data.table::fwrite(file_path)
-        return(data)
-
-  })
-  return(file_map)
+        form_id = tools::file_path_sans_ext(basename(z))
+        dir <- as.character(glue::glue("{output_dir}/{project}/raw-form/{form_id}"))
+        unzip(z, exdir = dir)
+        dt <- unzip(z, exdir = dir, list = TRUE) %>%
+          dplyr::mutate(root_zipfile = z,
+                        form_id = form_id)
+        file.rename(z, glue::glue('{dir}/{base_zip}', base_zip = basename(z)))
+        return(dt)
+      })
 
   }, error = function(e){
     logger::log_error(e$message)
@@ -100,7 +70,6 @@ create_s3_upload_manifest <- function(bucket_name = 'databrew.org',
   }, finally = function(f){
     logger::log_success('Created S3 manifest')
   })
-
 }
 
 

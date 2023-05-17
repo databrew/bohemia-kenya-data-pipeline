@@ -98,8 +98,7 @@ tryCatch({
   # do bulk store for speed
   logger::log_info('Bulk store to AWS S3')
   cloudbrewr::aws_s3_bulk_store(bucket = config::get('bucket'),
-                                target = './odk_output_dir',
-                                prefix = '/raw-form')
+                                target = './odk_output_dir')
 
   # remove directory once done
   unlink('./odk_output_dir', force = TRUE)
