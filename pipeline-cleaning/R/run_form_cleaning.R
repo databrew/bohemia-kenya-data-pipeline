@@ -8,7 +8,7 @@ library(logger)
 library(config)
 library(tictoc)
 library(data.table)
-source('R/utils.R')
+source('R/cleaning_utils.R')
 
 # start timer
 tic()
@@ -141,7 +141,6 @@ tryCatch({
 
 # stop timer
 toc()
-unlink('projects', recursive = TRUE)
 
 
 
