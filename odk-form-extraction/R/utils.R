@@ -55,7 +55,8 @@ create_s3_upload_manifest <- function(bucket_name = 'databrew.org',
     manifest$zip_path %>%
       purrr::map_dfr(function(z){
         form_id = tools::file_path_sans_ext(basename(z))
-        dir <- as.character(glue::glue("{output_dir}/{project}/raw-form/{form_id}"))
+        project_name <- stringr::str_replace_all(project, " ", "_") %>% tolower()
+        dir <- as.character(glue::glue("{output_dir}/{project_name}/raw-form/{form_id}"))
         unzip(z, exdir = dir)
         dt <- unzip(z, exdir = dir, list = TRUE) %>%
           dplyr::mutate(root_zipfile = z,

@@ -81,7 +81,7 @@
       "RemoteRepo": "cloudbrewr",
       "RemoteUsername": "databrew",
       "RemoteRef": "HEAD",
-      "RemoteSha": "fb79f48758eda0dedc359d807d00af1cbfba2d13",
+      "RemoteSha": "64679e57e7d637ebac1645faa9b64ac2b3fc3450",
       "Requirements": [
         "cachem",
         "data.table",
@@ -99,7 +99,7 @@
         "tidyr",
         "tools"
       ],
-      "Hash": "4fdef5999aaa0dadf7246f40c9e10b17"
+      "Hash": "0fe02735280477310270905a03a1a45e"
     },
     "config": {
       "Package": "config",

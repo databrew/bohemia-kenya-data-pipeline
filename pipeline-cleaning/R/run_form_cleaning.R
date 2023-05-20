@@ -7,23 +7,37 @@ library(cloudbrewr)
 library(logger)
 library(config)
 library(tictoc)
+library(data.table)
+source('R/utils.R')
 
 # start timer
 tic()
 
 # create log message
-logger::log_info('Starting Anomaly Detection')
+logger::log_info('Starting Form Cleaning')
 
 # variables / creds
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 Sys.setenv(R_CONFIG_ACTIVE=env_pipeline_stage)
 
+
+# EXCLUDED FILEPATHS FOR PASS THROUGH
+EXCLUDED_FILEPATHS <-
+  c('projects/kwale/raw-form/reconaregistration/reconaregistration.csv',
+    'projects/kwale/raw-form/reconbhousehold/reconbhousehold.csv')
+EXCLUDED_FORM_ID <- c('reconaregistration','reconbhousehold')
+
+# AWS related variables
+S3_RESOLUTION_OBJECT_KEY <- 'fix_anomalies_manual_upload/google_sheets/odk_form_anomalies - resolution.csv'
+BUCKET_NAME <- 'databrew.org'
+ROLE_NAME <- 'cloudbrewr-aws-role'
+
 # create connection to AWS
 tryCatch({
   # login to AWS - this will be bypassed if executed in CI/CD environment
   cloudbrewr::aws_login(
-    role_name = 'cloudbrewr-aws-role',
-    profile_name =  'cloudbrewr-aws-role',
+    role_name = ROLE_NAME,
+    profile_name =  ROLE_NAME,
     pipeline_stage = env_pipeline_stage)
 
 }, error = function(e){
@@ -33,59 +47,79 @@ tryCatch({
 
 
 # bulk retrieve all csv files
-dir.create('projects')
-file_map <- cloudbrewr::aws_s3_bulk_get(
-  bucket = 'databrew.org',
-  output_dir = 'projects'
-)
-
-
-# get files mapping
-files_orig <- tibble::tibble(file_path =
-                          list.files('projects',
-                                     full.names = TRUE,
-                                     recursive = TRUE,
-                                     pattern = ".csv")) %>%
-  dplyr::mutate(clean_file_path = stringr::str_replace(file_path,
-                                                       'raw-form',
-                                                       'clean-form'))
-
-
-# choose data that goes through cleaning,
-# if cleaning is required, then upload separately and
-# remove from pass-through
-excluded_filepaths <-
-  c('projects/kwale/raw-form/reconaregistration/reconaregistration.csv',
-    'projects/kwale/raw-form/reconbhousehold/reconbhousehold.csv')
-
-
-
-
-
-# TODO: To fill here
-
-
-
-
-
-
-
-
-# bulk upload everything that is unedited to clean-form
-files_staging <- files_orig %>%
-  dplyr::filter(!file_path %in% excluded_filepaths)
-
-# create skeleton folder
-purrr::map(files_staging$clean_file_path %>% dirname(), function(d){
-  dir.create(d, recursive = TRUE)
+tryCatch({
+  logger::log_info('bulk retrieval from s3')
+  dir.create('projects')
+  file_map <- cloudbrewr::aws_s3_bulk_get(
+    bucket = BUCKET_NAME,
+    output_dir = 'projects',
+    prefix = '/kwale'
+  )
+  logger::log_success('successful bulk retrieval')
+}, error = function(e){
+  logger::log_error(e$message)
+  stop()
 })
 
-# move files passthrough
-file.rename(files_staging$file_path, files_staging$clean_file_path)
 
-# cleanup any previous files
-purrr::map(files_orig$file_path %>% dirname(), function(d){
-  unlink(d, recursive = TRUE)
+# Get Files mapping from AWS S3 sync
+files_orig <- tibble::tibble(file_path =
+                               list.files('projects',
+                                          full.names = TRUE,
+                                          recursive = TRUE,
+                                          pattern = ".csv"))  %>%
+  dplyr::mutate(clean_file_path = stringr::str_replace(file_path,
+                                                       'raw-form',
+                                                       'clean-form'),
+                form_id = stringr::str_split(file_path, '/')) %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(form_id = form_id[3]) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(!file_path %in% EXCLUDED_FILEPATHS,
+                !form_id %in% EXCLUDED_FORM_ID,
+                !stringr::str_detect(file_path, 'clean-form'))
+
+# Read Resolution file from S3
+resolution_file <- cloudbrewr::aws_s3_get_table(
+  bucket = BUCKET_NAME,
+  key = S3_RESOLUTION_OBJECT_KEY) %>%
+  dplyr::filter(!Form %in% EXCLUDED_FORM_ID)
+
+# Read local file mapping and create tibble-list inside the dataframe for
+# easier indexing
+tbl_nest <- files_orig %>%
+  dplyr::mutate(raw = purrr::map(file_path, function(cf){
+    fread(cf) %>%
+      clean_column_names() %>%
+      tibble::as_tibble(.name_repair = 'unique')})) %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(resolution = list(resolution_file %>% dplyr::filter(Form == form_id))) %>%
+  dplyr::select(file_path, clean_file_path, form_id, raw, resolution)
+
+# Final mapping table for raw to clean
+tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
+                               function(file_path = ..1,
+                                        clean_file_path = ..2,
+                                        form_id = ..3,
+                                        raw = ..4,
+                                        resolution = ..5){
+
+  if(nrow(resolution) > 0){
+    clean <- google_sheets_fix(data = raw,
+                               resolution = resolution)
+  }else{
+    clean <- raw
+  }
+
+  data <- tibble(file_path = file_path,
+         clean_file_path = clean_file_path,
+         form_id = form_id,
+         raw = list(raw),
+         resolution = list(resolution),
+         clean = list(clean))
+
+  clean %>% fwrite(clean_file_path)
+  return(data)
 })
 
 # save object to s3
@@ -93,7 +127,8 @@ tryCatch({
   # do bulk store for speed
   logger::log_info('Bulk store to AWS S3')
   cloudbrewr::aws_s3_bulk_store(bucket = config::get('bucket'),
-                                target = './projects')
+                                target = './projects',
+                                prefix = '/kwale')
 
   # remove directory once done
   unlink('./projects', force = TRUE)
