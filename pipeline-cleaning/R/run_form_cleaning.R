@@ -97,6 +97,8 @@ tbl_nest <- files_orig %>%
   dplyr::select(file_path, clean_file_path, form_id, raw, resolution)
 
 # Final mapping table for raw to clean
+
+dir.create('projects/clean-form')
 tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
                                function(file_path = ..1,
                                         clean_file_path = ..2,
@@ -117,7 +119,9 @@ tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
          raw = list(raw),
          resolution = list(resolution),
          clean = list(clean))
-
+  dir.create(glue::glue('projects/clean-form/{form_id}'),
+             recursive = TRUE,
+             showWarnings = FALSE)
   clean %>% fwrite(clean_file_path)
   return(data)
 })
