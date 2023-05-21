@@ -24,18 +24,24 @@ Task](https://github.com/databrew/ecs-data-workflow/tree/main)
 
 ### CI/CD OVerview
 
-![Image](images/gitflow.jpeg) 1. Clone and make changes in your
-feature-branch 2. Create Dockerfile based on your changes (library
-installation, new R script, bash script) 3. Test Dockerfile locally,
-check whether everything runs based on your use-case 4. Push your
-changes to `dev branch`: By pushing your changes to the dev branch,
+![Image](images/gitflow.jpeg) 
+
+1. Clone and make changes in your feature-branch 
+
+2. Create Dockerfile based on your changes (library installation, new R script, bash script) 
+
+3. Test Dockerfile locally, check whether everything runs based on your use-case 
+
+4. Push your changes to `dev branch`: By pushing your changes to the dev branch,
 `github action` will trigger a job that automatically deploys your
 changes to Dockerhub - image in Dockerhub will be tagged with version
-`:develop` 5. Check `databrew-dev (aws)` to see whether data
-inputs/ouputs are behaving as expected 6. Once done, push your changes
-to `main branch`: Same process as 4, image in Dockerhub will be tagged
-with version `:production` 7. Changes will be sync-ed in
-`databrew-prod (aws)`
+`:develop` 
+
+5. Check `databrew-dev (aws)` to see whether data inputs/ouputs are behaving as expected 
+
+6. Once done, push your changes to `main branch`: Same process as 4, image in Dockerhub will be tagged with version `:production` 
+
+7. Changes will be sync-ed in `databrew-prod (aws)`
 
 Automation using github action is based on the `yaml` files specified
 under [github workflows folder](.github/workflows), it needs to be
