@@ -28,7 +28,7 @@ EXCLUDED_FILEPATHS <-
 EXCLUDED_FORM_ID <- c('reconaregistration','reconbhousehold')
 
 # AWS related variables
-S3_RESOLUTION_OBJECT_KEY <- 'fix_anomalies_manual_upload/google_sheets/odk_form_anomalies - resolution.csv'
+S3_RESOLUTION_OBJECT_KEY <- 'anomalies/gsheets-fix/odk_form_anomalies - resolution.csv'
 BUCKET_NAME <- 'databrew.org'
 ROLE_NAME <- 'cloudbrewr-aws-role'
 
