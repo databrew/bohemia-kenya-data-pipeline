@@ -1,4 +1,4 @@
-# Interaction guidance with databrew.org S3 bucket
+# ODK to AWS Process for Data Curators
 
 In `databrew.org` bucket - files are organized as projects. Each projects will contain different steps and staging of the data curation processes. Inside databrew.org will also contain anomalies folder where it will be used as a detection/amendment process for data QA
 
