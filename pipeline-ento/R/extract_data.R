@@ -5,6 +5,11 @@ library(cloudbrewr)
 library(data.table)
 library(sf)
 library(lubridate)
+library(rgdal)
+library(geodata)
+library(ggthemes)
+library(sp)
+library(raster)
 
 
 # create log messages
@@ -20,9 +25,9 @@ dir.create(output_dir)
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 bucket <- 'databrew.org'
 input_key <- list(
-  screening = 'raw-form/entoscreeningke.csv',
-  mosquito = 'raw-form/entoltmorphid.csv',
-  resting = 'raw-form/entorcmorphid.csv'
+  screening = 'kwale/clean-form/entoscreeningke/entoscreeningke.csv',
+  mosquito = 'kwale/clean-form/entoltmorphid/entoltmorphid.csv',
+  resting = 'kwale/clean-form/entorcmorphid/entorcmorphid.csv'
 )
 
 
@@ -39,6 +44,14 @@ tryCatch({
   stop(e$message)
 })
 
+# unzip assets
+unzip('assets/cores.zip')
+unzip('assets/buffers.zip')
+unzip('assets/clusters.zip')
+cores <- rgdal::readOGR('cores/', 'cores')
+buffers <- rgdal::readOGR('buffers/', 'buffers')
+clusters <- rgdal::readOGR('clusters/', 'clusters')
+ken3 <- geodata::gadm('KEN', level = 3, path = ".")
 
 # Read from ento cluster asset (@joebrew)
 ento_clusters <- fread('assets/ento_clusters.csv') %>%
@@ -49,9 +62,7 @@ data <- cloudbrewr::aws_s3_get_table(
   bucket = bucket,
   key = input_key$screening) %>%
   dplyr::filter(
-    site != "Larval Habitat",
-    instanceID != 'uuid:1caec6f9-4193-4442-8079-4e5a53b74f14')
-
+    site != "Larval Habitat")
 orig_les <- data %>%
   dplyr::filter(orig_le != "") %>% .$orig_le
 orig_hhid <- data %>%
@@ -62,11 +73,13 @@ le_data <- data %>%
                 orig_le,
                 todays_date,
                 site,
-                longitude = Longitude,
-                latitude = Latitude) %>%
+                village,
+                Longitude,
+                Latitude) %>%
   dplyr::mutate(
     todays_date = lubridate::date(todays_date),
     id_type = 'livestock_enclosure',
+    id = as.character(id)
   )
 hh_data <- data %>%
   dplyr::filter(hhid != "") %>%
@@ -74,35 +87,42 @@ hh_data <- data %>%
                 orig_hhid,
                 todays_date,
                 site,
-                longitude = Longitude,
-                latitude = Latitude) %>%
+                village,
+                Longitude,
+                Latitude) %>%
   dplyr::mutate(
     todays_date = lubridate::date(todays_date),
-    id_type = 'household')
+    id_type = 'household',
+    id = as.character(id)
+    )
 
 # unzip assets
 unzip('assets/cores.zip')
 unzip('assets/buffers.zip')
 unzip('assets/clusters.zip')
-cores <- sf::st_read(dsn = "cores") %>% st_transform(4326)
-buffers <- sf::st_read(dsn = "buffers") %>% st_transform(4326)
-clusters <- sf::st_read(dsn = "clusters") %>% st_transform(4326)
+cores <- rgdal::readOGR('cores/', 'cores')
+buffers <-rgdal::readOGR('buffers/', 'buffers')
+clusters <- rgdal::readOGR('clusters/', 'clusters')
 
 # get master data
-base_tbl <- dplyr::bind_rows(le_data, hh_data) %>%
-  st_as_sf(., coords = c('longitude', 'latitude')) %>%
-  st_set_crs(4326) %>%
-  dplyr::mutate(
-    core_number = st_intersects(.$geometry, cores$geometry),
-    buffer_number = st_intersects(.$geometry, buffers$geometry),
-    cluster_number = st_intersects(.$geometry, clusters$geometry)
-  ) %>%
-  tidyr::unnest(core_number, keep_empty = TRUE) %>%
-  tidyr::unnest(buffer_number, keep_empty = TRUE) %>%
-  tidyr::unnest(cluster_number, keep_empty = TRUE) %>%
-  dplyr::left_join(ento_clusters, by = "cluster_number") %>%
-  tibble::as_tibble() %>%
-  dplyr::select(-geometry)
+base_tbl <- dplyr::bind_rows(le_data, hh_data)
+base_tbl <- base_tbl
+coordinates(base_tbl) <- ~Longitude+Latitude
+proj4string(base_tbl) <- proj4string(as(ken3, "Spatial"))
+
+
+# Determine which households are in which clusters, cores, buffers
+o <- sp::over(base_tbl, polygons(clusters))
+base_tbl@data$cluster_number <- clusters@data$cluster_nu[o]
+o <- sp::over(base_tbl, polygons(cores))
+base_tbl@data$core_number <- cores@data$cluster_nu[o]
+o <- sp::over(base_tbl, polygons(buffers))
+base_tbl@data$buffer_number <- buffers@data$cluster_nu[o]
+base_tbl@data$in_core <-
+  !is.na(base_tbl@data$core_number)
+
+base_tbl <- base_tbl@data
+
 
 
 # Form Monitoring 1: Recruitment and Withdrawals
@@ -120,7 +140,7 @@ active <- base_tbl %>%
 monitoring_tbl <- dplyr::bind_rows(active, withdrawals) %>%
   dplyr::mutate(id = as.character(id))
 
-output_filename <- glue::glue('{output_dir}/ento_monitoring_hh_recruitment_withdrawal.csv')
+output_filename <- glue::glue('{output_dir}/summary_ento_recruitment_withdrawal.csv')
 monitoring_tbl %>%
   dplyr::select(
     cluster_number,
@@ -132,8 +152,8 @@ monitoring_tbl %>%
   fwrite(output_filename)
 
 cloudbrewr::aws_s3_store(
-  bucket = bucket_name,
-  key = 'clean-form/ento-monitoring-hh-recruitment-withdrawal/ento-monitoring-hh-recruitment-withdrawal.csv',
+  bucket = 'bohemia-lake-db',
+  key = 'bohemia_prod/summary_ento_recruitment_withdrawal/summary_ento_recruitment_withdrawal.csv',
   filename = as.character(output_filename)
 )
 
