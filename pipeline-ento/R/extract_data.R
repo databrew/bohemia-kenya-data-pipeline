@@ -63,6 +63,7 @@ data <- cloudbrewr::aws_s3_get_table(
   key = input_key$screening) %>%
   dplyr::filter(
     site != "Larval Habitat")
+
 orig_les <- data %>%
   dplyr::filter(orig_le != "") %>% .$orig_le
 orig_hhid <- data %>%
@@ -77,6 +78,8 @@ le_data <- data %>%
                 Longitude,
                 Latitude) %>%
   dplyr::mutate(
+    id = as.character(id),
+    orig_le = as.character(orig_le),
     todays_date = lubridate::date(todays_date),
     id_type = 'livestock_enclosure',
     id = as.character(id)
@@ -91,6 +94,8 @@ hh_data <- data %>%
                 Longitude,
                 Latitude) %>%
   dplyr::mutate(
+    id = as.character(id),
+    orig_hhid = as.character(orig_hhid),
     todays_date = lubridate::date(todays_date),
     id_type = 'household',
     id = as.character(id)
