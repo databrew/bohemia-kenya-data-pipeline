@@ -22,4 +22,4 @@ RUN R -e "renv::init(bare = TRUE)"
 RUN R -e "renv::restore()"
 
 # container run R script
-CMD make ento_reports
+CMD make pipeline
