@@ -11,7 +11,8 @@ date: '`r Sys.time()`'
 knitr::opts_chunk$set(
   comment = '', 
   echo = FALSE,
-  message = FALSE
+  message = FALSE,
+  cache=FALSE
 )
 ```
 
@@ -71,10 +72,10 @@ monitoring0 <- cloudbrewr::aws_s3_get_table(
 monitoring1 <- monitoring0 %>%
   dplyr::select(`Cluster` = cluster_number,
                 `Household ID / Livestock Enclosure ID` = id,
-                `Date of consent on screening form` = todays_date,
-                `Collection Method` = site,
+                `Date of consent on screening form` = date_of_consent,
+                `Collection Method` = collection_method,
                 `Active or Withdrawn` = active_or_withdrawn,
-                `Date of Withdrawal on the screening form` = withdrawal_date)
+                `Date of Withdrawal on the screening form` = date_of_withdrawal)
 
 render_report_table(
   monitoring1, 
@@ -86,23 +87,23 @@ render_report_table(
 To be used to track the number of ICFs expected from houses recorded as consented on the screening form and to track handover of ICFs
 
 ```{r}
-monitoring_icf <- monitoring0 %>%
+monitoring_icf <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = 'bohemia_prod/summary_ento_icf_list/summary_ento_icf_list.csv') %>%
   dplyr::select(`Cluster` = cluster_number,
                 `Household ID / Livestock Enclosure ID` = id,
-                `Date of consent on screening form` = todays_date) %>%
-  dplyr::mutate(
-    `Name of Person Receiving in the Field` = NA_character_,
-    `Date of Field Receival` = NA_character_,
-    `Name of Person Receiving in the Office` = NA_character_,
-    `Date of Office Receival` = NA_character_,
-    `Name of Archivist Receiving` = NA_character_,
-    `Date of Archivist Receival` = NA_character_,
-  )
+                `Date of consent on screening form` = date_of_consent,
+                `Name of Person Receiving in the Field` = name_of_person_receiving_in_field,
+                `Date of Field Receival` = date_of_person_receiving_in_field,
+                `Name of Person Receiving in the Office` = name_of_person_receiving_in_office,
+                `Date of Office Receival` = date_of_person_receiving_in_office,
+                `Name of Archivist Receiving` = name_of_archivist_receiving,
+                `Date of Archivist Receival` = date_of_archivist_receiving)
 
 render_report_table(
   monitoring_icf, 
   element_id = "ento-download-icf-list",
-  output_filename = "report_ento_monitoring_icf_list.csv")
+  output_filename = "summary_ento_icf_list.csv")
 ```
 
 
