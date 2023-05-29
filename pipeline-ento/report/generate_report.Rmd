@@ -7,6 +7,15 @@ output:
 date: '`r Sys.time()`'
 ---
 
+```{r}
+knitr::opts_chunk$set(
+  comment = '', 
+  echo = FALSE,
+  message = FALSE
+)
+```
+
+
 ```{r, echo=FALSE, message=FALSE}
 library(reactable)
 library(data.table)
@@ -51,20 +60,15 @@ render_report_table <- function(data, element_id, output_filename){
 
 
 ## Ento Monitoring Form 1: Recruitment & Withdrawals
-This section covers all the recruitment and withdrawals for Ento Forms
-
-Purpose: 
-
 To be used for site reporting on enrolment progress active and withdrawn households 
 
-
-```{r, echo = FALSE, message=FALSE}
-data <- cloudbrewr::aws_s3_get_table(
+```{r , echo = FALSE, message=FALSE}
+monitoring0 <- cloudbrewr::aws_s3_get_table(
   bucket = 'bohemia-lake-db',
   key = 'bohemia_prod/summary_ento_recruitment_withdrawal/summary_ento_recruitment_withdrawal.csv'
 )
 
-data <- data %>%
+monitoring1 <- monitoring0 %>%
   dplyr::select(`Cluster` = cluster_number,
                 `Household ID / Livestock Enclosure ID` = id,
                 `Date of consent on screening form` = todays_date,
@@ -73,10 +77,34 @@ data <- data %>%
                 `Date of Withdrawal on the screening form` = withdrawal_date)
 
 render_report_table(
-  data, 
+  monitoring1, 
   element_id = "ento-download-recruitment-withdrawals",
   output_filename = "report_ento_monitoring_hh_recruitment_withdrawal.csv")
 ```
+
+## Ento Monitoring Form 2: ICF List
+To be used to track the number of ICFs expected from houses recorded as consented on the screening form and to track handover of ICFs
+
+```{r}
+monitoring_icf <- monitoring0 %>%
+  dplyr::select(`Cluster` = cluster_number,
+                `Household ID / Livestock Enclosure ID` = id,
+                `Date of consent on screening form` = todays_date) %>%
+  dplyr::mutate(
+    `Name of Person Receiving in the Field` = NA_character_,
+    `Date of Field Receival` = NA_character_,
+    `Name of Person Receiving in the Office` = NA_character_,
+    `Date of Office Receival` = NA_character_,
+    `Name of Archivist Receiving` = NA_character_,
+    `Date of Archivist Receival` = NA_character_,
+  )
+
+render_report_table(
+  monitoring_icf, 
+  element_id = "ento-download-icf-list",
+  output_filename = "report_ento_monitoring_icf_list.csv")
+```
+
 
 <!-- ## Ento Monitoring Form 3: Light Trap Mosquito Collections -->
 <!-- This section covers all the recruitment and withdrawals for Ento Forms -->
