@@ -15,15 +15,15 @@ library(raster)
 # create log messages
 logger::log_info('Extract Screening Form')
 
+# create directory
 output_dir <-'report/clean_form'
-bucket_name <- 'databrew.org'
-
 unlink(output_dir, recursive = TRUE)
 dir.create(output_dir)
 
 # variables / creds for ento
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
-bucket <- 'databrew.org'
+input_bucket <- 'databrew.org'
+output_bucket <- 'bohemia-lake-db'
 input_key <- list(
   screening = 'kwale/clean-form/entoscreeningke/entoscreeningke.csv',
   mosquito = 'kwale/clean-form/entoltmorphid/entoltmorphid.csv',
@@ -59,7 +59,7 @@ ento_clusters <- fread('assets/ento_clusters.csv') %>%
 
 # Form Monitoring 1 Recruitment and Withdrawals
 data <- cloudbrewr::aws_s3_get_table(
-  bucket = bucket,
+  bucket = input_bucket,
   key = input_key$screening) %>%
   dplyr::filter(
     site != "Larval Habitat")
@@ -99,7 +99,7 @@ hh_data <- data %>%
     todays_date = lubridate::date(todays_date),
     id_type = 'household',
     id = as.character(id)
-    )
+)
 
 # unzip assets
 unzip('assets/cores.zip')
@@ -129,129 +129,105 @@ base_tbl@data$in_core <-
 base_tbl <- base_tbl@data
 
 
+##########################################
+# create tables here
+##########################################
 
 # Form Monitoring 1: Recruitment and Withdrawals
 withdrawals <- base_tbl %>%
   dplyr::filter(orig_le != "" | orig_hhid != "") %>%
   dplyr::mutate(active_or_withdrawn = 'withdrawn',
-                withdrawal_date = todays_date)
+                date_of_withdrawal = todays_date)
 
 active <- base_tbl %>%
   dplyr::anti_join(withdrawals, by = 'orig_le') %>%
   dplyr::anti_join(withdrawals, by = 'orig_hhid') %>%
   dplyr::mutate(active_or_withdrawn = 'active',
-                withdrawal_date = NA_Date_)
+                date_of_withdrawal = NA_Date_)
 
-monitoring_tbl <- dplyr::bind_rows(active, withdrawals) %>%
+monitoring_tbl_base <- dplyr::bind_rows(active, withdrawals) %>%
   dplyr::mutate(id = as.character(id))
 
 output_filename <- glue::glue('{output_dir}/summary_ento_recruitment_withdrawal.csv')
-monitoring_tbl %>%
+monitoring_tbl <- monitoring_tbl_base %>%
   dplyr::select(
     cluster_number,
     id,
-    todays_date,
-    site,
+    date_of_consent = todays_date,
+    collection_method = site,
     active_or_withdrawn,
-    withdrawal_date) %>%
+    date_of_withdrawal) %>%
+  distinct() %>%
+  tidyr::drop_na(cluster_number)
+
+monitoring_tbl %>%
   fwrite(output_filename)
 
 cloudbrewr::aws_s3_store(
-  bucket = 'bohemia-lake-db',
+  bucket = output_bucket,
   key = 'bohemia_prod/summary_ento_recruitment_withdrawal/summary_ento_recruitment_withdrawal.csv',
   filename = as.character(output_filename)
 )
 
 
-# Form Monitoring 3: Light Trap Mosquito Collections
-# data_light_trap <- cloudbrewr::aws_s3_get_object(
-#   bucket = bucket,
-#   key = input_key$mosquito) %>%
-#   .$file_path %>%
-#   data.table::fread()  %>%
-#   subset(., select=which(!duplicated(names(.)))) %>%
-#   dplyr::mutate(month_date = lubridate::ceiling_date(todays_date, unit = "months")) %>%
-#   tibble::as_tibble()
-#
-# data_light_trap_hh <- data_light_trap %>%
-#   dplyr::group_by(month_date, site) %>%
-#   dplyr::summarise(num_hh_submitted_from_buffer = n_distinct(hhid),
-#                    num_hh_submitted_from_core = n_distinct(hhid)) %>%
-#   dplyr::ungroup() %>%
-#   dplyr::mutate(cluster = NA,
-#                 arm = NA) %>%
-#   dplyr::select(cluster,
-#                 month_date,
-#                 arm,
-#                 collection_site = site,
-#                 num_hh_submitted_from_buffer,
-#                 num_hh_submitted_from_core
-#                 ) %>%
-#   fwrite('report/clean_form/ento_monitoring_light_trap_households.csv')
-#
-#
-# data_light_trap_dissected <- data_light_trap %>%
-#   dplyr::group_by(month_date) %>%
-#   dplyr::summarise(num_dissected_for_parity = sum(num_dissected_for_parity, na.rm = T)) %>%
-#   dplyr::ungroup() %>%
-#   dplyr::mutate(cluster = NA,
-#                 arm = NA) %>%
-#   dplyr::select(cluster,
-#                 month_date,
-#                 arm,
-#                 num_dissected_for_parity
-#   ) %>%
-#   fwrite('report/clean_form/ento_monitoring_light_trap_dissected_for_parity.csv')
-#
-#
-#
-#
-# # Form Monitoring 4: Resting Collections
-# data_resting_collections <- cloudbrewr::aws_s3_get_object(
-#   bucket = bucket,
-#   key = input_key$resting) %>%
-#   .$file_path %>%
-#   data.table::fread()  %>%
-#   subset(., select=which(!duplicated(names(.)))) %>%
-#   dplyr::mutate(month_date = lubridate::ceiling_date(todays_date, unit = "months")) %>%
-#   tibble::as_tibble() %>%
-#   dplyr::mutate(cluster = NA,
-#                 arm = NA)
-#
-# data_resting_collections_1 <- data_resting_collections %>%
-#   group_by(month_date, hh_or_pit) %>%
-#   dplyr::summarise(
-#     num_hh_submitted_from_buffer = n_distinct(hhid),
-#     num_hh_submitted_from_core = n_distinct(hhid)) %>%
-#   dplyr::ungroup() %>%
-#   dplyr::mutate(
-#     cluster = NA,
-#     arm = NA,
-#   ) %>%
-#   dplyr::select(cluster,
-#                 month_date,
-#                 arm,
-#                 collection_site = hh_or_pit,
-#                 num_hh_submitted_from_buffer,
-#                 num_hh_submitted_from_core
-#                 ) %>%
-#   fwrite('report/clean_form/ento_monitoring_resting_collection_households.csv')
-#
-#
-#
-# data_resting_collections_2 <- data_resting_collections %>%
-#   group_by(month_date) %>%
-#   dplyr::summarise(
-#     num_kept_for_survival_gonotrophic_cycle = sum(num_kept_for_survival_gonotrophic_cycle, na.rm = T)) %>%
-#   dplyr::ungroup() %>%
-#   dplyr::mutate(
-#     cluster = NA,
-#     arm = NA,
-#   ) %>%
-#   dplyr::select(cluster,
-#                 month_date,
-#                 arm,
-#                 num_kept_for_survival_gonotrophic_cycle
-#   ) %>%
-#   fwrite('report/clean_form/ento_monitoring_resting_collection_survival.csv')
+# Form Monitoring 2: ICF List
+s3_catalog <- cloudbrewr::aws_s3_get_catalog(bucket = output_bucket)
+output_filename <- glue::glue('{output_dir}/summary_ento_icf_list.csv')
+stg_key <- 'bohemia_stg/manual_adjustment_ento_icf_list/manual_adjustment_ento_icf_list.csv'
+prod_key <- 'bohemia_prod/summary_ento_icf_list/summary_ento_icf_list.csv'
 
+# check if there is manual upload in staging bucket
+# if none, create a new table with all nulls
+if(!stg_key %in% unique(s3_catalog$key)){
+  monitoring_icf <- monitoring_tbl %>%
+    dplyr::select(cluster_number,
+                  id,
+                  date_of_consent) %>%
+    dplyr::mutate(
+      name_of_person_receiving_in_field = NA_character_,
+      date_of_person_receiving_in_field = NA_character_,
+      name_of_person_receiving_in_office = NA_character_,
+      date_of_person_receiving_in_office = NA_character_,
+      name_of_archivist_receiving = NA_character_,
+      date_of_archivist_receiving = NA_character_
+    )
+# if there is manual uploads in staging, create a join to table
+}else{
+  monitoring_ifc_from_upload <- cloudbrewr::aws_s3_get_table(
+    bucket = output_bucket,
+    key = stg_key) %>%
+    dplyr::select(
+      cluster_number = `Cluster`,
+      id = `Household ID / Livestock Enclosure ID`,
+      date_of_consent = `Date of consent on screening form`,
+      name_of_person_receiving_in_field = `Name of Person Receiving in the Field`,
+      date_of_person_receiving_in_field =`Date of Field Receival`,
+      name_of_person_receiving_in_office = `Name of Person Receiving in the Office`,
+      date_of_person_receiving_in_office = `Date of Office Receival`,
+      name_of_archivist_receiving = `Name of Archivist Receiving` ,
+      date_of_archivist_receiving = `Date of Archivist Receival`
+    ) %>%
+    dplyr::mutate(
+      cluster_number = as.character(cluster_number),
+      id = as.character(id),
+      date_of_consent = lubridate::date(date_of_consent),
+      date_of_person_receiving_in_field = lubridate::date(date_of_person_receiving_in_field),
+      date_of_person_receiving_in_office = lubridate::date(date_of_person_receiving_in_office),
+      date_of_archivist_receiving = lubridate::date(date_of_archivist_receiving)
+    )
+
+  monitoring_icf <- monitoring_tbl %>%
+    dplyr::select(cluster_number, id, date_of_consent) %>%
+    dplyr::inner_join(
+      monitoring_ifc_from_upload,
+      by = c('cluster_number','id', 'date_of_consent'))
+}
+
+
+monitoring_icf %>%
+  fwrite(output_filename)
+cloudbrewr::aws_s3_store(
+  bucket = output_bucket,
+  key = 'bohemia_prod/summary_ento_icf_list/summary_ento_icf_list.csv',
+  filename = as.character(output_filename)
+)

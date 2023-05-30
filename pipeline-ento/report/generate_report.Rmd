@@ -8,6 +8,16 @@ date: '`r Sys.time()`'
 ---
 
 ```{r, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  comment = '', 
+  echo = FALSE,
+  message = FALSE,
+  cache=FALSE
+)
+```
+
+
+```{r, echo=FALSE, message=FALSE}
 library(reactable)
 library(data.table)
 library(dplyr)
@@ -51,32 +61,51 @@ render_report_table <- function(data, element_id, output_filename){
 
 
 ## Ento Monitoring Form 1: Recruitment & Withdrawals
-This section covers all the recruitment and withdrawals for Ento Forms
-
-Purpose: 
-
 To be used for site reporting on enrolment progress active and withdrawn households 
 
-
-```{r, echo = FALSE, message=FALSE}
-data <- cloudbrewr::aws_s3_get_table(
+```{r , echo = FALSE, message=FALSE}
+monitoring0 <- cloudbrewr::aws_s3_get_table(
   bucket = 'bohemia-lake-db',
   key = 'bohemia_prod/summary_ento_recruitment_withdrawal/summary_ento_recruitment_withdrawal.csv'
 )
 
-data <- data %>%
+monitoring1 <- monitoring0 %>%
   dplyr::select(`Cluster` = cluster_number,
                 `Household ID / Livestock Enclosure ID` = id,
-                `Date of consent on screening form` = todays_date,
-                `Collection Method` = site,
+                `Date of consent on screening form` = date_of_consent,
+                `Collection Method` = collection_method,
                 `Active or Withdrawn` = active_or_withdrawn,
-                `Date of Withdrawal on the screening form` = withdrawal_date)
+                `Date of Withdrawal on the screening form` = date_of_withdrawal)
 
 render_report_table(
-  data, 
+  monitoring1, 
   element_id = "ento-download-recruitment-withdrawals",
   output_filename = "report_ento_monitoring_hh_recruitment_withdrawal.csv")
 ```
+
+## Ento Monitoring Form 2: ICF List
+To be used to track the number of ICFs expected from houses recorded as consented on the screening form and to track handover of ICFs
+
+```{r}
+monitoring_icf <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = 'bohemia_prod/summary_ento_icf_list/summary_ento_icf_list.csv') %>%
+  dplyr::select(`Cluster` = cluster_number,
+                `Household ID / Livestock Enclosure ID` = id,
+                `Date of consent on screening form` = date_of_consent,
+                `Name of Person Receiving in the Field` = name_of_person_receiving_in_field,
+                `Date of Field Receival` = date_of_person_receiving_in_field,
+                `Name of Person Receiving in the Office` = name_of_person_receiving_in_office,
+                `Date of Office Receival` = date_of_person_receiving_in_office,
+                `Name of Archivist Receiving` = name_of_archivist_receiving,
+                `Date of Archivist Receival` = date_of_archivist_receiving)
+
+render_report_table(
+  monitoring_icf, 
+  element_id = "ento-download-icf-list",
+  output_filename = "summary_ento_icf_list.csv")
+```
+
 
 <!-- ## Ento Monitoring Form 3: Light Trap Mosquito Collections -->
 <!-- This section covers all the recruitment and withdrawals for Ento Forms -->
