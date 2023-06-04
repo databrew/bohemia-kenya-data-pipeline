@@ -5,6 +5,13 @@ clean_column_names <- function(data){
   return(data)
 }
 
+#' @description  clean pii column
+clean_pii_columns <- function(data){
+  pii_columns <- c('firstname', 'lastname', 'dob', 'dob_select')
+  data %>%
+    dplyr::select(-all_of(pii_columns))
+}
+
 
 # data type conversions
 convert_datatype <- function(series){
