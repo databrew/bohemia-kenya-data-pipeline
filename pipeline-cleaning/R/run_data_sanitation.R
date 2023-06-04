@@ -8,6 +8,7 @@ library(logger)
 library(config)
 library(tictoc)
 library(data.table)
+source('R/cleaning_utils.R')
 
 # start timer
 tic()
@@ -85,7 +86,17 @@ tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
                                               sanitized_file_path = ..2,
                                               form_id = ..3,
                                               clean = ..4){
-                                       sanitized <- clean
+                                       sanitized <- tryCatch({
+                                         sanitized <- clean %>%
+                                           clean_pii_columns()
+                                         logger::log_info(
+                                           glue::glue('Cleaning pii columns in {form_id}')
+                                         )
+                                         return(sanitized)
+                                       }, error = function(e){
+                                         return(clean)
+                                       })
+
                                        data <- tibble(
                                          file_path = file_path,
                                          sanitized_file_path = sanitized_file_path,
@@ -116,7 +127,7 @@ tryCatch({
 })
 
 # remove directory once done
-unlink('./projects', force = TRUE)
+unlink('projects', recursive = TRUE, force = TRUE)
 
 # stop timer
 toc()
