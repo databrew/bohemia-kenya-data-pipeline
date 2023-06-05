@@ -7,9 +7,8 @@ clean_column_names <- function(data){
 
 #' @description  clean pii column
 clean_pii_columns <- function(data){
-  pii_columns <- c('firstname', 'lastname', 'dob', 'dob_select')
-  data %>%
-    dplyr::select(-all_of(pii_columns))
+  pii_columns <- c('firstname', 'lastname')
+  data %>% dplyr::select(-any_of(pii_columns))
 }
 
 

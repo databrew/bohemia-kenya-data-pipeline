@@ -86,28 +86,21 @@ tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
                                               sanitized_file_path = ..2,
                                               form_id = ..3,
                                               clean = ..4){
-                                       sanitized <- tryCatch({
-                                         sanitized <- clean %>%
-                                           clean_pii_columns()
-                                         logger::log_info(
-                                           glue::glue('Cleaning pii columns in {form_id}')
-                                         )
-                                         return(sanitized)
-                                       }, error = function(e){
-                                         return(clean)
-                                       })
+                                       sanitized <- clean_pii_columns(clean)
 
-                                       data <- tibble(
-                                         file_path = file_path,
-                                         sanitized_file_path = sanitized_file_path,
-                                         form_id = form_id,
-                                         raw = list(clean),
-                                         sanitized = list(sanitized))
                                        dir.create(glue::glue('projects/sanitized-form/{form_id}'),
                                                   recursive = TRUE,
                                                   showWarnings = FALSE)
+
                                        sanitized %>% fwrite(sanitized_file_path)
-                                       return(data)
+
+                                       tibble(
+                                         file_path = file_path,
+                                         sanitized_file_path = sanitized_file_path,
+                                         form_id = form_id,
+                                         clean = list(clean),
+                                         sanitized = list(sanitized))
+
                                      })
 
 
