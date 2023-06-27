@@ -77,7 +77,8 @@ files_orig <- tibble::tibble(file_path =
   dplyr::ungroup() %>%
   dplyr::filter(!file_path %in% EXCLUDED_FILEPATHS,
                 !form_id %in% EXCLUDED_FORM_ID,
-                !stringr::str_detect(file_path, 'clean-form'))
+                !stringr::str_detect(file_path, 'clean-form'),
+                !stringr::str_detect(file_path, 'sanitized-form'))
 
 # Read Resolution file from S3
 resolution_file <- cloudbrewr::aws_s3_get_table(
@@ -93,8 +94,15 @@ tbl_nest <- files_orig %>%
       clean_column_names() %>%
       tibble::as_tibble(.name_repair = 'unique')})) %>%
   dplyr::rowwise() %>%
-  dplyr::mutate(resolution = list(resolution_file %>% dplyr::filter(Form == form_id))) %>%
-  dplyr::select(file_path, clean_file_path, form_id, raw, resolution)
+  dplyr::mutate(resolution = list(resolution_file %>% dplyr::filter(Form == form_id)),
+                repeat_name = stringr::str_split(tools::file_path_sans_ext(basename(file_path)), pattern = '-')[[1]][2]) %>%
+  dplyr::select(file_path,
+                clean_file_path,
+                form_id,
+                repeat_name,
+                raw,
+                resolution)
+
 
 # Final mapping table for raw to clean
 dir.create('projects/clean-form')
@@ -102,12 +110,16 @@ tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
                                function(file_path = ..1,
                                         clean_file_path = ..2,
                                         form_id = ..3,
-                                        raw = ..4,
-                                        resolution = ..5){
+                                        repeat_name = ..4,
+                                        raw = ..5,
+                                        resolution = ..6){
 
   if(nrow(resolution) > 0){
-    clean <- google_sheets_fix(data = raw,
-                               resolution = resolution)
+    clean <- google_sheets_fix(
+      data = raw,
+      form_id = form_id,
+      repeat_name = repeat_name,
+      resolution = resolution)
   }else{
     clean <- raw
   }
