@@ -6,13 +6,15 @@ clean_column_names <- function(data){
 }
 
 #' @description  clean pii column
+#' @param data data to sanitize
 clean_pii_columns <- function(data){
   pii_columns <- c('firstname', 'lastname')
   data %>% dplyr::select(-any_of(pii_columns))
 }
 
 
-# data type conversions
+#' @description data type conversions
+#' @param series data series to convert
 convert_datatype <- function(series){
   if(class(series) == 'integer') {
     change_data_type_funs = as.integer
@@ -31,7 +33,11 @@ convert_datatype <- function(series){
 }
 
 
-# function to do batch set based on ID
+#' @description function to do batch set based on ID
+#' @param data data
+#' @param form_id form_id to parse
+#' @param repeat_name name of repeat
+#' @param resolution resolution data
 batch_set <- function(data, form_id, repeat_name, resolution){
   tryCatch({
     # get resolution file, if there is duplicate SETs take most recent one
