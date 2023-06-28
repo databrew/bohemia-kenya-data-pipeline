@@ -162,7 +162,6 @@ batch_delete <- function(data,
                                 'repeat_name',
                                 'repeat_key',
                                 'PARENT_KEY')) %>%
-        dplyr::select(-repeat_parser, -form_id) %>%
         dplyr::select(
           PARENT_KEY,
           repeat_key,
@@ -207,7 +206,12 @@ google_sheets_fix <- function(data,
                 form_id = form_id,
                 repeat_name = repeat_name,
                 resolution = resolution) %>%
-      dplyr::ungroup()
+      dplyr::ungroup() %>%
+      dplyr::select(-any_of(c(
+        'repeat_parser',
+        'repeat_name',
+        'repeat_key',
+        'form_id')))
     return(data)
   }else{
     return(data)
