@@ -1,0 +1,15 @@
+report/html_report/*
+report/clean_form/*
+*/*.html
+*/*.rds
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+*.rds
+*.Rproj
+assets

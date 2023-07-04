@@ -1,0 +1,264 @@
+---
+title: "Kwale V0 Demography Reports"
+description: |
+  Reporting used to track V0 demography data collection in Kwale
+output:
+  html_document:
+    toc: true
+    theme: cerulean
+date: '`r Sys.time()`'
+---
+
+Notes:
+
+- Report is refreshed hourly 9-5pm EAT, once 12AM EAT
+
+- Please reach out to atediarjo@gmail.com for bug reports
+
+```{r, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  comment = '', 
+  echo = FALSE,
+  message = FALSE,
+  cache=FALSE
+)
+```
+
+```{r, echo=FALSE, message=FALSE}
+library(reactable)
+library(data.table)
+library(dplyr)
+library(htmltools)
+library(glue)
+library(fontawesome)
+library(ggplot2)
+```
+
+```{r, echo = FALSE, message=FALSE}
+
+wrap_download <- function(reactable_obj, element_id, output_filename){
+  onclick_command <- glue::glue(
+    "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
+  htmltools::browsable(
+  tagList(
+    tags$button(
+      tagList(fontawesome::fa("download"), "Download as CSV"),
+      onclick = onclick_command),
+    reactable_obj
+  ))
+}
+```
+
+
+```{r}
+# variables / creds for ento
+env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
+bucket_source <- 'databrew.org'
+bucket_lake_db <- 'bohemia-lake-db'
+input_key <- list(
+  v0 = 'kwale/clean-form/v0demography/v0demography.csv',
+  goals = 'bohemia_prod/dim_kwale_cluster_goal/dim_kwale_cluster_goal.csv'
+)
+tryCatch({
+  logger::log_info('Attempt AWS login')
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = 'cloudbrewr-aws-role',
+    profile_name =  'cloudbrewr-aws-role',
+    pipeline_stage = env_pipeline_stage)
+
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+```
+```{r}
+v0demography <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$v0)
+
+
+goals <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_lake_db,
+  key = input_key$goals)
+```
+
+
+## Submission Summary
+```{r}
+submission <- v0demography %>% distinct(hhid) %>% nrow()
+target <- goals$households_core_and_buffer %>% sum()
+
+summary <-  tibble(submission = submission,
+                   target = target) %>%
+  dplyr::mutate(coverage = submission / target)
+
+tbl <- reactable(
+    summary,
+    columns = list(
+        submission = colDef(name = 'Submission'),
+        target = colDef(name = "Target"),
+        coverage = colDef(
+            name = 'coverage %',
+            format = colFormat(percent = TRUE, digits = 1),
+            style = function(value) {
+                if (value >= 1) {
+                    color <- "#008000"
+                } else if (value < 1) {
+                    color <- "#e00000"
+                } else {
+                    color <- "#777"
+                }
+                list(color = color, fontWeight = "bold")
+            })
+    ),
+    highlight = TRUE
+)
+
+tbl
+```
+
+
+## Submissions by Day Tracker
+```{r, fig.width=10, fig.height=4}
+submissions <- v0demography %>% 
+    dplyr::mutate(metric_date = lubridate::date(SubmissionDate)) %>% 
+    dplyr::group_by(metric_date) %>% 
+    dplyr::summarise(n_submission = n_distinct(hhid))%>%
+    dplyr::select(`date` = metric_date,
+                  `submission` = n_submission)
+submissions %>%
+    ggplot(aes(x = `date`, y = `submission`)) +
+    geom_line() +
+    geom_point() + 
+    theme_minimal() +
+    labs(
+      y = 'Submissions', 
+      x = '')
+```
+
+```{r}
+element_id <- 'submission-by-day'
+tbl <- reactable(submissions,
+          columns = list(
+            date = colDef(name = 'Date', filterable = TRUE),
+            submission = colDef(name = 'Submission')
+          ),
+    highlight = TRUE,
+    elementId = 'submission-by-day'
+)
+
+wrap_download(
+  tbl, 
+  element_id,
+  'v0_demography_submission_tracker.csv')
+```
+
+
+## Field Assistant Tracker
+```{r}
+element_id <- 'fa-tracker'
+
+submission <- v0demography %>% 
+    dplyr::group_by(fa_id)%>%
+    dplyr::summarise(
+      `submission` = n_distinct(hhid)
+    )
+
+target <- v0demography %>% 
+    dplyr::select(fa_id, cluster) %>% 
+    distinct(.keep_all = TRUE) %>% 
+    dplyr::select(cluster_number = cluster, everything()) %>%
+    dplyr::inner_join(goals, by = 'cluster_number') %>% 
+    dplyr::group_by(fa_id) %>% 
+    dplyr::summarise(`target` = sum(households_core_and_buffer))
+
+summary <- submission %>%
+  dplyr::inner_join(target, by = 'fa_id') %>%
+  dplyr::mutate(
+      `coverage` = (submission / target)
+  )
+
+tbl <- reactable(
+    summary,
+    columns = list(
+        fa_id = colDef(name = 'Field Assistant ID', filterable = TRUE),
+        submission = colDef(name = 'Submission'),
+        target = colDef(name = "Target"),
+        coverage = colDef(
+            name = 'coverage %',
+            format = colFormat(percent = TRUE, digits = 1),
+            style = function(value) {
+                if (value >= 1) {
+                    color <- "#008000"
+                } else if (value < 1) {
+                    color <- "#e00000"
+                } else {
+                    color <- "#777"
+                }
+                list(color = color, fontWeight = "bold")
+            })
+    ),
+    highlight = TRUE,
+    elementId = element_id
+)
+
+wrap_download(tbl, 
+              element_id, 
+              'v0_demography_fa_tracker.csv')
+
+```
+
+
+## Cluster Coverage Tracker
+
+```{r}
+element_id <- 'cluster-tracker'
+submission <- v0demography %>% 
+    dplyr::group_by(cluster)%>%
+    dplyr::summarise(
+      `submission` = n_distinct(hhid)
+    ) %>% 
+  dplyr::select(cluster_number = cluster, everything())
+
+target <- goals %>%
+  dplyr::group_by(cluster_number) %>%
+  dplyr::summarise(target = sum(households_core_and_buffer))
+
+summary <- target %>%
+  dplyr::left_join(submission, by = 'cluster_number') %>%
+  dplyr::mutate(
+    `coverage` = coalesce((submission / target), 0),
+    `submission` = coalesce(submission, 0)
+  ) %>% 
+  dplyr::select(cluster_number, submission, target, coverage)
+
+tbl <- reactable(
+    summary,
+    columns = list(
+        cluster_number = colDef(name = 'Cluster Number', filterable = TRUE),
+        submission = colDef(name = 'Submission'),
+        target = colDef(name = "Target"),
+        coverage = colDef(
+            name = 'coverage %',
+            format = colFormat(percent = TRUE, digits = 1),
+            style = function(value) {
+                if (value >= 1) {
+                    color <- "#008000"
+                } else if (value < 1) {
+                    color <- "#e00000"
+                } else {
+                    color <- "#777"
+                }
+                list(color = color, fontWeight = "bold")
+            })
+    ),
+    highlight = TRUE,
+    elementId = element_id
+)
+
+
+wrap_download(tbl, 
+              element_id, 
+              'v0_demography_cluster_tracker.csv')
+```
