@@ -124,12 +124,14 @@ tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
     clean <- raw
   }
 
-  data <- tibble(file_path = file_path,
-         clean_file_path = clean_file_path,
-         form_id = form_id,
-         raw = list(raw),
-         resolution = list(resolution),
-         clean = list(clean))
+  data <- tibble(
+    file_path = file_path,
+    clean_file_path = clean_file_path,
+    form_id = form_id,
+    repeat_name = repeat_name,
+    raw = list(raw),
+    resolution = list(resolution),
+    clean = list(clean))
   dir.create(glue::glue('projects/clean-form/{form_id}'),
              recursive = TRUE,
              showWarnings = FALSE)
