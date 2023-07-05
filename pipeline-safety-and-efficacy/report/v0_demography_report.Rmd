@@ -12,7 +12,6 @@ date: '`r Sys.time()`'
 Notes:
 
 - Report is refreshed hourly 9-5pm EAT, once 12AM EAT
-
 - Please reach out to atediarjo@gmail.com for bug reports
 
 ```{r, echo=FALSE, message=FALSE}
@@ -32,6 +31,7 @@ library(htmltools)
 library(glue)
 library(fontawesome)
 library(ggplot2)
+library(plotly)
 ```
 
 ```{r, echo = FALSE, message=FALSE}
@@ -119,7 +119,7 @@ tbl
 ```
 
 
-## Submissions by Day Tracker
+## Submissions by day
 ```{r, fig.width=10, fig.height=4}
 submissions <- v0demography %>% 
     dplyr::mutate(metric_date = lubridate::date(SubmissionDate)) %>% 
@@ -127,7 +127,7 @@ submissions <- v0demography %>%
     dplyr::summarise(n_submission = n_distinct(hhid))%>%
     dplyr::select(`date` = metric_date,
                   `submission` = n_submission)
-submissions %>%
+p <- submissions %>%
     ggplot(aes(x = `date`, y = `submission`)) +
     geom_line() +
     geom_point() + 
@@ -135,6 +135,8 @@ submissions %>%
     labs(
       y = 'Submissions', 
       x = '')
+
+ggplotly(p)
 ```
 
 ```{r}
