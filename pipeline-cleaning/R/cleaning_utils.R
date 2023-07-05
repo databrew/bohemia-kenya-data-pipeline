@@ -54,76 +54,80 @@ batch_set <- function(data, form_id, repeat_name, resolution){
     cols <- unique(resolution$Column)
     target_cols <- names(data)[names(data) %in% cols]
 
-    # pivot resolution file
-    pvt <- resolution %>%
-      distinct(.) %>%
-      tidyr::pivot_wider(
-        names_from = Column,
-        values_from = `Set To`,
-        id_cols = c('instanceID', 'RepeatName', 'RepeatKey')) %>%
-      dplyr::select(instanceID,
-                    repeat_name = RepeatName,
-                    repeat_key = RepeatKey,
-                    any_of(target_cols))
+    if(length(target_cols) != 0){
+      # pivot resolution file
+      pvt <- resolution %>%
+        distinct(.) %>%
+        tidyr::pivot_wider(
+          names_from = Column,
+          values_from = `Set To`,
+          id_cols = c('instanceID', 'RepeatName', 'RepeatKey')) %>%
+        dplyr::select(instanceID,
+                      repeat_name = RepeatName,
+                      repeat_key = RepeatKey,
+                      any_of(target_cols))
 
-    # joined with pivot table
-    if(!is.na(repeat_name)){
-      logger::log_info(glue::glue('Batch set on {form_id}-{repeat_name}'))
-      staging <- data %>%
-        dplyr::rowwise() %>%
-        dplyr::mutate(
-          repeat_parser = stringr::str_split(stringr::str_replace_all(basename(KEY), "\\[|\\]", ";"), ";"),
-          repeat_key = as.integer(unlist(repeat_parser)[2]),
-          repeat_name = unlist(repeat_parser)[1]
-        ) %>%
-        dplyr::select(-repeat_parser) %>%
-        dplyr::select(PARENT_KEY,
-                      repeat_key,
-                      repeat_name,
-                      everything())
+      # joined with pivot table
+      if(!is.na(repeat_name)){
+        logger::log_info(glue::glue('Batch set on {form_id}-{repeat_name}'))
+        staging <- data %>%
+          dplyr::rowwise() %>%
+          dplyr::mutate(
+            repeat_parser = stringr::str_split(stringr::str_replace_all(basename(KEY), "\\[|\\]", ";"), ";"),
+            repeat_key = as.integer(unlist(repeat_parser)[2]),
+            repeat_name = unlist(repeat_parser)[1]
+          ) %>%
+          dplyr::select(-repeat_parser) %>%
+          dplyr::select(PARENT_KEY,
+                        repeat_key,
+                        repeat_name,
+                        everything())
 
-      jtbl <- staging %>%
-        dplyr::left_join(
-          pvt %>%
-            dplyr::filter(repeat_name != ""),
-          by = c('PARENT_KEY' = 'instanceID',
-                 'repeat_name',
-                 'repeat_key'))
+        jtbl <- staging %>%
+          dplyr::left_join(
+            pvt %>%
+              dplyr::filter(repeat_name != ""),
+            by = c('PARENT_KEY' = 'instanceID',
+                   'repeat_name',
+                   'repeat_key'))
 
-    # join with instance ID on main table
-    }else{
-      logger::log_info(glue::glue('Batch set on {form_id}'))
-      jtbl <- data %>%
-        dplyr::left_join(pvt %>%
-                           dplyr::filter(repeat_name == ""),
-                         by = 'instanceID')
-    }
-
-    # loop through all changes for target columns
-    purrr::map(target_cols, function(col){
-      left <- as.character(glue::glue('{col}.x'))
-      right <- as.character(glue::glue('{col}.y'))
-
-      # convert datatype based on known datatypes
-      # if already available, use left-side dtypes
-      # if not available, use inputted values from data custodian
-      if(all(is.na(jtbl[[left]]))){
-        datatype <- convert_datatype(series = jtbl[[right]])
+        # join with instance ID on main table
       }else{
-        datatype <- convert_datatype(series = jtbl[[left]])
+        logger::log_info(glue::glue('Batch set on {form_id}'))
+        jtbl <- data %>%
+          dplyr::left_join(pvt %>%
+                             dplyr::filter(repeat_name == ""),
+                           by = 'instanceID')
       }
 
-      jtbl <<- jtbl %>%
-        dplyr::mutate_at(c(left, right), datatype) %>%
-        dplyr::mutate(!!sym(col) := coalesce(!!sym(right),
-                                             !!sym(left))) %>%
-        dplyr::select(-all_of(c(left,right)))
-      return(NULL)
-    })
+      # loop through all changes for target columns
+      purrr::map(target_cols, function(col){
+        left <- as.character(glue::glue('{col}.x'))
+        right <- as.character(glue::glue('{col}.y'))
 
-    logger::log_success(glue::glue('Batch set successful on {form_id}-{repeat_name}'))
-    return(jtbl)
+        # convert datatype based on known datatypes
+        # if already available, use left-side dtypes
+        # if not available, use inputted values from data custodian
+        if(all(is.na(jtbl[[left]]))){
+          datatype <- convert_datatype(series = jtbl[[right]])
+        }else{
+          datatype <- convert_datatype(series = jtbl[[left]])
+        }
 
+        jtbl <<- jtbl %>%
+          dplyr::mutate_at(c(left, right), datatype) %>%
+          dplyr::mutate(!!sym(col) := coalesce(!!sym(right),
+                                               !!sym(left))) %>%
+          dplyr::select(-all_of(c(left,right)))
+        return(NULL)
+      })
+
+      logger::log_success(glue::glue('Batch set successful on {form_id}-{repeat_name}'))
+      return(jtbl)
+    }else{
+      logger::log_success(glue::glue('Nothing to change on {form_id}-{repeat_name}'))
+      return(data)
+    }
   }, error = function(e){
     logger::log_error(e$message)
     stop()
