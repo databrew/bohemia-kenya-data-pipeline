@@ -14,12 +14,18 @@ Notes:
 - Report is refreshed hourly 9-5pm EAT, once 12AM EAT
 - Please reach out to atediarjo@gmail.com for bug reports
 
+Dictionary:
+
+- Absences: **refusal_or_absence in 'Absence 2nd attempt', 'Household is destroyed/abandoned', 'Emancipated minor'**
+- Refusals: **refusal_or_absence equals 'Refusal'**
+
 ```{r, echo=FALSE, message=FALSE}
 knitr::opts_chunk$set(
   comment = '', 
   echo = FALSE,
   message = FALSE,
-  cache=FALSE
+  cache=FALSE,
+  warning=FALSE
 )
 ```
 
@@ -57,6 +63,9 @@ bucket_source <- 'databrew.org'
 bucket_lake_db <- 'bohemia-lake-db'
 input_key <- list(
   v0 = 'kwale/clean-form/v0demography/v0demography.csv',
+  v0_repeat = 'kwale/clean-form/v0demography/v0demography-repeat_individual.csv',
+  sev0rab = 'kwale/clean-form/sev0rab/sev0rab.csv',
+  sev0ra = 'kwale/clean-form/sev0ra/sev0ra.csv',
   goals = 'bohemia_prod/dim_kwale_cluster_goal/dim_kwale_cluster_goal.csv'
 )
 tryCatch({
@@ -77,29 +86,75 @@ v0demography <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
   key = input_key$v0)
 
+v0demography_repeat <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$v0_repeat)
 
 goals <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_lake_db,
   key = input_key$goals)
+
+sev0rab <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$sev0rab)
+sev0ra <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$sev0ra)
+
+sev0ra_joined <- dplyr::bind_rows(sev0ra, sev0rab) %>% 
+    dplyr::filter(!hhid %in% unique(v0demography$hhid) | is.na(hhid))
+
+absences <- sev0ra_joined %>% 
+    dplyr::filter(refusal_or_absence %in% c("Absence 2nd attempt",
+                                            "Emancipated minor",
+                                            'Household is destroyed/abandoned'))
+refusals <-  sev0ra_joined %>% 
+    dplyr::filter(refusal_or_absence %in% c("Refusal"))
 ```
 
 
 ## Submission Summary
-```{r}
-submission <- v0demography %>% distinct(hhid) %>% nrow()
-target <- goals$households_core_and_buffer %>% sum()
 
-summary <-  tibble(submission = submission,
-                   target = target) %>%
-  dplyr::mutate(coverage = submission / target)
+```{r}
+submission_hh <- v0demography %>% 
+  distinct(hhid) %>% 
+  nrow()
+target_hh <- goals$households_core_and_buffer %>% sum()
+
+
+submission_hh_members <- sum(v0demography$num_hh_members)
+target_hh_members <- goals$members_core_and_buffer %>% sum()
+submission_refusals <- nrow(refusals)
+submission_absences <- nrow(absences)
+
+summary <-  tibble(
+  submission_hh = submission_hh,
+  target_hh = target_hh,
+  submission_hh_members = submission_hh_members,
+  target_hh_members = target_hh_members,
+  submission_absences = submission_absences,
+  submission_refusals = submission_refusals
+) %>%
+  dplyr::mutate(
+    coverage_hh = submission_hh / target_hh,
+    coverage_hh_members = submission_hh_members / target_hh_members,
+  ) %>%
+  dplyr::select(submission_hh, 
+                target_hh,
+                coverage_hh, 
+                submission_hh_members, 
+                target_hh_members, 
+                coverage_hh_members,
+                submission_absences,
+                submission_refusals)
 
 tbl <- reactable(
     summary,
     columns = list(
-        submission = colDef(name = 'Submission'),
-        target = colDef(name = "Target"),
-        coverage = colDef(
-            name = 'coverage %',
+        submission_hh = colDef(name = 'Household Submission'),
+        target_hh = colDef(name = "Target Household Submission"),
+        coverage_hh = colDef(
+            name = 'Household Coverage %',
             format = colFormat(percent = TRUE, digits = 1),
             style = function(value) {
                 if (value >= 1) {
@@ -110,7 +165,25 @@ tbl <- reactable(
                     color <- "#777"
                 }
                 list(color = color, fontWeight = "bold")
-            })
+            }),
+        submission_hh_members = colDef(name = 'Household Member Submission'),
+        target_hh_members = colDef(name = "Target Household Member Submission"),
+        coverage_hh_members = colDef(
+            name = 'Household Member Coverage %',
+            format = colFormat(percent = TRUE, digits = 1),
+            style = function(value) {
+                if (value >= 1) {
+                    color <- "#008000"
+                } else if (value < 1) {
+                    color <- "#e00000"
+                } else {
+                    color <- "#777"
+                }
+                list(color = color, fontWeight = "bold")
+            }),
+        submission_absences = colDef(name = 'Absences'),
+        submission_refusals = colDef(name = 'Refusals')
+        
     ),
     highlight = TRUE
 )
@@ -120,14 +193,20 @@ tbl
 
 
 ## Submissions by day
-```{r, fig.width=10, fig.height=4}
+```{r, fig.width=10, fig.height=3}
 submissions <- v0demography %>% 
     dplyr::mutate(metric_date = lubridate::date(SubmissionDate)) %>% 
     dplyr::group_by(metric_date) %>% 
     dplyr::summarise(n_submission = n_distinct(hhid))%>%
     dplyr::select(`date` = metric_date,
                   `submission` = n_submission)
-p <- submissions %>%
+
+submissions_by_dow <- submissions %>% 
+    dplyr::mutate(dow = lubridate::wday(date, label = TRUE)) %>%
+    dplyr::group_by(dow) %>%
+    dplyr::summarise(submission = sum(submission))
+
+p1 <- submissions %>%
     ggplot(aes(x = `date`, y = `submission`)) +
     geom_line() +
     geom_point() + 
@@ -136,7 +215,15 @@ p <- submissions %>%
       y = 'Submissions', 
       x = '')
 
-ggplotly(p)
+p2 <- submissions_by_dow %>%
+    ggplot(aes(x = `dow`, y = `submission`)) +
+    geom_col() + 
+    theme_minimal() +
+    labs(
+      y = 'Submissions', 
+      x = '')
+
+subplot(ggplotly(p1), ggplotly(p2))
 ```
 
 ```{r}
@@ -147,6 +234,7 @@ tbl <- reactable(submissions,
             submission = colDef(name = 'Submission')
           ),
     highlight = TRUE,
+    striped = TRUE,
     elementId = 'submission-by-day'
 )
 
@@ -160,35 +248,92 @@ wrap_download(
 ## Field Assistant Tracker
 ```{r}
 element_id <- 'fa-tracker'
-
 submission <- v0demography %>% 
-    dplyr::group_by(fa_id)%>%
+    dplyr::group_by(cluster, fa_id)%>%
     dplyr::summarise(
-      `submission` = n_distinct(hhid)
+      hh = n_distinct(hhid),
+      hh_members = sum(num_hh_members)
     )
 
-target <- v0demography %>% 
-    dplyr::select(fa_id, cluster) %>% 
-    distinct(.keep_all = TRUE) %>% 
-    dplyr::select(cluster_number = cluster, everything()) %>%
-    dplyr::inner_join(goals, by = 'cluster_number') %>% 
-    dplyr::group_by(fa_id) %>% 
-    dplyr::summarise(`target` = sum(households_core_and_buffer))
+absences_df <- absences %>% 
+    dplyr::group_by(cluster) %>% 
+    dplyr::summarise(hh_absences = n())
 
-summary <- submission %>%
-  dplyr::inner_join(target, by = 'fa_id') %>%
+refusals_df <- refusals %>% 
+    dplyr::group_by(cluster) %>% 
+    dplyr::summarise(hh_refusal = n())
+
+target <- goals %>%
+  dplyr::group_by(cluster_number) %>%
+  dplyr::summarise(target_hh = sum(households_core_and_buffer),
+                   target_hh_members = sum(members_core_and_buffer)) %>% 
+  dplyr::select(cluster = cluster_number, everything())
+
+summary <- target %>%
+  dplyr::left_join(submission)  %>%
+  dplyr::left_join(absences_df) %>%
+  dplyr::left_join(refusals_df) %>%
+  dplyr::mutate_all(funs(ifelse(is.na(.), 0, .))) %>%
+  dplyr::select(-cluster) %>%
+  dplyr::group_by(fa_id) %>% 
+  dplyr::summarise_all(sum) %>%
   dplyr::mutate(
-      `coverage` = (submission / target)
-  )
+    hh_total = hh + hh_absences + hh_refusal,
+    hh_total_coverage = (hh_total / target_hh),
+    hh_coverage = (hh / target_hh),
+    hh_members_coverage = (hh / target_hh_members)
+  ) %>% 
+  dplyr::select(fa_id,
+                target_hh,
+                target_hh_members,
+                hh,
+                hh_coverage,
+                hh_members,
+                hh_members_coverage,
+                hh_absences,
+                hh_refusal,
+                hh_total,
+                hh_total_coverage)
 
 tbl <- reactable(
     summary,
     columns = list(
         fa_id = colDef(name = 'Field Assistant ID', filterable = TRUE),
-        submission = colDef(name = 'Submission'),
-        target = colDef(name = "Target"),
-        coverage = colDef(
-            name = 'coverage %',
+        target_hh = colDef(name = "Target Household Submission"),
+        target_hh_members = colDef(name = "Target Household Member Submission"),
+        hh = colDef(name = "Household Submission"),
+        hh_members = colDef(name = "Household Members"),
+        hh_coverage = colDef(
+            name = 'Household Coverage %',
+            format = colFormat(percent = TRUE, digits = 1),
+            style = function(value) {
+                if (value >= 1) {
+                    color <- "#008000"
+                } else if (value < 1) {
+                    color <- "#e00000"
+                } else {
+                    color <- "#777"
+                }
+                list(color = color, fontWeight = "bold")
+            }),
+        hh_members_coverage = colDef(
+            name = 'Household Members Coverage %',
+            format = colFormat(percent = TRUE, digits = 1),
+            style = function(value) {
+                if (value >= 1) {
+                    color <- "#008000"
+                } else if (value < 1) {
+                    color <- "#e00000"
+                } else {
+                    color <- "#777"
+                }
+                list(color = color, fontWeight = "bold")
+            }),
+        hh_absences = colDef(name = "Absences"),
+        hh_refusal = colDef(name = "Refusals"),
+        hh_total = colDef(name = "Household Submissions + Absences and Refusals"),
+        hh_total_coverage = colDef(
+            name = 'Household Total Coverage %',
             format = colFormat(percent = TRUE, digits = 1),
             style = function(value) {
                 if (value >= 1) {
@@ -201,9 +346,23 @@ tbl <- reactable(
                 list(color = color, fontWeight = "bold")
             })
     ),
+    columnGroups = list(
+      colGroup(name = "Target", 
+               columns = c('target_hh', 'target_hh_members')),
+      colGroup(name = "Visits", 
+               columns = c('hh', 'hh_coverage', 'hh_members', 'hh_members_coverage')),
+      colGroup(name = "Absences and Refusals", 
+               columns = c('hh_absences', 'hh_refusal')),
+      colGroup(name = "Total Coverage", 
+               columns = c('hh_total','hh_total_coverage'))
+    ),
     highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE,
     elementId = element_id
 )
+
 
 wrap_download(tbl, 
               element_id, 
@@ -217,32 +376,90 @@ wrap_download(tbl,
 ```{r}
 element_id <- 'cluster-tracker'
 submission <- v0demography %>% 
-    dplyr::group_by(cluster)%>%
+    dplyr::group_by(cluster, fa_id)%>%
     dplyr::summarise(
-      `submission` = n_distinct(hhid)
-    ) %>% 
-  dplyr::select(cluster_number = cluster, everything())
+      hh = n_distinct(hhid),
+      hh_members = sum(num_hh_members)
+    )
+
+absences_df <- absences %>% 
+    dplyr::group_by(cluster) %>% 
+    dplyr::summarise(hh_absences = n())
+
+refusals_df <- refusals %>% 
+    dplyr::group_by(cluster) %>% 
+    dplyr::summarise(hh_refusal = n())
 
 target <- goals %>%
   dplyr::group_by(cluster_number) %>%
-  dplyr::summarise(target = sum(households_core_and_buffer))
+  dplyr::summarise(target_hh = sum(households_core_and_buffer),
+                   target_hh_members = sum(members_core_and_buffer)) %>% 
+  dplyr::select(cluster = cluster_number, everything())
 
 summary <- target %>%
-  dplyr::left_join(submission, by = 'cluster_number') %>%
+  dplyr::left_join(submission)  %>%
+  dplyr::left_join(absences_df) %>%
+  dplyr::left_join(refusals_df) %>%
+  dplyr::mutate_all(funs(ifelse(is.na(.), 0, .))) %>%
   dplyr::mutate(
-    `coverage` = coalesce((submission / target), 0),
-    `submission` = coalesce(submission, 0)
+    hh_total = hh + hh_absences + hh_refusal,
+    hh_total_coverage = (hh_total / target_hh),
+    hh_coverage = (hh / target_hh),
+    hh_members_coverage = (hh / target_hh_members)
   ) %>% 
-  dplyr::select(cluster_number, submission, target, coverage)
+  dplyr::select(cluster, 
+                fa_id,
+                target_hh,
+                target_hh_members,
+                hh,
+                hh_coverage,
+                hh_members,
+                hh_members_coverage,
+                hh_absences,
+                hh_refusal,
+                hh_total,
+                hh_total_coverage)
 
 tbl <- reactable(
     summary,
     columns = list(
-        cluster_number = colDef(name = 'Cluster Number', filterable = TRUE),
-        submission = colDef(name = 'Submission'),
-        target = colDef(name = "Target"),
-        coverage = colDef(
-            name = 'coverage %',
+        cluster = colDef(name = 'Cluster Number', filterable = TRUE),
+        fa_id = colDef(name = 'Field Assistant ID', filterable = TRUE),
+        target_hh = colDef(name = "Target Household Submission"),
+        target_hh_members = colDef(name = "Target Household Member Submission"),
+        hh = colDef(name = "Household Submission"),
+        hh_members = colDef(name = "Household Members"),
+        hh_coverage = colDef(
+            name = 'Household Coverage %',
+            format = colFormat(percent = TRUE, digits = 1),
+            style = function(value) {
+                if (value >= 1) {
+                    color <- "#008000"
+                } else if (value < 1) {
+                    color <- "#e00000"
+                } else {
+                    color <- "#777"
+                }
+                list(color = color, fontWeight = "bold")
+            }),
+        hh_members_coverage = colDef(
+            name = 'Household Members Coverage %',
+            format = colFormat(percent = TRUE, digits = 1),
+            style = function(value) {
+                if (value >= 1) {
+                    color <- "#008000"
+                } else if (value < 1) {
+                    color <- "#e00000"
+                } else {
+                    color <- "#777"
+                }
+                list(color = color, fontWeight = "bold")
+            }),
+        hh_absences = colDef(name = "Absences"),
+        hh_refusal = colDef(name = "Refusals"),
+        hh_total = colDef(name = "Household Submissions + Absences and Refusals"),
+        hh_total_coverage = colDef(
+            name = 'Household Total Coverage %',
             format = colFormat(percent = TRUE, digits = 1),
             style = function(value) {
                 if (value >= 1) {
@@ -255,7 +472,20 @@ tbl <- reactable(
                 list(color = color, fontWeight = "bold")
             })
     ),
+    columnGroups = list(
+      colGroup(name = "Target", 
+               columns = c('target_hh', 'target_hh_members')),
+      colGroup(name = "Visits", 
+               columns = c('hh', 'hh_coverage', 'hh_members', 'hh_members_coverage')),
+      colGroup(name = "Absences and Refusals", 
+               columns = c('hh_absences', 'hh_refusal')),
+      colGroup(name = "Total Coverage", 
+               columns = c('hh_total','hh_total_coverage'))
+    ),
     highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE,
     elementId = element_id
 )
 
@@ -263,4 +493,48 @@ tbl <- reactable(
 wrap_download(tbl, 
               element_id, 
               'v0_demography_cluster_tracker.csv')
+```
+
+
+## Attendance List
+
+```{r}
+element_id <- 'attendance-tracker'
+attendance <- v0demography %>% 
+    dplyr::mutate(metric_date = lubridate::date(SubmissionDate)) %>% 
+    dplyr::group_by(fa_id, metric_date) %>% 
+    dplyr::summarise(n_submission = n_distinct(hhid)) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(
+      fa_id,
+      date = metric_date,
+      submission = n_submission)
+
+tbl <- reactable(
+  attendance,
+  groupBy = "fa_id",
+  columns = list(
+    fa_id= colDef(name = "Field Assistant ID", filterable = TRUE),
+    date = colDef(
+      name = "Submitted Date",
+      aggregate = "count",
+      format = list(
+        aggregated = colFormat(suffix = " dates")
+      )
+    ),
+    submission = colDef(
+      name = "Submissions",
+      aggregate = "sum"
+    )
+  ),
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE,
+    elementId = element_id
+)
+
+wrap_download(tbl, 
+              element_id, 
+              'v0_demography_attendance_tracker.csv')
 ```
