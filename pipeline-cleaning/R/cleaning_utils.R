@@ -96,7 +96,7 @@ batch_set <- function(data, form_id, repeat_name, resolution){
         logger::log_info(glue::glue('Batch set on {form_id}'))
         jtbl <- data %>%
           dplyr::left_join(pvt %>%
-                             dplyr::filter(repeat_name == ""),
+                             dplyr::filter(repeat_name == "" | is.na(repeat_name)),
                            by = 'instanceID')
       }
 
@@ -144,7 +144,7 @@ batch_delete <- function(data,
     if(!is.na(repeat_name)){
       logger::log_info(glue::glue('Batch delete on {form_id}-{repeat_name}'))
       # files to delete
-      to_delete <- resolution_file %>%
+      to_delete <- resolution %>%
         dplyr::filter(Operation == 'DELETE') %>%
         dplyr::select(form_id = Form,
                       repeat_name = RepeatName,
