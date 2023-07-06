@@ -13,6 +13,7 @@ library(ggthemes)
 library(sp)
 library(rgeos)
 library(maptools)
+library(data.table)
 
 
 # temp folder
@@ -31,8 +32,8 @@ env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 bucket <- 'databrew.org'
 bucket_spatial <- 'bohemia-spatial-assets'
 input_key <- list(
-  recon = 'clean-form/reconbhousehold/reconbhousehold.csv',
-  registration = 'clean-form/reconaregistration/reconaregistration.csv',
+  recon = 'kwale/clean-form/reconbhousehold/reconbhousehold.csv',
+  registration = 'kwale/clean-form/reconaregistration/reconaregistration.csv',
   household = 'kwale/households.zip',
   cluster = 'kwale/clusters.zip',
   core = 'kwale/cores.zip',
