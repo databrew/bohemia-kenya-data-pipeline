@@ -4,7 +4,7 @@ default:
   output_folder: 'raw-form'
   odk_projects:
     - 'kwale'
-    - 'Kwale Ento Testing'
+    - 'kwale_ento_testing'
     - 'kwale_testing'
 develop:
   secret_name: 'test/odk-credentials'
