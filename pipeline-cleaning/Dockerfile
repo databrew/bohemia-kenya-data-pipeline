@@ -4,13 +4,15 @@ FROM rocker/tidyverse:4.2.1
 # install preliminary requirements
 RUN apt-get update -y\
     && apt-get install -y git\
+    && apt-get install -y libudunits2-dev\
+    && apt-get install -y libgdal-dev\
     && apt-get install -y awscli
 
 # copy working directory
-COPY . /root/odk-form-extraction
+COPY . /root/pipeline-cleaning
 
 # use the bohemia kenya work directory
-WORKDIR /root/odk-form-extraction
+WORKDIR /root/pipeline-cleaning
 
 # use renv to replicate
 RUN R -e "install.packages('renv')"
