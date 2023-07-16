@@ -7,10 +7,12 @@ output:
 date: '`r Sys.time()`'
 ---
 
-Notes:
+
+**Notes**
 
 - Report is refreshed hourly 9-5pm EAT, once 12AM EAT (Please refer to timestamp above)
-- Please reach out to atediarjo@gmail.com for bug reports
+- Please reach out to [Aryton Tediarjo](atediarjo@gmail.com) via Slack for bug found in this report
+- To resolve anomalies please refer to this [Google Sheets Resolution Sheet](https://docs.google.com/spreadsheets/d/1i98uVuSj3qETbrH7beC8BkFmKV80rcImGobBvUGuqbU/edit#gid=0)
 
 
 ```{r, echo=FALSE, message=FALSE}
@@ -101,7 +103,7 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
 ```
 
 ### Historical Anomalies
-```{r, fig.height = 5}
+```{r, fig.height = 3, fig.width = 10}
 anomalies_history_grp <- anomalies_history %>%
     dplyr::group_by(snapshot_date) %>% 
     dplyr::summarise(anomalies_count = sum(anomalies_count))
@@ -112,14 +114,12 @@ p1 <- anomalies_history_grp %>%
   theme_minimal() +
   labs(x = '', y = '')
 
-p2 <- anomalies_history %>% 
+p2 <- anomalies_history %>%
     ggplot(aes(x = snapshot_date, y = anomalies_count, fill = anomalies_id)) +
     geom_col(width = 0.4) +
-    theme_minimal() + 
+    theme_minimal() +
     scale_fill_brewer(palette="Paired") +
     labs(x = '', y = '')
-
-
 
 ggplotly(p1)
 ggplotly(p2)
