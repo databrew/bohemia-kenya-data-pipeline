@@ -1,106 +1,164 @@
-#' This function is used for getting duplicated CHV id
-#' @data registration data
-#' @return tibble with column type, anomaly_id, description
-get_duplicated_chv_id <- function(data){
-  data %>%
-    group_by(wid = `wid`) %>%
-    summarise(n = n(),
-              instances = paste0(sort(unique(`instanceID`)), collapse = ';')) %>%
-    mutate(description = glue::glue(
-      'Worker ID {wid} was used {n} times in the Recon A',
-      ' registration form, but worker IDs should be unique',
-      ' and therefore only entered once.')) %>%
-    filter(n > 1) %>%
-    mutate(type = 'recona_duplicate_id') %>%
-    mutate(anomaly_id = paste0(type, '_', instances)) %>%
-    dplyr::select(type, anomaly_id, description)
-}
+# Get duplication
+detect_duplication <- function(data,
+                               col,
+                               form_id,
+                               anomalies_id,
+                               anomalies_description,
+                               threshold = 2,
+                               key = 'KEY'){
 
-
-#' This function is used for getting wid that reports as both CHA and CHV
-#' @data registration data
-#' @return tibble with column type, anomaly_id, description
-get_identical_cha_chv <- function(data){
-  cha <-  data %>%
-    dplyr::filter(worker_type == 'CHV') %>%
-    dplyr::select(`id` = `wid`,
-                  chv_instance = `instanceID`)
-
-  chv <- data %>%
-    dplyr::filter(worker_type == 'CHA') %>%
-    dplyr::select(`id` = `wid`,
-                  cha_instance = `instanceID`)
-
-  cha %>%
-    inner_join(chv) %>%
-    mutate(description = glue::glue(
-      'ID: {id} was used for both a CHV (instance = {chv_instance} ) and a CHA (instance = {cha_instance}).')) %>%
-    mutate(type = 'recona_id_for_both_cha_and_chv') %>%
-    mutate(anomaly_id = paste0(type, '_', cha_instance, '_', chv_instance)) %>%
-    dplyr::select(type, anomaly_id, description)
-}
-
-#' Mismatch between number of CHVs that indicate a CHA as their supervisor and the number of reported CHVs supervised by a CHA
-get_mistmatch_between_reported_cha_chv_numbers <- function(data){
-  return(data)
-}
-
-
-#' This function is used for getting duplicated Household id
-#' @data registration data
-#' @return tibble with column type, anomaly_id, description
-get_duplicates_by_column <- function(data, form_id, path, col) {
   data %>%
     dplyr::group_by(!!sym(col)) %>%
-    dplyr::summarise( n = n(), instances = paste0(sort(unique(`instanceID`)), collapse = ';')) %>%
+    dplyr::mutate(n = n()) %>%
+    dplyr::filter(n >= threshold) %>%
     dplyr::ungroup() %>%
-    dplyr::filter(n > 1) %>%
     dplyr::mutate(
-      type = form_id,
-      description = glue::glue('{col} was used {n} times in form Form:{form_id} - Repeat:{path}')
-    )
+      form_id = form_id,
+      anomalies_id = anomalies_id,
+      anomalies_description = glue::glue('hhid:{var} duplicated {n} times',
+                                         var = !!sym(col))) %>%
+    tidyr::drop_na(hhid) %>%
+    dplyr::select(!!sym(key),
+                  form_id,
+                  anomalies_id,
+                  anomalies_description)
+}
+
+# Get threshold breach
+detect_threshold <- function(data,
+                             col,
+                             form_id,
+                             anomalies_id,
+                             anomalies_description,
+                             threshold,
+                             direction = 'more',
+                             key = 'KEY') {
+
+  if(direction == 'more') {
+    data <- data %>%
+      dplyr::filter(!!sym(col) > threshold)
+  }else{
+    data <- data %>%
+      dplyr::filter(!!sym(col) < threshold)
+  }
+
+  data %>%
+    dplyr::mutate(
+      form_id = form_id,
+      anomalies_id = anomalies_id,
+      anomalies_description = anomalies_description) %>%
+    dplyr::select(!!sym(key),
+                  form_id,
+                  anomalies_id,
+                  anomalies_description)
+
 }
 
 
-#' This function is used for getting Mismatch between number of CHVs
-#' that indicate a CHA as their supervisor and the number of
-#' reported CHVs supervised by a CHA
-#' @data registration data
-#' @return tibble with column type, anomaly_id, description
-get_mistmached_cha_chv_numbers <- function(data){
-  #' get number of cha supervision as reported from CHV
-  n_by_chv <- data %>%
-    mutate(wid_cha = ifelse(is.na(cha_wid_qr), cha_wid_manual, cha_wid_qr)) %>%
-    dplyr::filter(worker_type == 'CHV') %>%
-    dplyr::select(wid_cha, wid, instanceID) %>%
-    dplyr::group_by(wid_cha) %>%
-    dplyr::summarise(number_chv_supervise = n_distinct(wid),
-                     instances = paste0(sort(unique(`instanceID`)), collapse = ';')) %>%
-    dplyr::select(wid = wid_cha, number_chv_supervise, instances)
+# function for detecting boundaries
+detect_outside_cluster_boundaries <- function(data,
+                                              form_id) {
+  temp_folder <- '/tmp'
+  cluster_obj <- aws_s3_get_object(
+    bucket = 'bohemia-spatial-assets',
+    key = 'kwale/clusters.zip',
+    output_dir = temp_folder)
+  clusters <- rgdal::readOGR(
+    glue::glue('{temp_folder}/clusters/'),
+    'clusters')
+  unzip(
+    cluster_obj$file_path,
+    exdir = temp_folder)
 
-  #' get number of cha supervision as reported from CHA
-  n_by_cha <- data %>%
-    dplyr::filter(worker_type == 'CHA') %>%
-    dplyr::select(wid, number_chv_supervise, instances = instanceID)
+  coordinates(data) <- ~Longitude+Latitude
+  proj4string(data) <- proj4string(clusters)
 
-  #' create mismatch report by joining the two summary tables
-  #' and search for mismatch in reported numbers
-  mismatch <- n_by_cha %>%
-    dplyr::inner_join(n_by_chv, by = c('wid')) %>%
+  # Add a 100 meter buffer
+  # Convert objects to projected UTM reference system
+  p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+  crs <- CRS(p4s)
+  clusters_projected <- spTransform(clusters, crs)
+  clusters_projected_buffered <- rgeos::gBuffer(clusters_projected, byid = TRUE, width = 100)
+  data_projected <- spTransform(data, crs)
+  o <- sp::over(data_projected, polygons(clusters_projected_buffered))
+  o_strict <- sp::over(data_projected, polygons(clusters_projected))
+  anom <- data_projected@data
+  anom$outside_cluster <- is.na(o_strict)
+  anom$outside_cluster_number <- clusters_projected@data$cluster_nu[o]
+  anom$outside_cluster_by_more_than_100_m <- is.na(o)
+  anom$outside_cluster_by_more_than_100_m_number <- clusters_projected_buffered@data$cluster_nu[o]
+
+  anom <- anom %>% dplyr::select(
+    cluster,
+    instanceID,
+    SubmissionDate,
+    start_time,
+    todays_date,
+    wid, fa_id, cluster,
+    # Latitude, Longitude,
+    recon_hhid_map, hhid,
+    outside_cluster_by_more_than_100_m,
+    outside_cluster,
+    outside_cluster_number,
+    outside_cluster_by_more_than_100_m_number) %>%
+    mutate(cluster = as.character(cluster)) %>%
+    mutate(cluster_number_mismatch = outside_cluster_number != cluster)
+
+  anom_final <- anom %>%
+    filter(outside_cluster_by_more_than_100_m | outside_cluster | cluster_number_mismatch)
+
+  # 1 outside
+  outside <- anom_final %>%
+    dplyr::select(
+      cluster,
+      outside_cluster,
+      outside_cluster_number,
+      instanceID,
+      hhid) %>%
+    dplyr::filter(outside_cluster) %>%
     dplyr::mutate(
-      number_chv_supervise.x = tidyr::replace_na(number_chv_supervise.x, 0),
-      number_chv_supervise.y = tidyr::replace_na(number_chv_supervise.y, 0),
-      is_mismatch = ifelse(
-        number_chv_supervise.x != number_chv_supervise.y, TRUE, FALSE),
-      instances = glue::glue("{instances.x};{instances.y}")) %>%
-    dplyr::filter(is_mismatch) %>%
-    dplyr::mutate(type = 'recona_mismatch_cha_supervise_chv',
-                  anomaly_id = glue::glue("{type}_{instances}"),
-                  description = glue::glue(
-                    'CHA ID:{wid} reported {number_chv_supervise.x} of CHVs supervised.',
-                    ' However CHVs reported that {wid} is supervising {number_chv_supervise.y} CHVs')) %>%
-    dplyr::select(type, anomaly_id, description)
+      anomalies_id = 'hh_outside_cluster',
+      anomalies_description =
+        glue::glue(
+          'hhid:{hhid} is outside of original cluster:{cluster}')) %>%
+    dplyr::select(KEY = instanceID, anomalies_id, anomalies_description)
 
-  return(mismatch)
+  # 2. outside buffer 100 m
+  outside_buffer <- anom_final %>%
+    dplyr::select(
+      cluster,
+      outside_cluster_by_more_than_100_m,
+      outside_cluster_by_more_than_100_m_number,
+      instanceID,
+      hhid) %>%
+    dplyr::filter(outside_cluster_by_more_than_100_m) %>%
+    dplyr::mutate(
+      anomalies_id = 'hh_outside_cluster_more_than_100_m',
+      anomalies_description =
+        glue::glue(
+          'hhid:{hhid} is outside original cluster:{cluster} with 100m buffer')) %>%
+    dplyr::select(KEY = instanceID, anomalies_id, anomalies_description)
 
+  # 3 cluster mismatch
+  mismatch <- anom_final %>%
+    dplyr::select(
+      cluster,
+      cluster_number_mismatch,
+      outside_cluster_number,
+      outside_cluster_by_more_than_100_m_number,
+      instanceID,
+      hhid) %>%
+    dplyr::filter(cluster_number_mismatch) %>%
+    dplyr::mutate(
+      anomalies_id = 'hh_cluster_number_mismatch',
+      anomalies_description =
+        glue::glue(
+          'hhid:{hhid} is in outside of original cluster:{cluster} and located in inaccurate cluster:{outside_cluster_number}')) %>%
+    dplyr::select(KEY = instanceID,
+                  anomalies_id,
+                  anomalies_description)
+
+  final <- dplyr::bind_rows(outside,outside_buffer,mismatch) %>%
+    dplyr::mutate(form_id = form_id)
+  return(final)
 }

@@ -1,0 +1,187 @@
+---
+title: "Anomalies Reports"
+output:
+  html_document:
+    toc: true
+    theme: cerulean
+date: '`r Sys.time()`'
+---
+
+Notes:
+
+- Report is refreshed hourly 9-5pm EAT, once 12AM EAT (Please refer to timestamp above)
+- Please reach out to atediarjo@gmail.com for bug reports
+
+
+```{r, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  comment = '', 
+  echo = FALSE,
+  message = FALSE,
+  cache=FALSE,
+  warning=FALSE
+)
+```
+
+```{r, echo=FALSE, message=FALSE}
+library(reactable)
+library(data.table)
+library(dplyr)
+library(htmltools)
+library(glue)
+library(fontawesome)
+library(ggplot2)
+library(plotly)
+```
+
+```{r}
+# variables / creds
+env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
+Sys.setenv(R_CONFIG_ACTIVE=env_pipeline_stage)
+ROLE_NAME <- 'cloudbrewr-aws-role'
+
+# create connection to AWS
+tryCatch({
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = ROLE_NAME,
+    profile_name =  ROLE_NAME,
+    pipeline_stage = env_pipeline_stage)
+
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+```
+
+
+```{r}
+
+anomalies <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = 'bohemia_prod/fact_anomalies/fact_anomalies.csv'
+)
+
+```
+
+```{r}
+# read in historical table
+cloudbrewr::aws_s3_bulk_get(
+    bucket = 'bohemia-lake-db',
+    prefix = '/bohemia_prod/summary_anomalies_history',
+    output_dir = 'data/summary_anomalies_history'
+)
+
+tbl <- tibble(file_path = list.files(path = 'data',recursive = TRUE,full.names = TRUE)) %>% 
+    dplyr::mutate(comb = stringr::str_split(file_path, '/|=')) %>% 
+    dplyr::rowwise() %>% 
+    dplyr::mutate(snapshot_date = comb[5]) %>% 
+    dplyr::rowwise() %>%
+    dplyr::mutate(data = purrr::map(file_path, fread)) %>% 
+    dplyr::filter(!is.na(snapshot_date))
+
+
+anomalies_history <- tbl$data %>% purrr::reduce(dplyr::bind_rows)  %>% 
+    dplyr::mutate(snapshot_date = lubridate::date(snapshot_date))
+```
+
+
+```{r, echo = FALSE, message=FALSE}
+wrap_download <- function(reactable_obj, element_id, output_filename){
+  onclick_command <- glue::glue(
+    "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
+  htmltools::browsable(
+  tagList(
+    tags$button(
+      tagList(fontawesome::fa("download"), "Download as CSV"),
+      onclick = onclick_command),
+    reactable_obj
+  ))
+}
+```
+
+### Historical Anomalies
+```{r, fig.height = 5}
+anomalies_history_grp <- anomalies_history %>%
+    dplyr::group_by(snapshot_date) %>% 
+    dplyr::summarise(anomalies_count = sum(anomalies_count))
+
+p1 <- anomalies_history_grp %>% 
+  ggplot(aes(x = snapshot_date, y = anomalies_count)) +
+  geom_line(size = 1) +
+  theme_minimal() +
+  labs(x = '', y = '')
+
+p2 <- anomalies_history %>% 
+    ggplot(aes(x = snapshot_date, y = anomalies_count, fill = anomalies_id)) +
+    geom_col(width = 0.4) +
+    theme_minimal() + 
+    scale_fill_brewer(palette="Paired") +
+    labs(x = '', y = '')
+
+
+
+ggplotly(p1)
+ggplotly(p2)
+```
+
+
+### Anomalies by Group
+```{r}
+element_id <- 'anomalies_list_grouped'
+tbl <- reactable(
+  anomalies %>% 
+    dplyr::select(form_id, anomalies_id, KEY),
+  groupBy = c("form_id", "anomalies_id"),
+  columns = list(
+    form_id = colDef(
+      name = 'form_id',
+      filterable = TRUE
+    ),
+    anomalies_id = colDef(
+      name = 'anomalies_id',
+      filterable = TRUE
+    ),
+    `KEY` = colDef(
+      name = 'anomalies_count',
+      aggregate = "count")
+  ),
+  highlight = TRUE,
+  resizable = TRUE,
+  bordered = TRUE,
+  striped = TRUE,
+  wrap = TRUE,
+  elementId = element_id
+)
+
+wrap_download(tbl, 
+              element_id, 
+              'anomalies_list_grouped.csv')
+```
+
+
+### Anomalies List Raw
+```{r}
+element_id <- 'anomalies_list_raw'
+tbl <- reactable(
+  anomalies,
+  columns = list(
+    `KEY` = colDef(name = 'KEY', filterable = TRUE),
+    form_id = colDef(name = "form_id", filterable = TRUE),
+    anomalies_id = colDef(name = "anomalies_id", filterable = TRUE),
+    anomalies_description = colDef(name = "anomalies_description")
+  ),
+  highlight = TRUE,
+  resizable = TRUE,
+  bordered = TRUE,
+  striped = TRUE,
+  wrap = TRUE,
+  elementId = element_id
+)
+
+wrap_download(tbl, 
+              element_id, 
+              'anomalies_list_raw.csv')
+
+```
+
