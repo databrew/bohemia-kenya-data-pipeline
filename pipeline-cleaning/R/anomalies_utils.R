@@ -63,12 +63,14 @@ detect_outside_cluster_boundaries <- function(data,
     bucket = 'bohemia-spatial-assets',
     key = 'kwale/clusters.zip',
     output_dir = temp_folder)
-  clusters <- rgdal::readOGR(
-    glue::glue('{temp_folder}/clusters/'),
-    'clusters')
+
   unzip(
     cluster_obj$file_path,
     exdir = temp_folder)
+
+  clusters <- rgdal::readOGR(
+    glue::glue('{temp_folder}/clusters/'),
+    'clusters')
 
   coordinates(data) <- ~Longitude+Latitude
   proj4string(data) <- proj4string(clusters)
