@@ -143,13 +143,21 @@ batch_delete <- function(data,
     # joined with pivot table
     if(!is.na(repeat_name)){
       logger::log_info(glue::glue('Batch delete on {form_id}-{repeat_name}'))
-      # files to delete
+
+      # files to delete in repeats
       to_delete <- resolution %>%
-        dplyr::filter(Operation == 'DELETE') %>%
+        dplyr::filter(Operation == 'DELETE',
+                      !(RepeatName == "" | is.na(RepeatName))) %>%
         dplyr::select(form_id = Form,
                       repeat_name = RepeatName,
                       repeat_key = RepeatKey,
                       PARENT_KEY = instanceID)
+      # files to delete specifically from parent
+      to_delete_from_parent <- resolution %>%
+        dplyr::filter(Operation == 'DELETE',
+                      (RepeatName == "" | is.na(RepeatName))
+                      ) %>%
+        dplyr::select(PARENT_KEY = instanceID)
 
       # stage table
       staging <- data %>%
@@ -171,7 +179,7 @@ batch_delete <- function(data,
           repeat_key,
           repeat_name,
           everything()) %>%
-        dplyr::filter(!PARENT_KEY %in% unique(to_delete$PARENT_KEY))
+        dplyr::filter(!PARENT_KEY %in% unique(to_delete_from_parent$PARENT_KEY))
     }else{
       logger::log_info(glue::glue('Batch delete on {form_id}'))
       # files to delete

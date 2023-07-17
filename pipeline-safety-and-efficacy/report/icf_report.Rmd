@@ -1,0 +1,201 @@
+---
+title: "ICF Reports"
+description: |
+  Reporting used to track V0 demography data collection in Kwale
+output:
+  html_document:
+    toc: true
+    theme: cerulean
+date: '`r Sys.time()`'
+---
+
+Notes:
+
+- Report is refreshed hourly 9-5pm EAT, once 12AM EAT
+- Please reach out to atediarjo@gmail.com for bug reports
+
+Description:
+
+This report is used for ICF monitoring based on this [Reporting Document](https://docs.google.com/document/d/16w7fjTfRJZZRWa99PM49hrk1Sr6IRInSmQTqz4YwVVQ/edit)
+
+```{r, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  comment = '', 
+  echo = FALSE,
+  message = FALSE,
+  cache=FALSE,
+  warning=FALSE
+)
+```
+
+```{r, echo=FALSE, message=FALSE}
+library(reactable)
+library(data.table)
+library(dplyr)
+library(htmltools)
+library(glue)
+library(fontawesome)
+library(ggplot2)
+library(plotly)
+```
+
+```{r, echo = FALSE, message=FALSE}
+
+wrap_download <- function(reactable_obj, element_id, output_filename){
+  onclick_command <- glue::glue(
+    "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
+  htmltools::browsable(
+  tagList(
+    tags$button(
+      tagList(fontawesome::fa("download"), "Download as CSV"),
+      onclick = onclick_command),
+    reactable_obj
+  ))
+}
+```
+
+
+```{r}
+# variables / creds for ento
+env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
+bucket_source <- 'databrew.org'
+bucket_lake_db <- 'bohemia-lake-db'
+input_key <- list(
+  v0 = 'kwale/clean-form/v0demography/v0demography.csv',
+  v0_repeat = 'kwale/clean-form/v0demography/v0demography-repeat_individual.csv',
+  icf_resolution = 'kwale/clean-form/demography_icf_resolutions/demography_icf_resolutions.csv',
+  icf_verification = 'kwale/clean-form/demography_icf_verification/demography_icf_verification.csv',
+  goals = 'bohemia_prod/dim_kwale_cluster_goal/dim_kwale_cluster_goal.csv'
+)
+tryCatch({
+  logger::log_info('Attempt AWS login')
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = 'cloudbrewr-aws-role',
+    profile_name =  'cloudbrewr-aws-role',
+    pipeline_stage = env_pipeline_stage)
+
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+```
+
+
+```{r}
+v0demography <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$v0)
+
+v0demography_repeat <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$v0_repeat)
+
+icf_resolutions <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$icf_resolution)
+
+icf_verification <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$icf_verification)
+```
+
+
+```{r}
+
+icf_ver <- icf_verification %>%
+     dplyr::mutate(hhid = as.integer(hhid),
+                   icf_submission_date = SubmissionDate,
+                   hh_icf_status = as.character(hh_icf_stat)) %>%
+      dplyr::group_by(hhid) %>%
+      dplyr::filter(SubmissionDate == max(SubmissionDate, na.rm=T)) %>%
+      dplyr::ungroup() %>%
+      dplyr::select(hhid,
+                    archivist_id, 
+                    icf_submission_date = SubmissionDate, 
+                    hh_icf_status = hh_icf_stat) %>%
+      dplyr::mutate(source_id = 'demography_icf_verification')
+
+# icf_res <- icf_resolutions %>% 
+#     dplyr::mutate(hhid = as.integer(hhid),
+#                   archivist_id = NA_character_,
+#                   icf_submission_date = lubridate::as_datetime(SubmissionDate),
+#                   hh_icf_status = as.character(hh_icf_status)) %>% 
+#     dplyr::select(hhid, archivist_id, icf_submission_date, hh_icf_status) %>%
+#     dplyr::mutate(stage = 'resolution')
+
+# most_recent_icf_status <- combined %>% 
+#     dplyr::group_by(hhid) %>% 
+#     dplyr::filter(SubmissionDate == max(SubmissionDate)) %>% 
+#     dplyr::ungroup() %>% 
+#     dplyr::select(hhid, icf_submission_date = SubmissionDate, hh_icf_status)
+
+
+icf_base <- v0demography_repeat %>%
+    dplyr::mutate(participant_id = case_when(
+      person_signed_icf_yn == 'yes' ~ person_signed_icf,
+      TRUE ~ NA_character_)) %>%
+    dplyr::filter(person_signed_icf_yn == 'yes') %>%
+    dplyr::right_join(v0demography %>% 
+                          dplyr::select(KEY, 
+                                        hhid, 
+                                        cluster, 
+                                        fa_id, 
+                                        wid,
+                                        icf_completed, 
+                                        v0_submission_date = todays_date), 
+                      by = c('PARENT_KEY' = 'KEY') 
+                     ) %>% 
+    dplyr::select(participant_id,
+                  age,
+                  extid, 
+                  hhid, 
+                  cluster,
+                  wid,
+                  fa_id, 
+                  icf_completed,
+                  v0_submission_date) %>%
+    dplyr::mutate(icf_completed = ifelse(icf_completed == 1, 'yes', 'no')) %>% 
+    dplyr::left_join(icf_ver, by = 'hhid')
+
+```
+
+
+### ICF Table
+
+- This table can be used to cover requirement on ICF information at different stages
+- You can filter ICF based on different ICF Status Unresolved/Archived/Lost-Not Found/Resolved-Archived based on your use cases
+
+```{r}
+element_id <- 'all_icf_report'
+
+tbl <- reactable(
+  icf_base,
+  columns = list(
+    participant_id = colDef(name = "Participant ID"),
+    age = colDef(name = "Age"),
+    extid = colDef(name = "Ext ID"),
+    hhid = colDef(name = "HH ID"),
+    cluster = colDef(name = "Cluster"),
+    wid = colDef(name = "CL ID"),
+    fa_id = colDef(name = "FA ID"),
+    icf_completed = colDef(name = "ICF Completed"),
+    v0_submission_date  = colDef(name = "V0 Submission Date"),
+    archivist_id = colDef(name = "Archivist ID"),
+    icf_submission_date = colDef(name = "ICF Submission Date"),
+    hh_icf_status = colDef(name = "ICF Status (Verification & Resolutions)"),
+    source_id = colDef(name = "ICF Source")
+  ),
+  highlight = TRUE,
+  resizable = TRUE,
+  bordered = TRUE,
+  striped = TRUE,
+  filterable = TRUE,
+  wrap = TRUE,
+  elementId = element_id)
+
+wrap_download(tbl, 
+              element_id, 
+              'icf_table_all.csv')
+```
+
