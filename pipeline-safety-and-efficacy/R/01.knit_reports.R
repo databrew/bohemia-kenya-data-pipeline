@@ -4,6 +4,7 @@ library(logger)
 library(glue)
 library(lubridate)
 library(dplyr)
+library(tools)
 
 output_dir <-'report/html_report'
 unlink(output_dir, recursive = TRUE)
@@ -23,14 +24,21 @@ tryCatch({
   stop(e$message)
 })
 
-tryCatch({
-  logger::log_info('Knitting Ento reports')
-  output_file <- "html_report/v0_demography_report.html"
-  markdown_loc <- 'report/v0_demography_report.Rmd'
-  rmarkdown::render(
-    markdown_loc,
-    output_file = output_file)
-}, error = function(e){
-  logger::log_error(e$message)
-  stop()
+
+purrr::map(list.files('report', pattern = '*.Rmd'), function(rmd){
+
+  tryCatch({
+    logger::log_info(glue::glue("Knitting {rmd}"))
+    output_file <- glue::glue("html_report/{file_path_sans_ext(basename(rmd))}.html")
+    markdown_loc <- glue::glue("report/{rmd}")
+
+    rmarkdown::render(
+      markdown_loc,
+      output_file = output_file)
+
+  }, error = function(e){
+    logger::log_error(e$message)
+    stop()
+  })
+
 })

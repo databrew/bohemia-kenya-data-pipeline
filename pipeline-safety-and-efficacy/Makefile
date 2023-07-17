@@ -1,8 +1,8 @@
 reports:
-	Rscript R/knit_reports.R
-	Rscript R/store_reports.R
+	Rscript R/01.knit_reports.R
+	Rscript R/02.store_reports.R
 
 cleanup:
-	Rscript R/folder_cleanups.R
+	Rscript R/03.folder_cleanups.R
 
 pipeline: reports cleanup
