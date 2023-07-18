@@ -14,6 +14,10 @@ date: '`r Sys.time()`'
 - Please reach out to [Aryton Tediarjo](atediarjo@gmail.com) via Slack for bug found in this report
 - To resolve anomalies please refer to this [Google Sheets Resolution Sheet](https://docs.google.com/spreadsheets/d/1i98uVuSj3qETbrH7beC8BkFmKV80rcImGobBvUGuqbU/edit#gid=0)
 
+**Changelog**
+
+- 2023/07/17: change from less than 10 to less than 4 mins data collection time per this [thread](https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1689599637156259?thread_ts=1689579002.400869&cid=C042KSRLYUA)
+
 
 ```{r, echo=FALSE, message=FALSE}
 knitr::opts_chunk$set(
