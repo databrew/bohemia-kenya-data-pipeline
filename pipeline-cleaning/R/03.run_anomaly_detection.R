@@ -66,15 +66,15 @@ anomalies_list$v0_demo1 <- data %>%
   dplyr::select(KEY, form_id, anomalies_id, anomalies_description)
 
 
-# Household completed in less than 10 minutes
+# Household completed in less than 4 minutes
 anomalies_list$v0_demo2 <- data %>%
   dplyr::mutate(duration = end_time - start_time) %>%
   detect_threshold(
     col = 'duration',
     form_id = 'v0demography',
-    anomalies_id = 'hh_completed_in_less_than_10_mins',
-    anomalies_description = glue::glue('household completed in less than 10 mins (end_time - start_time)'),
-    threshold = 10,
+    anomalies_id = 'hh_completed_in_less_than_4_mins',
+    anomalies_description = glue::glue('household completed in less than 4 mins (end_time - start_time)'),
+    threshold = 4,
     direction = 'less')
 
 
