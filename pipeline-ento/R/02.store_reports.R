@@ -49,7 +49,7 @@ tryCatch({
       Paths = list(
         Quantity = 1,
         Items = list(
-          "/*"
+          "/ento/*"
         )
       ),
       CallerReference = format(lubridate::now(), "%Y%m%d%H%M%s")
@@ -60,5 +60,3 @@ tryCatch({
   logger::log_error(e$message)
   stop()
 })
-
-
