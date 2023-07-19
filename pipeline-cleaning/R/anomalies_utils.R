@@ -86,7 +86,7 @@ detect_outside_cluster_boundaries <- function(data,
   o_strict <- sp::over(data_projected, polygons(clusters_projected))
   anom <- data_projected@data
   anom$outside_cluster <- is.na(o_strict)
-  anom$outside_cluster_number <- clusters_projected@data$cluster_nu[o]
+  anom$outside_cluster_number <- clusters_projected@data$cluster_nu[o_strict]
   anom$outside_cluster_by_more_than_100_m <- is.na(o)
   anom$outside_cluster_by_more_than_100_m_number <- clusters_projected_buffered@data$cluster_nu[o]
 
