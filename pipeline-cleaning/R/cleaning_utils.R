@@ -16,18 +16,19 @@ clean_pii_columns <- function(data){
 #' @description data type conversions
 #' @param series data series to convert
 convert_datatype <- function(series){
-  if(class(series) == 'integer') {
-    change_data_type_funs = as.integer
-  }else if (class(series) == 'character'){
-    change_data_type_funs = as.character
-  }else if (class(series) == 'logical'){
-    change_data_type_funs = as.logical
-  }else if (class(series) == 'numeric'){
+  if(inherits(series,  'numeric')) {
     change_data_type_funs = as.numeric
-  }else if (class(series) == 'complex'){
-    change_data_type_funs = as.complex
-  }else {
-    change_data_type_funs = as.raw
+  } else if (inherits(series, 'integer')) {
+    change_data_type_funs = as.integer
+  } else if (inherits(series, 'character')){
+    change_data_type_funs = as.character
+  } else if (inherits(series, "Date")) {
+    change_data_type_funs = lubridate::date
+  } else if (inherits(series, "logical")) {
+    change_data_type_funs = as.logical
+  }else{
+    logger::log_error('Data type unrecognizable')
+    stop()
   }
   return(change_data_type_funs)
 }
@@ -102,6 +103,7 @@ batch_set <- function(data, form_id, repeat_name, resolution){
 
       # loop through all changes for target columns
       purrr::map(target_cols, function(col){
+        logger::log_info(glue::glue('Batch set loop on {form_id} col:{col}'))
         left <- as.character(glue::glue('{col}.x'))
         right <- as.character(glue::glue('{col}.y'))
 
