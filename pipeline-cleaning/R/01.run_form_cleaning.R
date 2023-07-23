@@ -160,9 +160,10 @@ purrr::map(config::get('odk_projects'), function(project_name){
     stop(e$message)
   })
 
-  # stop timer
-  toc()
 })
+
+# stop timer
+toc()
 
 
 
