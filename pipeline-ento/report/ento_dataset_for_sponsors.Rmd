@@ -1,5 +1,6 @@
 ---
 title: "Ento Dataset for Sponsors"
+author: Samuel Boafo
 description: |
   Reporting used to track V0 demography data collection in Kwale
 date: "`r Sys.time()`"
@@ -14,11 +15,11 @@ output:
 Notes:
 
 - Report is refreshed hourly 9-5pm EAT, once 12AM EAT
-- Please reach out to atediarjo@gmail.com for bug reports
+- Please reach out to Bohemia-Kenya #data-ops for bug reports
 
 Description:
 
-This report is used for sponsor to fetch ento datasets via [reports](https://docs.google.com/spreadsheets/d/13kc2jV8kcqJCIHdUo75NtDMY_QfV_0E0vgT-QvQRRtc/edit#gid=0)
+This report is used for sponsor to fetch Ento Datasets via [reports](https://docs.google.com/spreadsheets/d/13kc2jV8kcqJCIHdUo75NtDMY_QfV_0E0vgT-QvQRRtc/edit#gid=0)
 
 ```{r, echo=FALSE, message=FALSE}
 knitr::opts_chunk$set(
@@ -96,47 +97,47 @@ tryCatch({
 ```{r}
 v0demography <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$v0)
+  key = input_key$v0) %>% mutate(across(matches("date"), lubridate::date))
 
 entostoragebox<- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entostoragebox)
+  key = input_key$entostoragebox) %>%  mutate(across(matches("date"), lubridate::date))
 
 entoltfield <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entoltfield)
+  key = input_key$entoltfield) %>%  mutate(across(matches("date"), lubridate::date))
 
 entoltparitywing <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entoltparitywing)
+  key = input_key$entoltparitywing) %>% mutate(across(matches("date"), lubridate::date))
 
 entorcmorphid <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entorcmorphid)
+  key = input_key$entorcmorphid) %>%  mutate(across(matches("date"), lubridate::date))
 
 entoltmorphid <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entoltmorphid)
+  key = input_key$entoltmorphid) %>%  mutate(across(matches("date"), lubridate::date))
 
 
 entorcfield <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entorcfield)
+  key = input_key$entorcfield) %>%  mutate(across(matches("date"), lubridate::date))
 
 
 entorcoviposition <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entorcoviposition)
+  key = input_key$entorcoviposition) %>%  mutate(across(matches("date"), lubridate::date))
 
 
 entohhfirstvisitke <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entohhfirstvisitke)
+  key = input_key$entohhfirstvisitke) %>%  mutate(across(matches("date"), lubridate::date))
 
 
 entolefirstvisitke <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entolefirstvisitke)
+  key = input_key$entolefirstvisitke) %>%  mutate(across(matches("date"), lubridate::date))
 
 ```
 
@@ -220,7 +221,11 @@ entoltmorpid_tubes <- lt_morph_df  %>%
 
 
 light_trap_df <- entoltmorpid_tubes %>%
-  left_join(entoltfield %>% dplyr::select(todays_date,site,instance_label,trap_success), by = c("instance_label","date"="todays_date"))%>%
+  dplyr::mutate(date = lubridate::date(date)) %>%
+  left_join(entoltfield %>% 
+              dplyr::select(todays_date,site,instance_label,trap_success) %>%
+              dplyr::mutate(todays_date = lubridate::date(todays_date)), 
+            by = c("instance_label","date"="todays_date")) %>%
   left_join(entoltparitywing %>% select(tube_id_select, wing_length, parity_status), by = c("Sample tube ID"= "tube_id_select"))%>%
   mutate(Cluster = NA,
          Arm = NA,
@@ -299,7 +304,8 @@ df <- entoltmorphid %>%
                                           `No of animals in LE`=num_animals,
                                           `LE cover` = wall,
                                           `LE fence`=fence,
-                                          `LE screened` = screened)%>%mutate(`Animal species kept in LE` = stringr::str_c(animals,animals_other, sep=",")), by = c("site_id"="instance_label"))%>%
+                                          `LE screened` = screened)%>%mutate(`Animal species kept in LE` = stringr::str_c(animals,animals_other, sep=",")), 
+            by = c("site_id"="instance_label"))%>%
   left_join(entoltfield %>% select(instance_label,todays_date,trap_success), by = c("todays_date", "site_id"="instance_label"))%>%
   select(-c(todays_date,wall_specify,roof_specify))%>%
   select(`collection site`,
@@ -593,4 +599,3 @@ rest_tube <- entorcoviposition %>%
 wrap_download(reactable(rest_tube, filterable = TRUE, elementId = "o_n_s"), element_id = "o_n_s" ,output_filename = "resting_collection_tubes.csv")
 
 ```
-
