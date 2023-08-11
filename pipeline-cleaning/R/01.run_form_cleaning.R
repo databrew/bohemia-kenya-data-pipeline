@@ -8,7 +8,7 @@ library(logger)
 library(config)
 library(tictoc)
 library(data.table)
-source('R/cleaning_utils.R')
+source('R/proc_utils.R')
 
 # start timer
 tic()
@@ -111,6 +111,8 @@ purrr::map(config::get('odk_projects'), function(project_name){
 
   # Final mapping table for raw to clean
   dir.create('projects/clean-form')
+  # instantiate geo objects to /tmp files
+  init_geo_objects()
   tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
                                        function(file_path = ..1,
                                                 clean_file_path = ..2,
@@ -119,6 +121,8 @@ purrr::map(config::get('odk_projects'), function(project_name){
                                                 raw = ..5,
                                                 resolution = ..6){
 
+
+                                         # google sheets resolution
                                          if(nrow(resolution) > 0){
                                            clean <- google_sheets_fix(
                                              data = raw,
@@ -128,6 +132,14 @@ purrr::map(config::get('odk_projects'), function(project_name){
                                          }else{
                                            clean <- raw
                                          }
+
+                                         # form cluster reassignment
+                                         clean <-
+                                           add_cluster_geo_num(
+                                             data = clean,
+                                             form_id = form_id,
+                                             repeat_name = repeat_name
+                                           )
 
                                          data <- tibble(
                                            file_path = file_path,
