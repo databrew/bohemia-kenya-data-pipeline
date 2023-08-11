@@ -8,7 +8,9 @@ library(logger)
 library(config)
 library(tictoc)
 library(data.table)
-source('R/proc_utils.R')
+library(sf)
+library(sp)
+source('R/processing_utils.R')
 
 # start timer
 tic()
@@ -108,9 +110,6 @@ purrr::map(config::get('odk_projects'), function(project_name){
                   raw,
                   resolution)
 
-
-  # Final mapping table for raw to clean
-  dir.create('projects/clean-form')
   # instantiate geo objects to /tmp files
   init_geo_objects()
   tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,

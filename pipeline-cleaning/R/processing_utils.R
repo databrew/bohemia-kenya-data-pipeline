@@ -8,7 +8,7 @@ clean_column_names <- function(data){
 #' @description  clean pii column
 #' @param data data to sanitize
 clean_pii_columns <- function(data){
-  pii_columns <- c('firstname', 'lastname')
+  pii_columns <- c('firstname', 'lastname', 'person_signed_icf')
   data %>% dplyr::select(-any_of(pii_columns))
 }
 
@@ -42,7 +42,7 @@ convert_datatype <- function(series){
 batch_set <- function(data, form_id, repeat_name, resolution){
   tryCatch({
     # get resolution file, if there is duplicate SETs take most recent one
-    resolution <- resolution_file %>%
+    resolution <- resolution %>%
       dplyr::filter(Operation == 'SET') %>%
       group_by(instanceID,
                Column,
@@ -158,7 +158,7 @@ batch_delete <- function(data,
       to_delete_from_parent <- resolution %>%
         dplyr::filter(Operation == 'DELETE',
                       (RepeatName == "" | is.na(RepeatName))
-                      ) %>%
+        ) %>%
         dplyr::select(PARENT_KEY = instanceID)
 
       # stage table
@@ -232,7 +232,6 @@ google_sheets_fix <- function(data,
     return(data)
   }
 }
-
 
 #' @description Add cluster geo num
 #' If longitude or latitude exists, add cluster geo num accross forms
