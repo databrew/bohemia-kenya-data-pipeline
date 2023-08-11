@@ -158,7 +158,7 @@ batch_delete <- function(data,
       to_delete_from_parent <- resolution %>%
         dplyr::filter(Operation == 'DELETE',
                       (RepeatName == "" | is.na(RepeatName))
-                      ) %>%
+        ) %>%
         dplyr::select(PARENT_KEY = instanceID)
 
       # stage table
@@ -231,4 +231,122 @@ google_sheets_fix <- function(data,
   }else{
     return(data)
   }
+}
+
+#' @description Add cluster geo num
+#' If longitude or latitude exists, add cluster geo num accross forms
+#' THIS USES NEW CLUSTER LISTED HERE IN BK: https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1690895077884209
+add_cluster_geo_num <- function(data, form_id, repeat_name){
+
+  logger::log_info(glue::glue('Reassigning cluster / core number to {form_id}-{repeat_name}'))
+  target_cols <- c('instanceID', 'Longitude', 'Latitude')
+
+
+  # first pass, check if instance id and target cols exist and have numeric datatypes
+  if(names(data) %in% target_cols %>% sum() == length(target_cols)){
+    data_proj <- data %>%
+      dplyr::select(instanceID, Longitude, Latitude) %>%
+      dplyr::filter(inherits(Latitude, 'numeric'),
+                    inherits(Longitude, "numeric")) %>%
+      dplyr::filter(!is.na(Longitude)) %>%
+      dplyr::distinct()
+  }else{
+    logger::log_success(glue::glue('Skip Reassigning cluster / core number to {form_id}-{repeat_name}'))
+    return(data)
+  }
+
+  # process data if it has more than 0 rows
+  if(nrow(data_proj) > 0){
+    tryCatch({
+      p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+      crs <- CRS(p4s)
+      llcrs <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+      clusters <- rgdal::readOGR('/tmp/new_clusters/', 'new_clusters')
+      cores <- rgdal::readOGR('/tmp/new_cores/', 'new_cores')
+      buffers <- rgdal::readOGR('/tmp/buffers/', 'buffers')
+
+      # clusters projection
+      clusters_projected <- spTransform(
+        clusters,
+        crs)
+      cores_projected <- spTransform(
+        cores,
+        crs)
+      clusters_projected_buffered <- rgeos::gBuffer(
+        spgeom = clusters_projected,
+        byid = TRUE,
+        width = 20)
+
+      # data projection
+      coordinates(data_proj) <- ~Longitude+Latitude
+      proj4string(data_proj) <- llcrs
+      data_proj <- spTransform(data_proj, crs)
+      cluster_o <- sp::over(data_proj, polygons(clusters_projected_buffered))
+      core_o <- sp::over(data_proj, polygons(cores_projected))
+
+      data_proj@data$geo_not_in_cluster <- is.na(cluster_o)
+      data_proj@data$geo_cluster_num <- clusters_projected_buffered@data$cluster_nu[cluster_o]
+
+      data_proj@data$geo_not_in_core <- is.na(core_o)
+      data_proj@data$geo_core_num <- cores_projected@data$cluster_nu[core_o]
+
+      data_final <- inner_join(data,
+                 data_proj@data %>%
+                   dplyr::select(instanceID,
+                                 geo_not_in_cluster,
+                                 geo_cluster_num,
+                                 geo_not_in_core,
+                                 geo_core_num))
+
+      logger::log_success(glue::glue('Success Reassigning cluster / core number to {form_id}-{repeat_name}'))
+      return(data_final)
+
+    }, error = function(e){
+      logger::log_error(glue::glue('{form_id}-{repeat_name} is throwing error:{e$message}'))
+    })
+
+  }else{
+    logger::log_success(glue::glue('Skip Reassigning cluster / core number to {form_id}-{repeat_name}'))
+    return(data)
+  }
+}
+
+
+
+init_geo_objects <- function(){
+  temp_folder <- '/tmp'
+
+  bucket_spatial <- 'bohemia-spatial-assets'
+
+  # input key
+  input_key <- list(
+    cluster = 'kwale/new_clusters.zip',
+    core = 'kwale/new_cores.zip',
+    buffer = 'kwale/buffers.zip'
+  )
+
+  # cluster object
+  cluster_obj <- cloudbrewr::aws_s3_get_object(
+    bucket = bucket_spatial,
+    key = input_key$cluster,
+    output_dir = temp_folder
+  )
+
+  # core object
+  core_obj <- cloudbrewr::aws_s3_get_object(
+    bucket = bucket_spatial,
+    key = input_key$core,
+    output_dir = temp_folder
+  )
+
+  # buffer object
+  buffer_obj <- cloudbrewr::aws_s3_get_object(
+    bucket = bucket_spatial,
+    key = input_key$buffer,
+    output_dir = temp_folder
+  )
+
+  unzip(cluster_obj$file_path, exdir = temp_folder)
+  unzip(core_obj$file_path, exdir = temp_folder)
+  unzip(buffer_obj$file_path, exdir = temp_folder)
 }
