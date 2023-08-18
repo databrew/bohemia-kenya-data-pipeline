@@ -236,8 +236,10 @@ google_sheets_fix <- function(data,
 #' @description Add cluster geo num
 #' If longitude or latitude exists, add cluster geo num accross forms
 #' THIS USES NEW CLUSTER LISTED HERE IN BK: https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1690895077884209
-add_cluster_geo_num <- function(data, form_id, repeat_name){
-
+add_cluster_geo_num <- function(data,
+                                form_id,
+                                repeat_name,
+                                buffer_size = 50){
   logger::log_info(glue::glue('Reassigning cluster / core number to {form_id}-{repeat_name}'))
   target_cols <- c('instanceID', 'Longitude', 'Latitude')
 
@@ -275,7 +277,7 @@ add_cluster_geo_num <- function(data, form_id, repeat_name){
       clusters_projected_buffered <- rgeos::gBuffer(
         spgeom = clusters_projected,
         byid = TRUE,
-        width = 20)
+        width = buffer_size)
 
       # data projection
       coordinates(data_proj) <- ~Longitude+Latitude
