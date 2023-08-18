@@ -1,6 +1,5 @@
 ---
 title: "Ento Dataset for Sponsors"
-author: Samuel Boafo
 description: |
   Reporting used to track V0 demography data collection in Kwale
 date: "`r Sys.time()`"
@@ -15,11 +14,11 @@ output:
 Notes:
 
 - Report is refreshed hourly 9-5pm EAT, once 12AM EAT
-- Please reach out to Bohemia-Kenya #data-ops for bug reports
+- Please reach out to atediarjo@gmail.com for bug reports
 
 Description:
 
-This report is used for sponsor to fetch Ento Datasets via [reports](https://docs.google.com/spreadsheets/d/13kc2jV8kcqJCIHdUo75NtDMY_QfV_0E0vgT-QvQRRtc/edit#gid=0)
+This report is used for sponsor to fetch ento datasets via [reports](https://docs.google.com/spreadsheets/d/13kc2jV8kcqJCIHdUo75NtDMY_QfV_0E0vgT-QvQRRtc/edit#gid=0)
 
 ```{r, echo=FALSE, message=FALSE}
 knitr::opts_chunk$set(
@@ -98,43 +97,43 @@ tryCatch({
 
 entostoragebox<- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entostoragebox) %>%  mutate(across(matches("date"), lubridate::date))
+  key = input_key$entostoragebox)
 
 entoltfield <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entoltfield) %>%  mutate(across(matches("date"), lubridate::date))
+  key = input_key$entoltfield)
 
 entoltparitywing <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entoltparitywing) %>% mutate(across(matches("date"), lubridate::date))
+  key = input_key$entoltparitywing)
 
 entorcmorphid <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entorcmorphid) %>%  mutate(across(matches("date"), lubridate::date))
+  key = input_key$entorcmorphid)
 
 entoltmorphid <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entoltmorphid) %>%  mutate(across(matches("date"), lubridate::date))
+  key = input_key$entoltmorphid)
 
 
 entorcfield <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entorcfield) %>%  mutate(across(matches("date"), lubridate::date))
+  key = input_key$entorcfield)
 
 
 entorcoviposition <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entorcoviposition) %>%  mutate(across(matches("date"), lubridate::date))
+  key = input_key$entorcoviposition)
 
 
 entohhfirstvisitke <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entohhfirstvisitke) %>%  mutate(across(matches("date"), lubridate::date))
+  key = input_key$entohhfirstvisitke)
 
 
 entolefirstvisitke <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entolefirstvisitke) %>%  mutate(across(matches("date"), lubridate::date))
+  key = input_key$entolefirstvisitke)
 
 ```
 
@@ -218,11 +217,7 @@ entoltmorpid_tubes <- lt_morph_df  %>%
 
 
 light_trap_df <- entoltmorpid_tubes %>%
-  dplyr::mutate(date = lubridate::date(date)) %>%
-  left_join(entoltfield %>% 
-              dplyr::select(todays_date,site,instance_label,trap_success) %>%
-              dplyr::mutate(todays_date = lubridate::date(todays_date)), 
-            by = c("instance_label","date"="todays_date")) %>%
+  left_join(entoltfield %>% dplyr::select(todays_date,site,instance_label,trap_success), by = c("instance_label","date"="todays_date"))%>%
   left_join(entoltparitywing %>% select(tube_id_select, wing_length, parity_status), by = c("Sample tube ID"= "tube_id_select"))%>%
   mutate(Cluster = NA,
          Arm = NA,
@@ -242,7 +237,10 @@ light_trap_df <- entoltmorpid_tubes %>%
          `Wing length` = wing_length,
          `Parity Status` = parity_status,
          `Storage Box ID`,
-         `Box position`)
+         `Box position`)%>%
+  mutate(`HHID / LEID` = case_when(
+           nchar(`HHID / LEID`) == 4 ~ glue::glue('0{`HHID / LEID`}'),
+           TRUE                      ~ `HHID / LEID`))
 
   
 light_trap_df <- light_trap_df[!duplicated(light_trap_df),] 
@@ -297,8 +295,10 @@ df <- entoltmorphid %>%
                      width,
                      length)%>%
               mutate(instance_label = as.character(instance_label),
-                     wall = stringr::str_c(wall,wall_specify, sep = ","),
-                     roof = stringr::str_c(roof,roof_specify, sep =","),
+                     wall = ifelse(is.na(wall_specify),wall,
+                                   ifelse(is.na(wall), wall_specify,glue::glue('{wall},{wall_specify}',.na=''))),
+                     roof = ifelse(is.na(roof_specify),roof,
+                                   ifelse(is.na(roof), roof_specify,glue::glue('{roof},{roof_specify}',.na=''))),
                      instance_label = case_when(
                        nchar(instance_label) == 4 ~ glue::glue('0{instance_label}'),
                        TRUE                ~ instance_label)), by = c("site_id"="instance_label"))%>%
@@ -378,11 +378,14 @@ parity_n_dissection <- entoltparitywing %>%
          Cluster,
          Arm,
          `Wing Length` = wing_length,
-         `Parity Status` = parity_status)
+         `Parity Status` = parity_status)%>%
+  mutate(`HHID / LEID` = case_when(
+           nchar(`HHID / LEID`) == 4 ~ glue::glue('0{`HHID / LEID`}'),
+           TRUE                      ~ `HHID / LEID`))
 
 p_n_d <- parity_n_dissection[!duplicated(parity_n_dissection),]
 
-wrap_download(reactable(parity_n_dissection, filterable = TRUE,elementId = "p_n_d"), element_id = "p_n_d" ,output_filename = "parity_n_dissection.csv")
+wrap_download(reactable(p_n_d, filterable = TRUE,elementId = "p_n_d"), element_id = "p_n_d" ,output_filename = "parity_n_dissection.csv")
 
 ```
 
@@ -531,8 +534,10 @@ df <- entorcmorphid %>%
                      width,
                      length)%>%
               mutate(instance_label = as.character(instance_label),
-                     wall = stringr::str_c(wall,wall_specify, sep = ","),
-                     roof = stringr::str_c(roof,roof_specify, sep =","),
+                     wall = ifelse(is.na(wall_specify),wall,
+                                   ifelse(is.na(wall), wall_specify,glue::glue('{wall},{wall_specify}',.na=''))),
+                     roof = ifelse(is.na(roof_specify),roof,
+                                   ifelse(is.na(roof), roof_specify,glue::glue('{roof},{roof_specify}',.na=''))),
                      instance_label = case_when(
                        nchar(instance_label) == 4 ~ glue::glue('0{instance_label}'),
                        TRUE                ~ instance_label)), by = c("site_id"="instance_label"))%>%
@@ -647,3 +652,4 @@ rest_tube <- rest_tube[!duplicated(rest_tube),]
 wrap_download(reactable(rest_tube, filterable = TRUE, elementId = "o_n_s"), element_id = "o_n_s" ,output_filename = "resting_collection_tubes.csv")
 
 ```
+
