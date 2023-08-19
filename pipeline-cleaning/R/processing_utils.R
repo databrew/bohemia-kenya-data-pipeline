@@ -274,23 +274,31 @@ add_cluster_geo_num <- function(data,
       cores_projected <- spTransform(
         cores,
         crs)
+
+      # cores & cluster projection buffered
       clusters_projected_buffered <- rgeos::gBuffer(
         spgeom = clusters_projected,
         byid = TRUE,
         width = buffer_size)
+
+      cores_projected_buffered <- rgeos::gBuffer(
+        spgeom = cores_projected,
+        byid = TRUE,
+        width = buffer_size)
+
 
       # data projection
       coordinates(data_proj) <- ~Longitude+Latitude
       proj4string(data_proj) <- llcrs
       data_proj <- spTransform(data_proj, crs)
       cluster_o <- sp::over(data_proj, polygons(clusters_projected_buffered))
-      core_o <- sp::over(data_proj, polygons(cores_projected))
+      core_o <- sp::over(data_proj, polygons(cores_projected_buffered))
 
       data_proj@data$geo_not_in_cluster <- is.na(cluster_o)
       data_proj@data$geo_cluster_num <- clusters_projected_buffered@data$cluster_nu[cluster_o]
 
       data_proj@data$geo_not_in_core <- is.na(core_o)
-      data_proj@data$geo_core_num <- cores_projected@data$cluster_nu[core_o]
+      data_proj@data$geo_core_num <- cores_projected_buffered@data$cluster_nu[core_o]
 
       data_final <- inner_join(data,
                  data_proj@data %>%
