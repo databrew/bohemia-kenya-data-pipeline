@@ -300,13 +300,14 @@ add_cluster_geo_num <- function(data,
       data_proj@data$geo_not_in_core <- is.na(core_o)
       data_proj@data$geo_core_num <- cores_projected_buffered@data$cluster_nu[core_o]
 
-      data_final <- inner_join(data,
+      data_final <- left_join(data,
                  data_proj@data %>%
                    dplyr::select(instanceID,
                                  geo_not_in_cluster,
                                  geo_cluster_num,
                                  geo_not_in_core,
-                                 geo_core_num))
+                                 geo_core_num),
+                 by = 'instanceID')
 
       logger::log_success(glue::glue('Success Reassigning cluster / core number to {form_id}-{repeat_name}'))
       return(data_final)
