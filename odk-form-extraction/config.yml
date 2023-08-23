@@ -7,6 +7,7 @@ default:
     - 'Kwale Ento Testing'
     - 'kwale_testing'
     - 'test_of_test'
+    - 'health_economics_testing'
 develop:
   secret_name: 'test/odk-credentials'
 production:
