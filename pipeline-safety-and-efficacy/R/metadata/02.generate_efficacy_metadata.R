@@ -4,11 +4,22 @@
 # Owner: joe.brew@gmail.com, atediarjo@gmail.com
 #
 # Logic used:
-# -
 #
+# 1. Roster Building:
+# - Safety Arrivals: Get starting roster from safetynew forms
+# - Safety Departures: Retrieve from Safety where person left household, migrated, out-migrated
+# - Safety Deaths: From Safety where person absent reason = 'Died'
+# - Efficacy Departures: From Efficacy where person absent reason != 'Absent'
+# - Efficacy Deaths : From Efficacy where person absent reason = 'Died'
+# - Remove all user that has migrated or died
 #
-#
-#
+# 3. Individual Metadata:
+# - Use initial roster
+# - Collect information whether user is ever pregnant, ever eos
+# - Check user starting heights, starting weights
+# - Check user PK Status
+# - Efficacy Pre-selection
+# - Join each starting statuses into roster (LEFT JOIN)
 #########################################################
 
 
