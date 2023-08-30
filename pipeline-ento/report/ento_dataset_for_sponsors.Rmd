@@ -506,14 +506,20 @@ df <- entorcmorphid %>%
          fed_funestus = num_bloodfed_funestus,
          gravid_funestus = num_gravid_funestus,
          female_other_anopheles = num_females_other_species,
-         male_other_anopheles = num_males_other_species_total)%>%
+         male_other_anopheles = num_males_other_species_total,
+         num_male_gambiae,
+         num_male_funestus)%>%
   mutate(total_other_anopheles = rowSums(.[,c("female_other_anopheles","male_other_anopheles")], na.rm = T),
          cluster = NA,
          arm = NA,
          site_id = as.character(site_id),
          site_id = case_when(
            nchar(site_id) == 4 ~ glue::glue('0{site_id}'),
-           TRUE                ~ site_id))%>%
+           TRUE                ~ site_id),
+         total_anophelese_gambiae = rowSums(.[,c("unfed_gambiae","fed_gambiae","gravid_gambiae")],na.rm = T),
+         total_anophelese_gambiae_female = ifelse(as.numeric(num_male_gambiae) > total_anophelese_gambiae,0,(as.numeric(total_anophelese_gambiae) - as.numeric(num_male_gambiae))),
+         total_anophelese_funestus = rowSums(.[,c("unfed_funestus","fed_funestus","gravid_funestus")],na.rm = T),
+         total_funestus_fem = ifelse(as.numeric(num_male_funestus) > total_anophelese_funestus,0,(as.numeric(total_anophelese_funestus) - as.numeric(num_male_funestus))))%>%
   left_join(entohhfirstvisitke %>%
               select(instance_label,
                      `Children under 5` = num_children_under_5,
@@ -572,9 +578,11 @@ df <- entorcmorphid %>%
          unfed_gambiae,
          fed_gambiae,
          gravid_gambiae,
+         total_anophelese_gambiae_female,
          unfed_funestus,
          fed_funestus,
          gravid_funestus,
+         total_anopheles_funestus_female = total_funestus_fem,
          female_other_anopheles,
          male_other_anopheles,
          total_other_anopheles)
