@@ -697,26 +697,22 @@ individuals <- left_join(individuals, starting_heights)
 pk_preselected_ids <- c("01000-01", "56123-01")
 individuals$pk_preselected <- ifelse(individuals$extid %in% pk_preselected_ids, 1, 0)
 pk_ids <- sort(unique(individuals$extid[individuals$pk_preselected == 1]))
-
-
-
-
 right <- bind_rows(
   safety_repeat_individual %>%
     filter(!is.na(pk_status)) %>%
     left_join(safety %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
     dplyr::select(todays_date, extid, pk_status) %>% mutate(form = 'safety', todays_date = as.Date(todays_date)),
-  # pkday0 %>%
-  #   filter(!is.na(pk_status)) %>%
-  #   dplyr::select(todays_date, extid, pk_status) %>%
-  #   mutate(form = 'pkday0',
-  #   todays_date = as.Date(todays_date)),
-  # pkdays123 %>%
-  #   filter(!is.na(pk_status)) %>%
-  #   dplyr::select(todays_date, extid, pk_status) %>% mutate(form = 'pkdays123', todays_date = as.Date(todays_date)),
-  # pkfollowup %>%
-  #   filter(!is.na(pk_status)) %>%
-  #   dplyr::select(todays_date, extid, pk_status) %>% mutate(form = 'pkfollowup', todays_date = as.Date(todays_date)),
+  pkday0 %>%
+    filter(!is.na(pk_status)) %>%
+    dplyr::select(todays_date, extid, pk_status) %>%
+    mutate(form = 'pkday0',
+                    todays_date = as.Date(todays_date)),
+  pkdays123 %>%
+    filter(!is.na(pk_status)) %>%
+    dplyr::select(todays_date, extid, pk_status) %>% mutate(form = 'pkdays123', todays_date = as.Date(todays_date)),
+  pkfollowup %>%
+    filter(!is.na(pk_status)) %>%
+    dplyr::select(todays_date, extid, pk_status) %>% mutate(form = 'pkfollowup', todays_date = as.Date(todays_date)),
 ) %>%
   filter(!is.na(pk_status), !is.na(extid)) %>%
   arrange(desc(todays_date)) %>%
