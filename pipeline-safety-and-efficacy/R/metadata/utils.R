@@ -60,3 +60,9 @@ test_df <-  function(df){
 
   return(test)
 }
+
+
+clean_column_names <- function(data){
+  names(data) <- unlist(lapply(strsplit(names(data), '-'), function(a){a[length(a)]}))
+  return(data)
+}

@@ -40,11 +40,11 @@ try_read_to_s3 <- function(bucket, key) {
   tryCatch({
     logger::log_info(glue::glue('Trying to fetch {key} from S3'))
     data <- cloudbrewr::aws_s3_get_table(bucket = bucket, key = key)
-    logger::log_info('Successful')
+    logger::log_info(glue::glue('Successful fetch {key} from S3'))
     return(data)
   }, error = function(e){
     logger::log_error(e$message)
-    logger::log_info('Returning NULLs')
+    logger::log_info('Returning NULLs instead')
     return(NULL)
   })
 }

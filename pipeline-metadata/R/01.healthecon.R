@@ -1,4 +1,21 @@
-# Metadata generation for healtheconomics
+###########################################################################################################################
+#' Metadata generation for healtheconomics
+#' Description: This script is used for metadata generation for healtheconomics and will store it to bohemia-lake-db
+#' Author: joe.brew@gmail.com, atediarjo@gmail.com
+#'
+#' Data Sources: Go to Data Sources Section
+#' Logic / Business Definition:
+#' - v0_roster: V0Demography and Repeats
+#' - hecon_new_roster: Data taken from healtheconnew
+#' - household_eos: If Household is set to EOS then it is EOS entirely to the individual level
+#' - individual_eos: Apply to individual if they are EOS, NOT THE WHOLE HOUSEHOLD
+#' - v1_safety_status: ONLY V1 safety status
+#' - hecon_departures: Filter on individual that is NON-ABSENT and remove any user that is migrated or dead
+#' - hecon_baseline_in_out: Get in/out/eos for each household
+#' - hecon_visits_done: Combine baseline and monthly check in to append V1 to V4 visits
+###########################################################################################################################
+
+
 library(logger)
 library(purrr)
 library(dplyr)
@@ -13,22 +30,29 @@ source('R/data_utils.R')
 ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
 FORMS_BUCKET_NAME <- 'databrew.org'
 DLAKE_BUCKET_NAME <- 'bohemia-lake-db'
+RUN_DATE <- as.character(lubridate::date(lubridate::now()))
+TARGET_S3_FOLDER <- 'metadata'
 
 # ODK Project Target based on different pipeline stages
 if(ENV_PIPELINE_STAGE != 'production'){
+  V0_FOLDER_TARGET <- 'kwale'
   HECON_FOLDER_TARGET <- 'health_economics_testing'
-  KWALE_FOLDER_TARGET <- 'test_of_test'
-  REAL_PRESELECTIONS <- TRUE
+  SAFETY_FOLDER_TARGET <- 'test_of_test'
+
 }else{
-  HECON_FOLDER_TARGET <- 'kwale'
-  KWALE_FOLDER_TARGET <- 'kwale'
-  REAL_PRESELECTIONS <- TRUE
+  HECON_FOLDER_TARGET <- V0_FOLDER_TARGET <- SAFETY_FOLDER_TARGET <- 'kwale'
+
 }
 
-# Input Key
+
+################################
+# DATA SOURCES
+################################
+
+# FORM DATA SOURCES
 FORM_INPUT_KEY <- list(
-  v0demography = glue::glue('kwale/clean-form/v0demography/v0demography.csv'),
-  v0demography_repeat_individual = glue::glue('kwale/clean-form/v0demography/v0demography-repeat_individual.csv'),
+  v0demography = glue::glue('{V0_FOLDER_TARGET}/clean-form/v0demography/v0demography.csv'),
+  v0demography_repeat_individual = glue::glue('{V0_FOLDER_TARGET}/clean-form/v0demography/v0demography-repeat_individual.csv'),
   healtheconnew  = glue::glue('{HECON_FOLDER_TARGET}/clean-form/healtheconnew/healtheconnew.csv'),
   healtheconnew_repeat_individual = glue::glue('{HECON_FOLDER_TARGET}/clean-form/healtheconnew/healtheconnew-repeat_individual.csv'),
   healtheconbaseline  = glue::glue('{HECON_FOLDER_TARGET}/clean-form/healtheconbaseline/healtheconbaseline.csv'),
@@ -39,13 +63,13 @@ FORM_INPUT_KEY <- list(
   healtheconmonthly_repeat_individual = glue::glue('{HECON_FOLDER_TARGET}/clean-form/healtheconmonthlyz/healtheconmonthlyz-repeat_individual.csv'),
   healtheconmonthly_repeat_miss_work_school = glue::glue('{HECON_FOLDER_TARGET}/clean-form/healtheconmonthlyz/healtheconmonthlyz-repeat_miss_work_school.csv'),
   healtheconmonthly_repeat_other_employment_details = glue::glue('{HECON_FOLDER_TARGET}/clean-form/healtheconmonthlyz/healtheconmonthlyz-repeat_other_employment_details.csv'),
-  safety  = glue::glue('{KWALE_FOLDER_TARGET}/clean-form/safety/safety.csv'),
-  safety_repeat_individual = glue::glue('{KWALE_FOLDER_TARGET}/clean-form/safety/safety-repeat_individual.csv'),
-  safetynew = glue::glue('{KWALE_FOLDER_TARGET}/clean-form/safetynew/safetynew.csv'),
-  safetynew_repeat_individual = glue::glue('{KWALE_FOLDER_TARGET}/clean-form/safetynew/safetynew-repeat_individual.csv')
+  safety  = glue::glue('{SAFETY_FOLDER_TARGET}/clean-form/safety/safety.csv'),
+  safety_repeat_individual = glue::glue('{SAFETY_FOLDER_TARGET}/clean-form/safety/safety-repeat_individual.csv'),
+  safetynew = glue::glue('{SAFETY_FOLDER_TARGET}/clean-form/safetynew/safetynew.csv'),
+  safetynew_repeat_individual = glue::glue('{SAFETY_FOLDER_TARGET}/clean-form/safetynew/safetynew-repeat_individual.csv')
 )
 
-# External data input key
+# EXTERNAL DATA SOURCES
 EXTERNAL_INPUT_KEY <- list(
   assignments = glue::glue('ext/assignments/assignments.csv'),
   intervention_assignments = glue::glue('ext/intervention_assignment/intervention_assignment.csv'),
@@ -56,7 +80,7 @@ EXTERNAL_INPUT_KEY <- list(
 )
 
 
-# Attempt login to AWS via Profile
+# Attempt login to AWS Profile
 tryCatch({
   logger::log_info('Attempt AWS login')
   # login to AWS - this will be bypassed if executed in CI/CD environment
@@ -90,7 +114,7 @@ data_list <- c(forms_list, randomization_list)
 # Create intermediary tables
 ######################################################
 
-# STEP 1: Get Initial Starting Roster Based on V0Demography
+# CTE 1: Get Initial Starting Roster Based on V0Demography
 v0_roster <- tryCatch({
   logger::log_info('Fetch starting roster from v0')
   data_list$v0demography_repeat_individual %>%
@@ -106,7 +130,7 @@ v0_roster <- tryCatch({
   return(NULL)
 })
 
-# STEP 2: Get new individual from starting roster in Health Economics
+# CTE 2: Get new individual from starting roster in Health Economics
 hecon_new_roster <- tryCatch({
   logger::log_info('Fetch hecon new individual')
   data_list$healtheconnew_repeat_individual %>%
@@ -122,7 +146,7 @@ hecon_new_roster <- tryCatch({
   return(NULL)
 })
 
-# STEP 3: Get Most Recent Statuses
+# CTE 3: Get Most Recent Statuses from Health Economics Repeats Individual
 # Get the starting health economics status of each individual
 # This should be most recent hecon_individual_status, which should be overridden and turned to eos if in the heconmonthly form hecon_household_status = eos
 hecon_starting_statuses <- tryCatch({
@@ -153,7 +177,7 @@ hecon_starting_statuses <- tryCatch({
   return(NULL)
 })
 
-# STEP 4: Check in main forms if HH in HECON is EOS
+# CTE 4: Check in main forms if HH in HECON is EOS
 hecon_household_eos <- tryCatch({
   logger::log_info('Fetching hecon household eos')
   bind_rows(
@@ -169,7 +193,7 @@ hecon_household_eos <- tryCatch({
   return(NULL)
 })
 
-# STEP 5: Check in repeat forms if individuals in HECON is EOS
+# CTE 5: Check in repeat forms if individuals in HECON is EOS
 hecon_individual_ever_eos <- tryCatch({
   logger::log_info('Fetching hecon individual ever eos')
   bind_rows(
@@ -202,7 +226,7 @@ hecon_individual_ever_eos <- tryCatch({
   return(NULL)
 })
 
-# STEP 6: Get visit 1 safety status
+# CTE 6: Get visit 1 safety status
 v1_safety_status <- tryCatch({
   logger::log_info('Fetching v1 safety statuses')
   bind_rows(
@@ -238,7 +262,7 @@ v1_safety_status <- tryCatch({
   return(NULL)
 })
 
-# STEP 7: Deal with migrations / deaths
+# CTE 7: Deal with migrations / deaths
 hecon_departures <- tryCatch({
   logger::log_info('Fetching hecon departures')
   bind_rows(
@@ -263,7 +287,7 @@ hecon_departures <- tryCatch({
   return(NULL)
 })
 
-# STEP 8: Get Assignments (use dummy if in development)
+# CTE 8: Get Assignments (use dummy if in development)
 assignments <- tryCatch({
   if(!REAL_PRESELECTIONS){
     get_fake_assignments()
@@ -276,7 +300,7 @@ assignments <- tryCatch({
   return(NULL)
 })
 
-# STEP 9: Get v0 household heads
+# CTE 9: Get v0 household heads
 v0_hh_heads <- tryCatch({
   data_list$v0demography_repeat_individual %>%
     filter(hh_head_yn == 'yes') %>%
@@ -292,7 +316,7 @@ v0_hh_heads <- tryCatch({
   return(NULL)
 })
 
-# STEP 10: Get Baseline In/Out Status:
+# CTE 10: Get Baseline In/Out Status:
 hecon_baseline_in_out <- tryCatch({
   # Get baseline in/out status
  data_list$healtheconbaseline %>%
@@ -305,7 +329,7 @@ hecon_baseline_in_out <- tryCatch({
     dplyr::distinct(hhid, .keep_all = TRUE)
 })
 
-# STEP 11: Get Health Econ Visits done (V1, V2, V3 ....). Use Hecon baseline as base and bind with monthly updates from hecon
+# CTE 11: Get Health Econ Visits done (V1, V2, V3 ....). Use Hecon baseline as base and bind with monthly updates from hecon
 hecon_visits_done <- tryCatch({
   data_list$healtheconbaseline %>%
     mutate(visit = 'V1', hhid = as.character(hhid)) %>%
@@ -320,13 +344,12 @@ hecon_visits_done <- tryCatch({
 })
 
 
-
-
 ######################################################
 # Consolidate intermediary tables to starting roster
 ######################################################
-starting_roster <- bind_rows(v0_roster,
-                             hecon_new_roster) %>%
+starting_roster <- bind_rows(v0_roster, hecon_new_roster) %>%
+  dplyr::mutate(firstname = stringr::str_replace_all(firstname, "[^[:alnum:]]", ""),
+                lastname = stringr::str_replace_all(lastname, "[^[:alnum:]]", "")) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::mutate(fullname_dob = paste0(firstname, ' ', lastname, ' | ', dob)) %>%
   mutate(roster_name = paste0(firstname, ' ', lastname, ' (',
@@ -393,7 +416,7 @@ households <- starting_roster %>%
             num_members = n()) %>%
   # get cluster
   left_join(data_list$v0demography %>%
-              dplyr::select(hhid, cluster)) %>%
+              dplyr::select(hhid, cluster = geo_cluster_num)) %>%
   # get assignments
   left_join(randomization_list$assignments %>%
               dplyr::select(
@@ -420,10 +443,41 @@ households <- starting_roster %>%
 individuals <- starting_roster %>% filter(hhid %in% households$hhid)
 
 
-
-# Write csvs
+######################################################
+# Store .csv to target folder
+######################################################
+# Write csvs to a directory
 if(!dir.exists('health_economics_metadata')){
   dir.create('health_economics_metadata')
 }
 write_csv(households, 'health_economics_metadata/household_data.csv')
 write_csv(individuals, 'health_economics_metadata/individual_data.csv')
+
+
+# Save current version files
+cloudbrewr::aws_s3_store(
+  filename = 'health_economics_metadata/household_data.csv',
+  bucket = 'bohemia-lake-db',
+  key =  glue::glue('{TARGET_S3_FOLDER}/health_economics_household/household_data.csv')
+)
+
+cloudbrewr::aws_s3_store(
+  filename = 'health_economics_metadata/individual_data.csv',
+  bucket = 'bohemia-lake-db',
+  key =  glue::glue('{TARGET_S3_FOLDER}/health_economics_individual/individual_data.csv')
+)
+
+# Save metadata by run date
+cloudbrewr::aws_s3_store(
+  filename = 'health_economics_metadata/household_data.csv',
+  bucket = 'bohemia-lake-db',
+  key =  glue::glue('{TARGET_S3_FOLDER}/health_economics_household_hist/run_date={RUN_DATE}/household_data.csv')
+)
+
+cloudbrewr::aws_s3_store(
+  filename = 'health_economics_metadata/individual_data.csv',
+  bucket = 'bohemia-lake-db',
+  key =  glue::glue('{TARGET_S3_FOLDER}/health_economics_individual_hist/run_date={RUN_DATE}/individual_data.csv')
+)
+
+unlink('health_economics_metadata', recursive = TRUE, force = TRUE)
