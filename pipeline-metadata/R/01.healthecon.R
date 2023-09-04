@@ -23,6 +23,7 @@ library(cloudbrewr)
 library(data.table)
 library(lubridate)
 library(readr)
+library(stringr)
 source('R/utils.R')
 source('R/data_utils.R')
 
