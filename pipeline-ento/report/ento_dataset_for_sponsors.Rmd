@@ -1,7 +1,7 @@
 ---
 title: "Ento Dataset for Sponsors"
 description: |
-  Reporting used to track V0 demography data collection in Kwale
+  Reporting used to track Ento Datasets for Sponsors
 date: "`r Sys.time()`"
 output:
   html_document:
@@ -97,43 +97,41 @@ tryCatch({
 
 entostoragebox<- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entostoragebox)
+  key = input_key$entostoragebox) %>% mutate(across(matches("date"), lubridate::date))
 
 entoltfield <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entoltfield)
+  key = input_key$entoltfield) %>% mutate(across(matches("date"), lubridate::date))
 
 entoltparitywing <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entoltparitywing)
+  key = input_key$entoltparitywing) %>% mutate(across(matches("date"), lubridate::date))
 
 entorcmorphid <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entorcmorphid)
+  key = input_key$entorcmorphid) %>% mutate(across(matches("date"), lubridate::date))
 
 entoltmorphid <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entoltmorphid)
-
+  key = input_key$entoltmorphid) %>% mutate(across(matches("date"), lubridate::date))
 
 entorcfield <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entorcfield)
-
+  key = input_key$entorcfield) %>% mutate(across(matches("date"), lubridate::date))
 
 entorcoviposition <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entorcoviposition)
+  key = input_key$entorcoviposition) %>% mutate(across(matches("date"), lubridate::date))
 
 
 entohhfirstvisitke <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entohhfirstvisitke)
+  key = input_key$entohhfirstvisitke) %>% mutate(across(matches("date"), lubridate::date))
 
 
 entolefirstvisitke <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entolefirstvisitke)
+  key = input_key$entolefirstvisitke) %>% mutate(across(matches("date"), lubridate::date))
 
 ```
 
@@ -177,8 +175,6 @@ storage_tubes = do.call("rbind",lapply(tube_ids[-c(1:2)], function(x){
 
 lt_tubes_meta = rbind(dissect_tubes,storage_tubes)
 
-
-
 ```
 
 
@@ -186,8 +182,9 @@ lt_tubes_meta = rbind(dissect_tubes,storage_tubes)
 
 ### Light Trap Tubes
 ```{r}
-
-morph_id <- entoltmorphid[names(entoltmorphid) %>%stringr::str_detect("SubmissionDate|tech_id|site|how_many_dis_|todays_date|hh_id|instance_label|cluster|instanceID|repeat_tubes_")]%>%
+cols <- "SubmissionDate|tech_id|site|how_many_dis_|todays_date|hh_id|instance_label|cluster|instanceID|repeat_tubes_"
+morph_id <- entoltmorphid[names(entoltmorphid)%>%
+                          stringr::str_detect(cols)]%>%
   tidyr::pivot_longer(!c(SubmissionDate,todays_date, site, instanceID, instance_label), names_to = "temp_value", values_to = "value")%>%
   dplyr::mutate(species = stringr::str_extract(temp_value,'gambiae|funestus'),
                 KEY_ = gsub("_count","",temp_value),
@@ -206,18 +203,20 @@ entoltmorpid_tubes <- lt_morph_df  %>%
   filter(!is.na(qr_code))%>%
   mutate(Species =  as.character(stringr::str_glue('An. {species}')),
          store_or_dissect = ifelse(grepl("dissected", temp_value), "Dissected","Sent to Storage"))%>%
-  select(instance_label,
-         site,
-         date = todays_date,
-         `Sample tube ID` = qr_code, 
-         Species,
-         `Sent to Storage or Dissected` = store_or_dissect,
-         `Number of mosquitos in tube` = num_stored,
-         `A3 Morph ID date` = todays_date)
+  select(
+    instance_label,
+    site,
+    date = todays_date,
+    `Sample tube ID` = qr_code, 
+    Species,
+   `Sent to Storage or Dissected` = store_or_dissect,
+   `Number of mosquitos in tube` = num_stored,
+   `A3 Morph ID date` = todays_date)
 
 
 light_trap_df <- entoltmorpid_tubes %>%
-  left_join(entoltfield %>% dplyr::select(todays_date,site,instance_label,trap_success), by = c("instance_label","date"="todays_date"))%>%
+  left_join(entoltfield %>% 
+              dplyr::select(todays_date,site,instance_label,trap_success), by = c("instance_label","date"="todays_date"))%>%
   left_join(entoltparitywing %>% select(tube_id_select, wing_length, parity_status), by = c("Sample tube ID"= "tube_id_select"))%>%
   mutate(Cluster = NA,
          Arm = NA,
@@ -246,7 +245,6 @@ light_trap_df <- entoltmorpid_tubes %>%
 light_trap_df <- light_trap_df[!duplicated(light_trap_df),] 
 
 wrap_download(reactable(light_trap_df, filterable = TRUE, elementId = "ltt"), element_id = "ltt" ,output_filename = "light_trap_table.csv")
-
 
 ```
 
@@ -406,9 +404,7 @@ rc_files = list(
 
 
 rc_tube_ids <- lapply(rc_files, function(x){
-  
   file = glue::glue('kwale/clean-form/entorcmorphid/',as.character(x))
-  
   cloudbrewr::aws_s3_get_table(
     bucket = bucket_source,
     key = file)
@@ -428,7 +424,6 @@ rc_storage_tubes = do.call("rbind",lapply(rc_tube_ids[-c(1:2)], function(x){
 }))
 
 rc_tubes_meta = rbind(rc_gonotrophic_tubes,rc_storage_tubes)
-
 
 
 entorc_df <- entorcmorphid[names(entorcmorphid) %>% stringr::str_detect("SubmissionDate|instance_label|cluster|instanceID|hh_or_pit|hhid|todays_date|repeat_tubes_|repeat_tube_")]%>%
@@ -489,7 +484,12 @@ entorcmorpid_tubes <- rc_df %>%
 
 rc_tubes = entorcmorpid_tubes[!duplicated(entorcmorpid_tubes),]  
     
-wrap_download(reactable(rc_tubes, filterable = TRUE, elementId = "rc_t"), element_id = "rc_t" ,output_filename = "resting_collection_tubes.csv")
+wrap_download(
+  reactable(rc_tubes, 
+            filterable = TRUE, 
+            elementId = "rc_t"), 
+  element_id = "rc_t",
+  output_filename = "resting_collection_tubes.csv")
 ```
 
 
@@ -508,8 +508,14 @@ df <- entorcmorphid %>%
          female_other_anopheles = num_females_other_species,
          male_other_anopheles = num_males_other_species_total,
          num_male_gambiae,
-         num_male_funestus)%>%
-  mutate(total_other_anopheles = rowSums(.[,c("female_other_anopheles","male_other_anopheles")], na.rm = T),
+         num_male_funestus) %>%
+  dplyr::mutate(
+    female_other_anopheles = tidyr::replace_na(female_other_anopheles, 0),
+    male_other_anopheles = tidyr::replace_na(male_other_anopheles, 0)
+  ) %>% 
+  dplyr::mutate(
+    total_other_anopheles = rowSums(
+      .[,c("female_other_anopheles","male_other_anopheles")], na.rm = T),
          cluster = NA,
          arm = NA,
          site_id = as.character(site_id),
@@ -539,11 +545,14 @@ df <- entorcmorphid %>%
                      `No of rooms` = num_rooms,
                      width,
                      length)%>%
-              mutate(instance_label = as.character(instance_label),
-                     wall = ifelse(is.na(wall_specify),wall,
-                                   ifelse(is.na(wall), wall_specify,glue::glue('{wall},{wall_specify}',.na=''))),
+              mutate(
+                instance_label = as.character(instance_label),
+                wall = ifelse(
+                  is.na(wall_specify),wall, 
+                  ifelse(is.na(wall), wall_specify,glue::glue('{wall},{wall_specify}',.na=''))),
                      roof = ifelse(is.na(roof_specify),roof,
-                                   ifelse(is.na(roof), roof_specify,glue::glue('{roof},{roof_specify}',.na=''))),
+                                   ifelse(is.na(roof),
+                                          roof_specify,glue::glue('{roof},{roof_specify}',.na=''))),
                      instance_label = case_when(
                        nchar(instance_label) == 4 ~ glue::glue('0{instance_label}'),
                        TRUE                ~ instance_label)), by = c("site_id"="instance_label"))%>%
@@ -574,7 +583,7 @@ df <- entorcmorphid %>%
          `No of rooms`,
          width,
          length,
-         Trap_function = trap_success,
+         `Trap_function` = trap_success,
          unfed_gambiae,
          fed_gambiae,
          gravid_gambiae,
@@ -582,7 +591,7 @@ df <- entorcmorphid %>%
          unfed_funestus,
          fed_funestus,
          gravid_funestus,
-         total_anopheles_funestus_female = total_funestus_fem,
+         `total_anopheles_funestus_female` = total_funestus_fem,
          female_other_anopheles,
          male_other_anopheles,
          total_other_anopheles)
