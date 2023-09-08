@@ -34,6 +34,8 @@ S3_RESOLUTION_OBJECT_KEY <- 'anomalies/gsheets-fix/odk_form_anomalies - resoluti
 BUCKET_NAME <- 'databrew.org'
 ROLE_NAME <- 'cloudbrewr-aws-role'
 
+stop('TESTING THROW ERROR')
+
 purrr::map(config::get('odk_projects'), function(project_name){
   unlink('./projects', force = TRUE, recursive = TRUE)
   logger::log_info(glue::glue('Starting Extraction on {project_name}'))
