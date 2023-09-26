@@ -24,9 +24,10 @@ standardize_col_value_case <- function(data, col_names){
 standardize_village <- function(data) {
   tryCatch({
     data %>%
-      dplyr::mutate(village_specify = stringr::str_replace_all(village_specify, 'Nguz0', 'Nguzo')) %>%
-      dplyr::mutate(village = stringr::str_replace_all(village, 'Nguz0', 'Nguzo')) %>%
-      dplyr::mutate(village_select = stringr::str_replace_all(village_select, 'Nguz0', 'Nguzo'))
+      dplyr::mutate(ward = toupper(ward)) %>%
+      dplyr::mutate(village_specify = toupper(stringr::str_replace_all(village_specify, 'Nguz0', 'Nguzo'))) %>%
+      dplyr::mutate(village = toupper(stringr::str_replace_all(village, 'Nguz0', 'Nguzo'))) %>%
+      dplyr::mutate(village_select = toupper(stringr::str_replace_all(village_select, 'Nguz0', 'Nguzo')))
   }, error = function(e){
     return(data)
   })
