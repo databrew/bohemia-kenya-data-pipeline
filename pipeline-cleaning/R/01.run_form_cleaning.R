@@ -99,11 +99,7 @@ purrr::map(config::get('odk_projects'), function(project_name){
     dplyr::mutate(raw = purrr::map(file_path, function(cf){
       fread(cf) %>%
         clean_column_names() %>%
-        tibble::as_tibble(.name_repair = 'unique') %>%
-        standardize_col_value_case(data = ., col_names = 'village') %>%
-        standardize_col_value_case(data = ., col_names = 'village_select') %>%
-        standardize_col_value_case(data = ., col_names = 'village_specify') %>%
-        standardize_village()
+        tibble::as_tibble(.name_repair = 'unique')
     })) %>%
     dplyr::rowwise() %>%
     dplyr::mutate(resolution = list(resolution_file %>% dplyr::filter(Form == form_id)),
@@ -143,7 +139,11 @@ purrr::map(config::get('odk_projects'), function(project_name){
                                              data = clean,
                                              form_id = form_id,
                                              repeat_name = repeat_name
-                                           )
+                                           )  %>%
+                                           standardize_col_value_case(data = ., col_names = 'village') %>%
+                                           standardize_col_value_case(data = ., col_names = 'village_select') %>%
+                                           standardize_col_value_case(data = ., col_names = 'village_specify') %>%
+                                           standardize_village()
 
                                          data <- tibble(
                                            file_path = file_path,
