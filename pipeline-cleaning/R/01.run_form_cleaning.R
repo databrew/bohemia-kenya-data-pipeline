@@ -99,7 +99,12 @@ purrr::map(config::get('odk_projects'), function(project_name){
     dplyr::mutate(raw = purrr::map(file_path, function(cf){
       fread(cf) %>%
         clean_column_names() %>%
-        tibble::as_tibble(.name_repair = 'unique')})) %>%
+        tibble::as_tibble(.name_repair = 'unique') %>%
+        standardize_col_value_case(data = ., col_names = 'village') %>%
+        standardize_col_value_case(data = ., col_names = 'village_select') %>%
+        standardize_col_value_case(data = ., col_names = 'village_specify') %>%
+        standardize_village()
+    })) %>%
     dplyr::rowwise() %>%
     dplyr::mutate(resolution = list(resolution_file %>% dplyr::filter(Form == form_id)),
                   repeat_name = stringr::str_split(tools::file_path_sans_ext(basename(file_path)), pattern = '-')[[1]][2]) %>%

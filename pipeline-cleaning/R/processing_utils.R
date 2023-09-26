@@ -12,6 +12,26 @@ clean_pii_columns <- function(data){
   data %>% dplyr::select(-any_of(pii_columns))
 }
 
+standardize_col_value_case <- function(data, col_names){
+  tryCatch({
+    data %>%
+      dplyr::mutate(!!sym(col_names) := stringr::str_squish(stringr::str_to_title(!!sym(col_names))))
+  }, error = function(e){
+    return(data)
+  })
+}
+
+standardize_village <- function(data) {
+  tryCatch({
+    data %>%
+      dplyr::mutate(village_specify = stringr::str_replace_all(village_specify, 'Nguz0', 'Nguzo')) %>%
+      dplyr::mutate(village = stringr::str_replace_all(village, 'Nguz0', 'Nguzo')) %>%
+      dplyr::mutate(village_select = stringr::str_replace_all(village_select, 'Nguz0', 'Nguzo'))
+  }, error = function(e){
+    return(data)
+  })
+
+}
 
 #' @description data type conversions
 #' @param series data series to convert
