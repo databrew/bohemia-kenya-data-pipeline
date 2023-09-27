@@ -1,9 +1,8 @@
-name: dockerhub-ci-pipeline-safety-and-efficacy
-
+name: dockerhub-ci-pipeline-reporting
 on:
     push:
       paths:
-        - pipeline-safety-and-efficacy/**
+        - pipeline-reporting/**
 
 jobs:
 
@@ -11,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./pipeline-safety-and-efficacy
+        working-directory: ./pipeline-reporting
     if: github.ref == 'refs/heads/dev'
     steps:
       - name: Set up QEMU
@@ -26,15 +25,15 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
       - name: Build Dockerfile based on commit sha
-        run: docker build -f Dockerfile --progress=plain -t databrewllc/pipeline-safety-and-efficacy:develop .
+        run: docker build -f Dockerfile --progress=plain -t databrewllc/pipeline-reporting:develop .
       - name: Push to Dockerhub as latest
-        run: docker push databrewllc/pipeline-safety-and-efficacy:develop
+        run: docker push databrewllc/pipeline-reporting:develop
 
   deploy-to-prod:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./pipeline-safety-and-efficacy
+        working-directory: ./pipeline-reporting
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Set up QEMU
@@ -49,10 +48,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
       - name: Build Dockerfile based on commit sha
-        run: docker build -f Dockerfile --progress=plain -t databrewllc/pipeline-safety-and-efficacy:production .
+        run: docker build -f Dockerfile --progress=plain -t databrewllc/pipeline-reporting:production .
       - name: Tag image based on commit SHA
-        run: docker image tag databrewllc/pipeline-safety-and-efficacy:production databrewllc/pipeline-safety-and-efficacy:${GITHUB_SHA::7}
+        run: docker image tag databrewllc/pipeline-reporting:production databrewllc/pipeline-reporting:${GITHUB_SHA::7}
       - name: Push to Dockerhub with commit sha for version tracking
-        run: docker push databrewllc/pipeline-safety-and-efficacy:${GITHUB_SHA::7}
+        run: docker push databrewllc/pipeline-reporting:${GITHUB_SHA::7}
       - name: Push to Dockerhub as latest
-        run: docker push databrewllc/pipeline-safety-and-efficacy:production
+        run: docker push databrewllc/pipeline-reporting:production
