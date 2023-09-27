@@ -83,27 +83,16 @@ data <- cloudbrewr::aws_s3_get_catalog(bucket = bucket_lake_db) %>%
     dplyr::mutate(key_split = stringr::str_split(key, "/")) %>% 
     dplyr::rowwise() %>% 
     dplyr::mutate(folder = key_split[1]) %>% 
-    dplyr::filter(key != 'index.html') %>%
-    dplyr::select(report_name, size, last_modified, url_key, folder) %>%
-    split(.$folder)
+    dplyr::filter(key != 'index.html',
+                  size > 0) %>%
+    dplyr::select(topic = folder, 
+                  report_name, 
+                  size, 
+                  last_modified, 
+                  url_key, 
+                  folder)
 ```
 
-### Anomalies
 ```{r}
-create_reactable(data$anomalies)
-```
-
-### V0-Demography
-```{r}
-create_reactable(data$`v0-demography`)
-```
-
-### Ento
-```{r}
-create_reactable(data$ento)
-```
-
-### ICF
-```{r}
-create_reactable(data$icf)
+create_reactable(data)
 ```
