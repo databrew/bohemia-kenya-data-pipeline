@@ -1,0 +1,672 @@
+---
+title: "Ento Dataset for Sponsors"
+description: |
+  Reporting used to track Ento Datasets for Sponsors
+date: "`r Sys.time()`"
+output:
+  html_document:
+    toc: yes
+    theme: cerulean
+  pdf_document:
+    toc: yes
+---
+
+Notes:
+
+- Report is refreshed hourly 9-5pm EAT, once 12AM EAT
+- Please reach out to atediarjo@gmail.com for bug reports
+
+Description:
+
+This report is used for sponsor to fetch ento datasets via [reports](https://docs.google.com/spreadsheets/d/13kc2jV8kcqJCIHdUo75NtDMY_QfV_0E0vgT-QvQRRtc/edit#gid=0)
+
+```{r, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  comment = '', 
+  echo = FALSE,
+  message = FALSE,
+  cache=FALSE,
+  warning=FALSE
+)
+```
+
+```{r, echo=FALSE, message=FALSE}
+library(cloudbrewr)
+library(reactable)
+library(data.table)
+library(dplyr)
+library(htmltools)
+library(glue)
+library(fontawesome)
+library(ggplot2)
+library(plotly)
+```
+
+```{r, echo = FALSE, message=FALSE}
+
+wrap_download <- function(reactable_obj, element_id, output_filename){
+  onclick_command <- glue::glue(
+    "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
+  htmltools::browsable(
+  tagList(
+    tags$button(
+      tagList(fontawesome::fa("download"), "Download as CSV"),
+      onclick = onclick_command),
+    reactable_obj
+  ))
+}
+```
+
+
+```{r}
+# variables / creds for ento
+env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
+bucket_source <- 'databrew.org'
+bucket_lake_db <- 'bohemia-lake-db'
+
+input_key <- list(
+  v0 = 'kwale/clean-form/v0demography/v0demography.csv',
+  entostoragebox = 'kwale/clean-form/entostoragebox/entostoragebox.csv',
+  entoltfield = 'kwale/clean-form/entoltfield/entoltfield.csv',
+  entoltparitywing = 'kwale/clean-form/entoltparitywing/entoltparitywing.csv',
+  entorcmorphid = 'kwale/clean-form/entorcmorphid/entorcmorphid.csv',
+  entoltmorphid = 'kwale/clean-form/entoltmorphid/entoltmorphid.csv',
+  entorcfield = 'kwale/clean-form/entorcfield/entorcfield.csv',
+  entorcoviposition = 'kwale/clean-form/entorcoviposition/entorcoviposition.csv',
+  entohhfirstvisitke = 'kwale/clean-form/entohhfirstvisitke/entohhfirstvisitke.csv',
+  entolefirstvisitke = 'kwale/clean-form/entolefirstvisitke/entolefirstvisitke.csv')
+
+tryCatch({
+  logger::log_info('Attempt AWS login')
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = 'cloudbrewr-aws-role',
+    profile_name =  'cloudbrewr-aws-role',
+    pipeline_stage = env_pipeline_stage)
+
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+
+
+```
+
+
+```{r}
+
+entostoragebox<- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$entostoragebox) %>% mutate(across(matches("date"), lubridate::date))
+
+entoltfield <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$entoltfield) %>% mutate(across(matches("date"), lubridate::date))
+
+entoltparitywing <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$entoltparitywing) %>% mutate(across(matches("date"), lubridate::date))
+
+entorcmorphid <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$entorcmorphid) %>% mutate(across(matches("date"), lubridate::date))
+
+entoltmorphid <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$entoltmorphid) %>% mutate(across(matches("date"), lubridate::date))
+
+entorcfield <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$entorcfield) %>% mutate(across(matches("date"), lubridate::date))
+
+entorcoviposition <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$entorcoviposition) %>% mutate(across(matches("date"), lubridate::date))
+
+
+entohhfirstvisitke <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$entohhfirstvisitke) %>% mutate(across(matches("date"), lubridate::date))
+
+
+entolefirstvisitke <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$entolefirstvisitke) %>% mutate(across(matches("date"), lubridate::date))
+
+```
+
+
+
+
+```{r}
+# repeat tubes
+files = list(
+  'entoltmorphid-repeat_tubes_dissected_unfed_funestus.csv',
+  'entoltmorphid-repeat_tubes_dissected_unfed_gambiae.csv',
+  'entoltmorphid-repeat_tubes_fed_funestus.csv',
+  'entoltmorphid-repeat_tubes_fed_gambiae.csv',
+  'entoltmorphid-repeat_tubes_gravid_funestus.csv',
+  'entoltmorphid-repeat_tubes_gravid_gambiae.csv',
+  'entoltmorphid-repeat_tubes_unfed_funestus.csv',
+  'entoltmorphid-repeat_tubes_unfed_gambiae.csv')
+
+
+
+tube_ids <- lapply(files, function(x){
+  
+  file = glue::glue('kwale/clean-form/entoltmorphid/',as.character(x))
+  
+  cloudbrewr::aws_s3_get_table(
+    bucket = bucket_source,
+    key = file)
+})
+
+
+dissect_tubes = do.call("rbind",lapply(tube_ids[1:2], function(x){
+  names(x)[2] = "qr_code"
+  x$num_stored = 1
+  x[,c(1,2,4,3)]
+}))
+
+storage_tubes = do.call("rbind",lapply(tube_ids[-c(1:2)], function(x){
+  names(x)[2:3] = c("qr_code","num_stored")
+  x
+}))
+
+lt_tubes_meta = rbind(dissect_tubes,storage_tubes)
+
+```
+
+
+
+
+### Light Trap Tubes
+```{r}
+cols <- "SubmissionDate|tech_id|site|how_many_dis_|todays_date|hh_id|instance_label|cluster|instanceID|repeat_tubes_"
+morph_id <- entoltmorphid[names(entoltmorphid)%>%
+                          stringr::str_detect(cols)]%>%
+  tidyr::pivot_longer(!c(SubmissionDate,todays_date, site, instanceID, instance_label), names_to = "temp_value", values_to = "value")%>%
+  dplyr::mutate(species = stringr::str_extract(temp_value,'gambiae|funestus'),
+                KEY_ = gsub("_count","",temp_value),
+                KEY = as.character(stringr::str_glue('{instanceID}/group_anopheles_{species}/{KEY_}')),
+                num_samp = ifelse(is.na(value),1,value))
+
+
+lt_morph_df  <- morph_id[rep(seq(nrow(morph_id)), as.numeric(morph_id$num_samp)),]
+
+entoltmorpid_tubes <- lt_morph_df  %>% 
+  dplyr::group_by(KEY) %>% 
+  dplyr::mutate(n = dplyr::row_number(),
+                key = as.character(stringr::str_glue('{KEY}[{n}]')))%>%
+  ungroup()%>%
+  left_join(lt_tubes_meta, by = c("key" = "KEY"))%>%
+  filter(!is.na(qr_code))%>%
+  mutate(Species =  as.character(stringr::str_glue('An. {species}')),
+         store_or_dissect = ifelse(grepl("dissected", temp_value), "Dissected","Sent to Storage"))%>%
+  select(
+    instance_label,
+    site,
+    date = todays_date,
+    `Sample tube ID` = qr_code, 
+    Species,
+   `Sent to Storage or Dissected` = store_or_dissect,
+   `Number of mosquitos in tube` = num_stored,
+   `A3 Morph ID date` = todays_date)
+
+
+light_trap_df <- entoltmorpid_tubes %>%
+  left_join(entoltfield %>% 
+              dplyr::select(todays_date,site,instance_label,trap_success), by = c("instance_label","date"="todays_date"))%>%
+  left_join(entoltparitywing %>% select(tube_id_select, wing_length, parity_status), by = c("Sample tube ID"= "tube_id_select"))%>%
+  mutate(Cluster = NA,
+         Arm = NA,
+         `Storage Box ID` = NA,
+         `Box position` = NA)%>%
+  select(`Sample tube ID`,
+         Species,
+         `Sent to Storage or Dissected`,
+         `Number of mosquitos in tube`,
+         `A3 Morph ID date`,
+         `Collection date` = date,
+         `Collection location` = site.y,
+         `HHID / LEID` = instance_label,
+         `Trap Success` = trap_success,
+         Cluster,
+         Arm,
+         `Wing length` = wing_length,
+         `Parity Status` = parity_status,
+         `Storage Box ID`,
+         `Box position`)%>%
+  mutate(`HHID / LEID` = case_when(
+           nchar(`HHID / LEID`) == 4 ~ glue::glue('0{`HHID / LEID`}'),
+           TRUE                      ~ `HHID / LEID`))
+
+  
+light_trap_df <- light_trap_df[!duplicated(light_trap_df),] 
+
+wrap_download(reactable(light_trap_df, filterable = TRUE, elementId = "ltt"), element_id = "ltt" ,output_filename = "light_trap_table.csv")
+
+```
+
+
+### CDC Collections
+```{r}
+
+df <- entoltmorphid %>%
+  select(`collection site` = site,
+         todays_date,
+         site_id = instance_label,
+         unfed_gambiae = num_unfed_gambiae,
+         fed_gambiae = num_bloodfed_gambiae,
+         gravid_gambiae = num_gravid_gambiae,
+         total_anophelese_gambiae_female = num_anophelese_gambiae_female,
+         unfed_funestus = num_unfed_funestus,
+         fed_funestus = num_bloodfed_funestus,
+         gravid_funestus = num_gravid_funestus,
+         total_anopheles_funestus_female = num_anophelese_funestus_female,
+         female_other_anopheles = num_females_other_species,
+         male_other_anopheles = num_males_other_species_total)%>%
+  mutate(total_other_anopheles = rowSums(.[,c("female_other_anopheles","male_other_anopheles")], na.rm = T),
+         cluster = NA,
+         arm = NA,
+         site_id = as.character(site_id),
+         site_id = case_when(
+           nchar(site_id) == 4 ~ glue::glue('0{site_id}'),
+           TRUE                ~ site_id))%>%
+  left_join(entohhfirstvisitke %>%
+              select(instance_label,
+                     `Children under 5` = num_children_under_5,
+                     `Children 5-17yrs` = num_children_5_17,
+                     `Adults above 17` = num_adults,
+                     Everyone_sleep_under_mosquito_net = sleep_net,
+                     No_sleep_under_mosquito_net = num_sleep_net,
+                     `No of nets` = num_nets,
+                     animals_kept_indoors = animals_indoors,
+                     animals_indoors = which_animals,
+                     wall,
+                     wall_specify,
+                     roof,
+                     roof_specify,
+                     eaves,
+                     window = windows,
+                     `No of rooms` = num_rooms,
+                     width,
+                     length)%>%
+              mutate(instance_label = as.character(instance_label),
+                     wall = ifelse(is.na(wall_specify),wall,
+                                   ifelse(is.na(wall), wall_specify,glue::glue('{wall},{wall_specify}',.na=''))),
+                     roof = ifelse(is.na(roof_specify),roof,
+                                   ifelse(is.na(roof), roof_specify,glue::glue('{roof},{roof_specify}',.na=''))),
+                     instance_label = case_when(
+                       nchar(instance_label) == 4 ~ glue::glue('0{instance_label}'),
+                       TRUE                ~ instance_label)), by = c("site_id"="instance_label"))%>%
+  left_join(entolefirstvisitke %>% select(instance_label,
+                                          animals,
+                                          animals_other,
+                                          `No of animals in LE`=num_animals,
+                                          `LE cover` = wall,
+                                          `LE fence`=fence,
+                                          `LE screened` = screened)%>%mutate(`Animal species kept in LE` = stringr::str_c(animals,animals_other, sep=",")), by = c("site_id"="instance_label"))%>%
+  left_join(entoltfield %>% 
+              select(instance_label,todays_date,trap_success)%>%
+              mutate(
+                instance_label = as.character(instance_label),
+                instance_label = case_when(
+                  nchar(instance_label) == 4 ~ glue::glue('0{instance_label}'),
+                  TRUE                       ~ instance_label)), by = c("todays_date", "site_id"="instance_label"))%>%
+  select(-c(wall_specify,roof_specify))%>%
+  select(`collection site`,
+         date = todays_date,
+         site_id,
+         cluster,
+         arm,
+         `Children under 5`,
+         `Children 5-17yrs`,
+         `Adults above 17`,
+         Everyone_sleep_under_mosquito_net,
+         No_sleep_under_mosquito_net,
+         `No of nets`,
+         animals_kept_indoors,
+         animals_indoors,
+         wall,
+         roof,
+         eaves,
+         window,
+         `No of rooms`,
+         width,
+         length,
+         `Animal species kept in LE`,
+         `No of animals in LE`,
+         `LE cover`,
+         `LE fence`,
+         `LE screened`,
+         Trap_function = trap_success,
+         unfed_gambiae,
+         fed_gambiae,
+         gravid_gambiae,
+         total_anophelese_gambiae_female,
+         unfed_funestus,
+         fed_funestus,
+         gravid_funestus,
+         total_anopheles_funestus_female,
+         female_other_anopheles,
+         male_other_anopheles,
+         total_other_anopheles)
+
+
+df <- df[!duplicated(df),]
+
+wrap_download(reactable(df, filterable = TRUE, elementId = "cdc_c"), element_id = "cdc_c" ,output_filename = "cdc_collections.csv")
+```
+
+
+### Parity and Dissections
+```{r}
+
+parity_n_dissection <- entoltparitywing %>% 
+  select(tube_id, wing_length, parity_status)%>%
+  left_join(entoltmorpid_tubes, by = c("tube_id" = "Sample tube ID"))%>%
+  mutate(Cluster = NA,
+         Arm = NA)%>%
+  select(`Sample tube ID` = tube_id,
+         Species,
+         `A3 Morph ID date`,
+         `Collection location` = site,
+         `HHID / LEID` = instance_label,
+         Cluster,
+         Arm,
+         `Wing Length` = wing_length,
+         `Parity Status` = parity_status)%>%
+  mutate(`HHID / LEID` = case_when(
+           nchar(`HHID / LEID`) == 4 ~ glue::glue('0{`HHID / LEID`}'),
+           TRUE                      ~ `HHID / LEID`))
+
+p_n_d <- parity_n_dissection[!duplicated(parity_n_dissection),]
+
+wrap_download(reactable(p_n_d, filterable = TRUE,elementId = "p_n_d"), element_id = "p_n_d" ,output_filename = "parity_n_dissection.csv")
+
+```
+
+
+
+### Resting collection tubes
+```{r}
+
+rc_files = list(
+  'entorcmorphid-repeat_tube_funestus_gonotrophic.csv',
+  'entorcmorphid-repeat_tube_gambiae_gonotrophic.csv',
+  'entorcmorphid-repeat_tubes_fed_funestus.csv',
+  'entorcmorphid-repeat_tubes_fed_gambiae.csv',
+  'entorcmorphid-repeat_tubes_gravid_funestus.csv',
+  'entorcmorphid-repeat_tubes_gravid_gambiae.csv',
+  'entorcmorphid-repeat_tubes_unfed_funestus.csv',
+  'entorcmorphid-repeat_tubes_unfed_gambiae.csv')
+
+
+rc_tube_ids <- lapply(rc_files, function(x){
+  file = glue::glue('kwale/clean-form/entorcmorphid/',as.character(x))
+  cloudbrewr::aws_s3_get_table(
+    bucket = bucket_source,
+    key = file)
+})
+
+
+
+rc_gonotrophic_tubes = do.call("rbind",lapply(rc_tube_ids[1:2], function(x){
+  names(x)[2] = "qr_code"
+  x$num_stored = 1
+  x[,c(1,4,2,3)]
+  x
+}))
+
+rc_storage_tubes = do.call("rbind",lapply(rc_tube_ids[-c(1:2)], function(x){
+  names(x)[2:3] = c("qr_code","num_stored")
+  x
+}))
+
+rc_tubes_meta = rbind(rc_gonotrophic_tubes,rc_storage_tubes)
+
+
+entorc_df <- entorcmorphid[names(entorcmorphid) %>% stringr::str_detect("SubmissionDate|instance_label|cluster|instanceID|hh_or_pit|hhid|todays_date|repeat_tubes_|repeat_tube_")]%>%
+  select(-c(hhid_manual, hhid_print))%>%
+  tidyr::pivot_longer(!c(SubmissionDate,todays_date,instance_label,hh_or_pit,hhid,instanceID), names_to = "temp_value", values_to = "value")%>%
+  dplyr::mutate(species = stringr::str_extract(temp_value,'gambiae|funestus'),
+                KEY_ = gsub("_count","",temp_value),
+                KEY = as.character(stringr::str_glue('{instanceID}/group_anopheles_{species}/{KEY_}')),
+                num_samp = ifelse(is.na(value),1,value))
+
+
+rc_df  <- entorc_df[rep(seq(nrow(entorc_df)), as.numeric(entorc_df$num_samp)),]
+
+entorcmorpid_tubes <- rc_df %>% 
+  dplyr::group_by(KEY) %>% 
+  dplyr::mutate(n = dplyr::row_number(),
+                key = as.character(stringr::str_glue('{KEY}[{n}]')))%>%
+  ungroup()%>%
+  left_join(rc_tubes_meta, by = c("key" = "KEY"))%>%
+  filter(!is.na(qr_code))%>%
+  mutate(Species =  as.character(stringr::str_glue('An. {species}')),
+         store_or_gonotrophic = ifelse(grepl("gonotrophic", temp_value), "Gonotrophic Cycle","Sent to Storage"))%>%
+  mutate(
+    instance_label = as.character(instance_label),
+    instance_label = case_when(
+      nchar(instance_label) == 4 ~ glue::glue('0{instance_label}'),
+      TRUE                       ~ instance_label)
+  )%>%
+  select(instance_label,
+         todays_date,
+         `Sample tube ID` = qr_code, 
+         Species,
+         `Sent to storage or Gonotrophic cycle` = store_or_gonotrophic,
+         `Number of mosquitos in tube` = num_stored)%>%
+  left_join(entorcfield %>% 
+              select(`Collection date` = todays_date,`Collection location` = hh_or_pit,hhid)%>%
+              mutate(
+                hhid = as.character(hhid),
+                hhid = case_when(
+                  nchar(hhid) == 4 ~ glue::glue('0{hhid}'),
+                  TRUE             ~ hhid)), by = c("instance_label"="hhid", "todays_date" = "Collection date"))%>%
+  left_join(entorcoviposition %>% select(tube_id, species_complex), by=c("Sample tube ID"="tube_id"))%>%
+  mutate(Cluster = NA,
+         Arm = NA,
+         `Storage Box ID` = NA,
+         `Box position` = NA)%>%
+  select(`Sample tube ID`,
+         `Sent to storage or Gonotrophic cycle`,
+         `Number of mosquitos in tube`,
+         `Collection date` = todays_date,
+         `Collection location`,
+         HHID = instance_label,
+         `Species complex` = species_complex,
+         Cluster,
+         Arm,
+         `Storage Box ID`,
+         `Box position`)
+
+rc_tubes = entorcmorpid_tubes[!duplicated(entorcmorpid_tubes),]  
+    
+wrap_download(
+  reactable(rc_tubes, 
+            filterable = TRUE, 
+            elementId = "rc_t"), 
+  element_id = "rc_t",
+  output_filename = "resting_collection_tubes.csv")
+```
+
+
+### Resting Collections
+```{r}
+
+df <- entorcmorphid %>%
+  select(`collection site` = hh_or_pit,
+         site_id = instance_label,
+         unfed_gambiae = num_unfed_gambiae,
+         fed_gambiae = num_bloodfed_gambiae,
+         gravid_gambiae = num_gravid_gambiae,
+         unfed_funestus = num_unfed_funestus,
+         fed_funestus = num_bloodfed_funestus,
+         gravid_funestus = num_gravid_funestus,
+         female_other_anopheles = num_females_other_species,
+         male_other_anopheles = num_males_other_species_total,
+         num_male_gambiae,
+         num_male_funestus) %>%
+  dplyr::mutate(
+    female_other_anopheles = tidyr::replace_na(female_other_anopheles, 0),
+    male_other_anopheles = tidyr::replace_na(male_other_anopheles, 0)
+  ) %>% 
+  dplyr::mutate(
+    total_other_anopheles = rowSums(
+      .[,c("female_other_anopheles","male_other_anopheles")], na.rm = T),
+         cluster = NA,
+         arm = NA,
+         site_id = as.character(site_id),
+         site_id = case_when(
+           nchar(site_id) == 4 ~ glue::glue('0{site_id}'),
+           TRUE                ~ site_id),
+         total_anophelese_gambiae = rowSums(.[,c("unfed_gambiae","fed_gambiae","gravid_gambiae")],na.rm = T),
+         total_anophelese_gambiae_female = ifelse(as.numeric(num_male_gambiae) > total_anophelese_gambiae,0,(as.numeric(total_anophelese_gambiae) - as.numeric(num_male_gambiae))),
+         total_anophelese_funestus = rowSums(.[,c("unfed_funestus","fed_funestus","gravid_funestus")],na.rm = T),
+         total_funestus_fem = ifelse(as.numeric(num_male_funestus) > total_anophelese_funestus,0,(as.numeric(total_anophelese_funestus) - as.numeric(num_male_funestus))))%>%
+  left_join(entohhfirstvisitke %>%
+              select(instance_label,
+                     `Children under 5` = num_children_under_5,
+                     `Children 5-17yrs` = num_children_5_17,
+                     `Adults above 17` = num_adults,
+                     Everyone_sleep_under_mosquito_net = sleep_net,
+                     No_sleep_under_mosquito_net = num_sleep_net,
+                     `No of nets` = num_nets,
+                     animals_kept_indoors = animals_indoors,
+                     animals_indoors = which_animals,
+                     wall,
+                     wall_specify,
+                     roof,
+                     roof_specify,
+                     eaves,
+                     window = windows,
+                     `No of rooms` = num_rooms,
+                     width,
+                     length)%>%
+              mutate(
+                instance_label = as.character(instance_label),
+                wall = ifelse(
+                  is.na(wall_specify),wall, 
+                  ifelse(is.na(wall), wall_specify,glue::glue('{wall},{wall_specify}',.na=''))),
+                     roof = ifelse(is.na(roof_specify),roof,
+                                   ifelse(is.na(roof),
+                                          roof_specify,glue::glue('{roof},{roof_specify}',.na=''))),
+                     instance_label = case_when(
+                       nchar(instance_label) == 4 ~ glue::glue('0{instance_label}'),
+                       TRUE                ~ instance_label)), by = c("site_id"="instance_label"))%>%
+  left_join(entorcfield %>% 
+              select(hhid,todays_date,trap_success)%>%
+              mutate(hhid = as.character(hhid),
+                     hhid = case_when(
+                       nchar(hhid) == 4 ~ glue::glue('0{hhid}'),
+                       TRUE             ~ hhid)), by = c("site_id"="hhid"))%>%
+  select(-c(wall_specify,roof_specify))%>%
+  select(`collection site`,
+         date = todays_date,
+         site_id,
+         cluster,
+         arm,
+         `Children under 5`,
+         `Children 5-17yrs`,
+         `Adults above 17`,
+         Everyone_sleep_under_mosquito_net,
+         No_sleep_under_mosquito_net,
+         `No of nets`,
+         animals_kept_indoors,
+         animals_indoors,
+         wall,
+         roof,
+         eaves,
+         window,
+         `No of rooms`,
+         width,
+         length,
+         `Trap_function` = trap_success,
+         unfed_gambiae,
+         fed_gambiae,
+         gravid_gambiae,
+         total_anophelese_gambiae_female,
+         unfed_funestus,
+         fed_funestus,
+         gravid_funestus,
+         `total_anopheles_funestus_female` = total_funestus_fem,
+         female_other_anopheles,
+         male_other_anopheles,
+         total_other_anopheles)
+
+
+df <- df[!duplicated(df),]
+
+wrap_download(reactable(df, filterable = TRUE, elementId = "rc_t2"), element_id = "rc_t2" ,output_filename = "resting_collection_tubes.csv")
+
+```
+
+
+
+### Oviposition and Survival
+```{r}
+
+entorcmorpid_tubes <- rc_df %>% 
+  dplyr::group_by(KEY) %>% 
+  dplyr::mutate(n = dplyr::row_number(),
+                key = as.character(stringr::str_glue('{KEY}[{n}]')))%>%
+  ungroup()%>%
+  left_join(rc_tubes_meta, by = c("key" = "KEY"))%>%
+  filter(!is.na(qr_code))%>%
+  mutate(Species =  as.character(stringr::str_glue('An. {species}')))%>%
+  select(`Collection date` = todays_date, `Collection location` = hh_or_pit, HHID = hhid,`Species complex` = species, qr_code)%>%
+  mutate(HHID = as.character(HHID),
+         HHID = case_when(
+           nchar(HHID) == 4 ~ glue::glue('0{HHID}'),
+           TRUE             ~ HHID),
+         `Species complex` = case_when(
+           `Species complex` == "gambiae"  ~ "An. gambiae",
+           `Species complex` == "funestus" ~ "An. funestus"
+         ))
+  
+
+rest_tube <- entorcoviposition %>%
+  mutate(`Day of oviposition` = 
+           case_when(
+             oviposition_day_1 == "yes" ~ "Day 1",
+             oviposition_day_2 == "yes" ~ "Day 2",
+             oviposition_day_3 == "yes" ~ "Day 3",
+             oviposition_day_4 == "yes" ~ "Day 4",
+             oviposition_day_5 == "yes" ~ "Day 5",
+             oviposition_day_6 == "yes" ~ "Day 6",
+             oviposition_day_7 == "yes" ~ "Day 7"
+           ),
+         `Day of death` = 
+           case_when(
+             dead_day_1 == "yes" ~ "Day 1",
+             dead_day_2 == "yes" ~ "Day 2",
+             dead_day_3 == "yes" ~ "Day 3",
+             dead_day_4 == "yes" ~ "Day 4",
+             dead_day_5 == "yes" ~ "Day 5",
+             dead_day_6 == "yes" ~ "Day 6",
+             dead_day_7 == "yes" ~ "Day 7"
+           ),
+         )%>%
+  select(`Sample tube ID` = tube_id,`Day of oviposition`,`Day of death`, `Alive day 7` = mosquito_alive_day_7)%>%
+  left_join(entorcmorpid_tubes, by = c("Sample tube ID" = "qr_code"))%>%
+  mutate(Cluster = NA,
+         Arm = NA)%>%
+  select(`Sample tube ID`,
+         `Collection date`,
+         `Collection location`,
+         HHID,
+         `Species complex`,
+         Cluster,
+         Arm,
+         `Day of oviposition`,
+         `Day of death`,
+         `Alive day 7`)
+
+rest_tube <- rest_tube[!duplicated(rest_tube),]
+
+wrap_download(reactable(rest_tube, filterable = TRUE, elementId = "o_n_s"), element_id = "o_n_s" ,output_filename = "resting_collection_tubes.csv")
+
+```
