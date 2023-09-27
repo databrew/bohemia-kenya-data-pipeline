@@ -1,5 +1,5 @@
 ---
-title: "Kwale V0 Demography Reports"
+title: "Kwale V0 Demography Report"
 description: |
   Reporting used to track V0 demography data collection in Kwale
 output:
