@@ -407,20 +407,21 @@ rc_tube_ids <- lapply(rc_files, function(x){
   file = glue::glue('kwale/clean-form/entorcmorphid/',as.character(x))
   cloudbrewr::aws_s3_get_table(
     bucket = bucket_source,
-    key = file)
+    key = file) %>% 
+  dplyr::select(PARENT_KEY, KEY, starts_with('tubes_'), starts_with('num_'))
 })
 
 
 
 rc_gonotrophic_tubes = do.call("rbind",lapply(rc_tube_ids[1:2], function(x){
-  names(x)[2] = "qr_code"
+  names(x)[3] = c("qr_code")
   x$num_stored = 1
   x[,c(1,4,2,3)]
   x
 }))
 
 rc_storage_tubes = do.call("rbind",lapply(rc_tube_ids[-c(1:2)], function(x){
-  names(x)[2:3] = c("qr_code","num_stored")
+  names(x)[3:4] = c("qr_code","num_stored")
   x
 }))
 
