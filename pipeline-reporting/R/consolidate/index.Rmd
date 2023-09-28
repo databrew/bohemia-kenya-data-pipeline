@@ -1,0 +1,98 @@
+---
+title: "Bohemia Reports"
+description: |
+  Reporting used to track all reports
+output:
+  html_document:
+    toc: true
+    theme: cerulean
+date: '`r Sys.time()`'
+---
+
+This is mapping of all reports used in all Kwale data collection.
+
+```{r, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  comment = '', 
+  echo = FALSE,
+  message = FALSE,
+  cache=FALSE,
+  warning=FALSE
+)
+```
+
+```{r, echo=FALSE, message=FALSE}
+library(reactable)
+library(data.table)
+library(dplyr)
+library(htmltools)
+library(glue)
+library(fontawesome)
+library(ggplot2)
+library(plotly)
+```
+
+
+```{r}
+create_reactable <- function(data) {
+  reactable(
+    data,
+    columns = list(
+        report_name = colDef(name = 'Report Name'),
+        size = colDef(name = "Size (kb)"),
+        last_modified = colDef(name = 'Last Modified'),
+        url_key = colDef(name = 'url',
+                         cell = function(value, index) {
+                           url <- sprintf("%s", 
+                                          data[index, "url_key"], value)
+                           htmltools::tags$a(href = url, target = "_blank", 'url')
+                        })
+    ),
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE)
+}
+```
+
+```{r}
+# variables / creds for ento
+env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
+bucket_source <- 'databrew.org'
+bucket_lake_db <- 'bohemia-reporting'
+prod_cloudfront_url <- 'https://d27fg4iv55pk9u.cloudfront.net'
+
+tryCatch({
+  logger::log_info('Attempt AWS login')
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = 'cloudbrewr-aws-role',
+    profile_name =  'cloudbrewr-aws-role',
+    pipeline_stage = env_pipeline_stage)
+
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+```
+```{r}
+data <- cloudbrewr::aws_s3_get_catalog(bucket = bucket_lake_db) %>%
+  dplyr::mutate(url_key = glue::glue('{prod_cloudfront_url}/{key}')) %>%
+  dplyr::select(-etag) %>%
+  dplyr::mutate(report_name = basename(key)) %>%
+    dplyr::mutate(key_split = stringr::str_split(key, "/")) %>% 
+    dplyr::rowwise() %>% 
+    dplyr::mutate(folder = key_split[1]) %>% 
+    dplyr::filter(key != 'index.html',
+                  size > 0) %>%
+    dplyr::select(topic = folder, 
+                  report_name, 
+                  size, 
+                  last_modified, 
+                  url_key, 
+                  folder)
+```
+
+```{r}
+create_reactable(data)
+```

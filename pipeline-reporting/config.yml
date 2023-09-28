@@ -1,0 +1,11 @@
+default:
+  report_index:
+    - v0
+    - icf
+    - ento
+    - anomalies-detection
+develop:
+  report_index:
+    - v0
+    - icf
+    - ento
