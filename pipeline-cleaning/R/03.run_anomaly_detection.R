@@ -123,7 +123,8 @@ anomalies_list$v0_demo_repeat_indiv_1 <- data %>%
 #################################
 final <- anomalies_list %>%
   purrr::reduce(dplyr::bind_rows) %>%
-  dplyr::mutate(anomalies_id = glue::glue('{form_id}__{KEY}__{anomalies_id}'))
+  dplyr::mutate(resolution_id = glue::glue('{form_id}__{KEY}__{anomalies_id}')) %>%
+  dplyr::select(resolution_id, everything())
 final %>%
   fwrite(OUTPUT_FILEPATH)
 cloudbrewr::aws_s3_store(
