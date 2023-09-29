@@ -121,7 +121,9 @@ anomalies_list$v0_demo_repeat_indiv_1 <- data %>%
 #################################
 # 3. Consolidate
 #################################
-final <- anomalies_list %>% purrr::reduce(dplyr::bind_rows)
+final <- anomalies_list %>%
+  purrr::reduce(dplyr::bind_rows) %>%
+  dplyr::mutate(anomalies_id = glue::glue('{form_id}__{KEY}__{anomalies_id}'))
 final %>%
   fwrite(OUTPUT_FILEPATH)
 cloudbrewr::aws_s3_store(
