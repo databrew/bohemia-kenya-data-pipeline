@@ -14,7 +14,6 @@ get_detected_anomalies:
 
 
 get_curr_resolution:
-	python3 -m venv gsheets_src/venv
 	. gsheets_src/venv/bin/activate
 	python3 gsheets_src/update.py
 	aws s3 sync output s3://${BUCKET_NAME}/bohemia_prod/

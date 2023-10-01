@@ -1,5 +1,5 @@
 key
-.venv
+venv/*
 aws_venv
 gsheets_venv
 input
