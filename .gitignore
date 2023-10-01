@@ -51,6 +51,6 @@ vignettes/*.pdf
 *.shp
 *.shx
 
-
+archive/*
 
 

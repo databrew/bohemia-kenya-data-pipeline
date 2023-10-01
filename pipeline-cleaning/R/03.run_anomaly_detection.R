@@ -123,7 +123,8 @@ anomalies_list$v0_demo_repeat_indiv_1 <- data %>%
 #################################
 final <- anomalies_list %>%
   purrr::reduce(dplyr::bind_rows) %>%
-  dplyr::mutate(resolution_id = glue::glue('{form_id}__{KEY}__{anomalies_id}')) %>%
+  dplyr::mutate(resolution_id = glue::glue('{form_id}__{KEY}__{anomalies_id}'),
+                resolution_status = 'to_do') %>%
   dplyr::select(resolution_id, everything())
 final %>%
   fwrite(OUTPUT_FILEPATH)
