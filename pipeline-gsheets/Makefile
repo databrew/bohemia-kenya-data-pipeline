@@ -14,15 +14,17 @@ get_detected_anomalies:
 
 
 get_curr_resolution:
-	. gsheets_src/gsheets_venv/bin/activate && python3 gsheets_src/update.py
+	python3 -m venv gsheets_src/venv
+	. gsheets_src/venv/bin/activate
+	python3 gsheets_src/update.py
 	aws s3 sync output s3://${BUCKET_NAME}/bohemia_prod/
 
 get_ever_resolved:
-	. aws_src/aws_venv/bin/activate
+	. aws_src/venv/bin/activate
 	python3 aws_src/get_ever_resolved.py
 
 update_google_sheets:
-	. gsheets_src/gsheets_venv/bin/activate
+	. gsheets_src/venv/bin/activate
 	python3 gsheets_src/populate.py
 
 	

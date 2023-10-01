@@ -22,9 +22,9 @@ data_to_remove_upstream = resolution_tracker_gsheets[resolution_tracker_gsheets[
 data_other_status = resolution_tracker_gsheets[resolution_tracker_gsheets['resolution_status'].isin(['in_progress', 'blocked'])]
 
 # save csv
-outname = 'resolution.csv'
-outdir = './output/resolution'
-hist_outdir = f'./output/resolution_hist/run_time={CURR_TIME}'
+outname = 'anomalies_resolution.csv'
+outdir = './output/anomalies_resolution'
+hist_outdir = f'./output/anomalies_resolution_hist/run_time={CURR_TIME}'
 
 if not os.path.exists(outdir):
     os.mkdir(outdir)
