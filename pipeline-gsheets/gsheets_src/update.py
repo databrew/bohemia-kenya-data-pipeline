@@ -1,5 +1,6 @@
 # This script is used updating fact anomalies with resolution tracker
 # anomalies list for user input
+#
 # Author: atediarjo@gmail.com
 import os
 import pygsheets as pg
