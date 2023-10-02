@@ -9,7 +9,7 @@ gc = pg.authorize(service_file='key/key.json')
 
 anomalies_list = pd.read_csv('input/fact_anomalies.csv')
 ever_resolved = pd.read_csv('input/ever_resolved.csv')
-other_status = pd.read_csv('input/resolution_other_status.csv')[['resolution_id', 'resolution_status']]
+other_status = pd.read_csv('input/resolution_other_status.csv')[['resolution_id', 'resolution_status', 'resolver']]
 
 data_for_spreadsheet = anomalies_list[~anomalies_list['resolution_id'].isin(ever_resolved['resolution_id'].unique())]
 data_for_spreadsheet = pd.merge(data_for_spreadsheet, other_status, how='left', on = 'resolution_id')
