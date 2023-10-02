@@ -1,9 +1,12 @@
 ## Pipeline Google Sheets
 
-### Workflow
+### Pipeline Architecture
 
 ![workflow](https://lucid.app/publicSegments/view/c5b95930-5292-4c91-95b8-12e9a3d69c5c/image.jpeg)
 
+
+### File Workflow
+![workflow2](https://lucid.app/publicSegments/view/dc35ba10-9e97-458f-8bed-34acc981cbb4/image.jpeg)
 
 ### Data Custodian Guidelines
 
