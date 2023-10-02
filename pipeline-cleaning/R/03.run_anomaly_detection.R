@@ -23,8 +23,8 @@ env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 Sys.setenv(R_CONFIG_ACTIVE=env_pipeline_stage)
 BUCKET_NAME <- 'bohemia-lake-db'
 ROLE_NAME <- 'cloudbrewr-aws-role'
-OUTPUT_FILEPATH <- '/tmp/fact_anomalies.csv'
-OUTPUT_FILEPATH_SUMMARY <- '/tmp/summary_anomalies.csv'
+OUTPUT_FILEPATH <- '/tmp/anomalies_detection.csv'
+OUTPUT_FILEPATH_SUMMARY <- '/tmp/anomalies_detection_summary.csv'
 
 unlink('report/data', recursive = TRUE)
 dir.create('report/data')
@@ -131,7 +131,7 @@ final %>%
 cloudbrewr::aws_s3_store(
   bucket = 'bohemia-lake-db',
   filename = OUTPUT_FILEPATH,
-  key = glue::glue('bohemia_prod/fact_anomalies/{file}', file = basename(OUTPUT_FILEPATH))
+  key = glue::glue('bohemia_prod/anomalies_detection/{file}', file = basename(OUTPUT_FILEPATH))
 )
 
 
@@ -149,6 +149,6 @@ final_history %>%
 cloudbrewr::aws_s3_store(
   bucket = 'bohemia-lake-db',
   filename = OUTPUT_FILEPATH_SUMMARY,
-  key = glue::glue('bohemia_prod/summary_anomalies_history/partition_date={lubridate::today()}/{file}',
+  key = glue::glue('bohemia_prod/anomalies_detection_summary_hist/partition_date={lubridate::today()}/{file}',
                    file = basename(OUTPUT_FILEPATH_SUMMARY))
 )
