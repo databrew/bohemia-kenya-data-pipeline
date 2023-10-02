@@ -10,7 +10,7 @@ get_key:
 	aws secretsmanager get-secret-value --secret-id ${SECRET_ID} --query SecretString --output text > key/key.json
 
 get_detected_anomalies:
-	aws s3 cp s3://${BUCKET_NAME}/bohemia_prod/fact_anomalies/fact_anomalies.csv input/fact_anomalies.csv
+	aws s3 cp s3://${BUCKET_NAME}/bohemia_prod/anomalies_detection/anomalies_detection.csv input/anomalies_detection.csv
 
 
 get_curr_resolution:

@@ -5,7 +5,7 @@
 ![workflow](https://lucid.app/publicSegments/view/c5b95930-5292-4c91-95b8-12e9a3d69c5c/image.jpeg)
 
 
-### Data Custodian Guideline 
+### Data Custodian Guidelines
 
 1. Go to [odk_form_anomalies](https://docs.google.com/spreadsheets/d/1i98uVuSj3qETbrH7beC8BkFmKV80rcImGobBvUGuqbU) spreadsheet
 
