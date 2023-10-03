@@ -52,12 +52,19 @@ dir.create('output')
 list.files('R/anomalies_detector', full.names = TRUE) %>% purrr::map(source)
 
 final <- list.files('output', full.names = TRUE) %>%
-  purrr::map_dfr(function(f){fread(f)}) %>%
-  mutate(across(everything(), as.character)) %>%
+  purrr::map_dfr(function(f){fread(f) %>%
+      tibble::as_tibble() %>%
+      mutate(across(everything(), as.character))})  %>%
   mutate(across(everything(), .fns = ~tidyr::replace_na(.,''))) %>%
   mutate(resolution_id = glue::glue('{form_id}__{KEY}__{anomalies_id}')) %>%
   dplyr::mutate(resolution_status = 'to_do') %>%
-  dplyr::select(resolution_id, KEY, form_id, anomalies_id, anomalies_description, resolution_status)
+  dplyr::select(resolution_id,
+                KEY,
+                form_id,
+                anomalies_id,
+                anomalies_description,
+                resolution_status,
+                anomalies_reports_to_wid)
 
 #################################
 # 3. Consolidate current and historical
