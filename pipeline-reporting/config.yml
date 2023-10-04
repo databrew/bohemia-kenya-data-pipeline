@@ -4,8 +4,11 @@ default:
     - icf
     - ento
     - anomalies-detection
+    - safety-efficacy
 develop:
   report_index:
     - v0
     - icf
     - ento
+    - anomalies-detection
+    - safety-efficacy
