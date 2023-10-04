@@ -26,8 +26,9 @@ ROLE_NAME <- 'cloudbrewr-aws-role'
 OUTPUT_FILEPATH <- '/tmp/anomalies_detection.csv'
 OUTPUT_FILEPATH_SUMMARY <- '/tmp/anomalies_detection_summary.csv'
 
-unlink('report/data', recursive = TRUE)
-dir.create('report/data')
+#################################
+# 1. Authenticate
+####################################
 
 # create connection to AWS
 tryCatch({
@@ -42,101 +43,50 @@ tryCatch({
   stop(e$message)
 })
 
+#################################
+# 2. Crawl files
+####################################
 
-#######################
+unlink('output', recursive = TRUE)
+dir.create('output')
+list.files('R/anomalies_detector', full.names = TRUE) %>% purrr::map(source)
+
+final <- list.files('output', full.names = TRUE) %>%
+  purrr::map_dfr(function(f){fread(f) %>%
+      tibble::as_tibble() %>%
+      mutate(across(everything(), as.character))})  %>%
+  mutate(across(everything(), .fns = ~tidyr::replace_na(.,''))) %>%
+  mutate(resolution_id = glue::glue('{form_id}__{KEY}__{anomalies_id}')) %>%
+  dplyr::mutate(resolution_status = 'to_do') %>%
+  dplyr::select(resolution_id,
+                KEY,
+                form_id,
+                anomalies_id,
+                anomalies_description,
+                resolution_status,
+                anomalies_reports_to_wid)
 
 #################################
-# 1. v0 demography
-#################################
-data <- cloudbrewr::aws_s3_get_table(
-  bucket = 'databrew.org',
-  key = 'kwale/clean-form/v0demography/v0demography.csv'
-)
-
-anomalies_list <- list()
-
-# Strange combination in house materials
-anomalies_list$v0_demo1 <- data %>%
-  dplyr::filter(house_wall=='mud',
-                house_roof== 'concrete') %>%
-  dplyr::mutate(
-    form_id = 'v0demography',
-    anomalies_id = 'hh_strange_materials',
-    anomalies_description = glue::glue('household strange materials combination, house_wall=mud and house_roof=concrete'))   %>%
-  dplyr::select(KEY, form_id, anomalies_id, anomalies_description)
-
-
-# Household completed in less than 4 minutes
-anomalies_list$v0_demo2 <- data %>%
-  dplyr::mutate(duration = end_time - start_time) %>%
-  detect_threshold(
-    col = 'duration',
-    form_id = 'v0demography',
-    anomalies_id = 'hh_completed_in_less_than_4_mins',
-    anomalies_description = glue::glue('household completed in less than 4 mins (end_time - start_time)'),
-    threshold = 4,
-    direction = 'less')
-
-
-# Duplicated households
-anomalies_list$v0_demo3 <- data %>%
-  detect_duplication(col = 'hhid',
-                     form_id = 'v0demography',
-                     anomalies_id = 'hh_duplicated',
-                     anomalies_description = 'household duplicated')
-
-# GPS accuracy too high
-anomalies_list$v0_demo4 <- data %>%
-  detect_threshold(
-    col = 'Accuracy',
-    form_id = 'v0demography',
-    anomalies_id = 'hh_gps_accuracy_too_high',
-    anomalies_description = glue::glue('household GPS accuracy too high'),
-    threshold = 15,
-    direction = 'more')
-
-# Cluster error
-anomalies_list$v0_demo5 <- data %>%
-  detect_outside_cluster_boundaries(form_id = 'v0demography')
-
-#################################
-# 2. v0 demography repeat individual
-#################################
-data <- cloudbrewr::aws_s3_get_table(
-  bucket = 'databrew.org',
-  key = 'kwale/clean-form/v0demography/v0demography-repeat_individual.csv'
-)
-
-# GPS accuracy too high
-anomalies_list$v0_demo_repeat_indiv_1 <- data %>%
-  detect_threshold(
-    col = 'age',
-    form_id = 'v0demography-repeat_individual',
-    anomalies_id = 'hh_individual_age_too_high',
-    anomalies_description = 'household repeat individual age more than 100',
-    threshold = 101,
-    direction = 'more',
-    key = 'KEY')
-
-#################################
-# 3. Consolidate
-#################################
-final <- anomalies_list %>%
-  purrr::reduce(dplyr::bind_rows) %>%
-  dplyr::mutate(resolution_id = glue::glue('{form_id}__{KEY}__{anomalies_id}'),
-                resolution_status = 'to_do') %>%
-  dplyr::select(resolution_id, everything())
+# 3. Consolidate current and historical
+####################################
 final %>%
   fwrite(OUTPUT_FILEPATH)
+
+
 cloudbrewr::aws_s3_store(
   bucket = 'bohemia-lake-db',
   filename = OUTPUT_FILEPATH,
   key = glue::glue('bohemia_prod/anomalies_detection/{file}', file = basename(OUTPUT_FILEPATH))
 )
 
+cloudbrewr::aws_s3_store(
+  bucket = 'bohemia-lake-db',
+  filename = OUTPUT_FILEPATH,
+  key = glue::glue('bohemia_prod/anomalies_detection_hist/partition_date={lubridate::today()}/{file}', file = basename(OUTPUT_FILEPATH))
+)
 
 #################################
-# 4. Consolidate History
+# 4. Consolidate Summary for faster query
 #################################
 final_history <- final %>%
   dplyr::group_by(
