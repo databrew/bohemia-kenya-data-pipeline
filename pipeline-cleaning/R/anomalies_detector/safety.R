@@ -80,7 +80,11 @@ safety_merged_df <- safety_repeat_individual %>%
   dplyr::inner_join(safety, by = c('PARENT_KEY'='KEY'))
 
 anomalies_list <- list()
-final_col_list <- c('KEY', 'form_id', 'anomalies_id', 'anomalies_description', 'anomalies_reports_to_wid')
+final_col_list <- c('KEY',
+                    'form_id',
+                    'anomalies_id',
+                    'anomalies_description',
+                    'anomalies_reports_to_wid')
 
 ##############################
 ## Anomalies Detecton
@@ -103,7 +107,7 @@ anomalies_list$sus_height <- safety_merged_df %>%
   dplyr::filter((age >= 12 & height < 100) | (age < 12 & height > 150)) %>%
   dplyr::mutate(form_id = 'safety-repeat_individual',
                 anomalies_id = 'ind_suspicious_height_based_on_age',
-                anomalies_description = glue::glue('{extid} is {age} years old with height {height} cm'),
+                anomalies_description = glue::glue('extid:{extid} is {age} years old with height {height} cm'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
   dplyr::select(all_of(final_col_list))
 
@@ -112,7 +116,7 @@ anomalies_list$sus_weight <- safety_merged_df %>%
   dplyr::filter((age >= 12 & weight < 30) | (age < 12 & weight > 50)) %>%
   dplyr::mutate(form_id = 'safety-repeat_individual',
                 anomalies_id = 'ind_suspicious_weight_based_on_age',
-                anomalies_description = glue::glue('Individual is {age} years old with weight {weight} kg'),
+                anomalies_description = glue::glue('extid:{extid} is {age} years old with weight {weight} kg'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
   dplyr::select(all_of(final_col_list))
 
@@ -122,7 +126,7 @@ anomalies_list$sus_bmi <- safety_merged_df %>%
   dplyr::filter(bmi < 16 | bmi > 35) %>%
   dplyr::mutate(form_id = 'safety-repeat_individual',
                 anomalies_id = 'ind_suspicious_bmi',
-                anomalies_description = glue::glue('{extid} has bmi of {bmi}'),
+                anomalies_description = glue::glue('extid:{extid} has bmi of {bmi}'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
   dplyr::select(all_of(final_col_list))
 
@@ -135,9 +139,11 @@ anomalies_list$sus_died_or_migrated <- safety_merged_df %>%
   dplyr::mutate(form_id = 'safety-repeat_individual',
                 anomalies_id = 'hh_more_than_3_members_died_or_migrated',
                 anomalies_description = glue::glue('hhid:{hhid} members {died} died and {migrated} migrated'),
-                anomalies_reports_to_wid = glue::glue('{wid}')) %>%
+                anomalies_reports_to_wid = glue::glue('{wid}'),
+                KEY = PARENT_KEY) %>%
   dplyr::ungroup() %>%
-  dplyr::select(all_of(final_col_list))
+  dplyr::select(all_of(final_col_list)) %>%
+  dplyr::distinct()
 
 # too many absent members
 anomalies_list$sus_absent <- safety_merged_df %>%
@@ -147,9 +153,11 @@ anomalies_list$sus_absent <- safety_merged_df %>%
   dplyr::mutate(form_id = 'safety-repeat_individual',
                 anomalies_id = 'hh_more_than_3_members_absent',
                 anomalies_description = glue::glue('hhid:{hhid} members {absent} absent'),
-                anomalies_reports_to_wid = glue::glue('{wid}')) %>%
+                anomalies_reports_to_wid = glue::glue('{wid}'),
+                KEY = PARENT_KEY) %>%
   dplyr::ungroup() %>%
-  dplyr::select(all_of(final_col_list))
+  dplyr::select(all_of(final_col_list)) %>%
+  dplyr::distinct()
 
 # hh gps accuracy too high
 anomalies_list$sus_gps <-  safety %>%
