@@ -5,6 +5,7 @@ library(glue)
 library(lubridate)
 library(dplyr)
 library(tools)
+source('R/utils.R')
 
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 tryCatch({
@@ -23,15 +24,17 @@ tryCatch({
 # parse through all report index
 purrr::map(config::get('report_index'), function(index){
   entry <- glue::glue('R/{index}')
-  purrr::map(list.files(entry, pattern = '*.Rmd'), function(rmd){
+  purrr::map(list.files(entry, pattern = '*.Rmd', full.names = TRUE), function(rmd){
     tryCatch({
+      print(entry)
       dir.create(
         glue::glue('{entry}/html_report'),
         recursive = TRUE,
         showWarnings = FALSE)
       logger::log_info(glue::glue("Knitting {rmd}"))
       output_file <- glue::glue("html_report/{file_path_sans_ext(basename(rmd))}.html")
-      markdown_loc <- glue::glue("{entry}/{rmd}")
+      markdown_loc <- glue::glue("{rmd}")
+      print(markdown_loc)
       rmarkdown::render(
         markdown_loc,
         output_file = output_file)

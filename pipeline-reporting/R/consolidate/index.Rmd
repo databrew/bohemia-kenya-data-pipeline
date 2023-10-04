@@ -38,7 +38,7 @@ create_reactable <- function(data) {
   reactable(
     data,
     columns = list(
-        report_name = colDef(name = 'Report Name'),
+        report_name = colDef(name = 'Report Name', minWidth = 200),
         size = colDef(name = "Size (kb)"),
         last_modified = colDef(name = 'Last Modified'),
         url_key = colDef(name = 'url',
