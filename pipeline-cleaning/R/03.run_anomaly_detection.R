@@ -23,8 +23,6 @@ env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 Sys.setenv(R_CONFIG_ACTIVE=env_pipeline_stage)
 BUCKET_NAME <- 'bohemia-lake-db'
 ROLE_NAME <- 'cloudbrewr-aws-role'
-OUTPUT_FILEPATH <- '/tmp/anomalies_detection.csv'
-OUTPUT_FILEPATH_SUMMARY <- '/tmp/anomalies_detection_summary.csv'
 
 #################################
 # 1. Authenticate
@@ -69,6 +67,9 @@ final <- list.files('output', full.names = TRUE) %>%
 #################################
 # 3. Consolidate current and historical
 ####################################
+OUTPUT_FILEPATH <- '/tmp/anomalies_detection.csv'
+OUTPUT_FILEPATH_SUMMARY <- '/tmp/anomalies_detection_summary.csv'
+
 final %>%
   fwrite(OUTPUT_FILEPATH)
 
