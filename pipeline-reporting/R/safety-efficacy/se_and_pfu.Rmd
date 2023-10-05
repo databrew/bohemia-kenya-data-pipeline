@@ -16,8 +16,7 @@ Notes:
 
 Description:
 
-This report is used for SE & PFU on this [Reporting Document](https://docs.google.com/spreadsheets/d/1yzrP80EjjPtTan3Dl_rSoQOUu1sARKHj9hd1k4-nPc4/edit#gid=1969855170)
-
+This report is used to monitor data collection for SE & PFU. Design specs are based on this [Reporting Document](https://docs.google.com/spreadsheets/d/1yzrP80EjjPtTan3Dl_rSoQOUu1sARKHj9hd1k4-nPc4/edit#gid=1969855170)
 
 ```{r, echo=FALSE, message=FALSE}
 knitr::opts_chunk$set(
@@ -335,8 +334,6 @@ plot_submission_by_day(safety)
 plot_submission_by_day(safetynew)
 ```
 
-
-## Safety Summary
 
 ```{r}
 data_list <- list()
