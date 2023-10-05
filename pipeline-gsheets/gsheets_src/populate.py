@@ -20,8 +20,9 @@ data_for_spreadsheet = data_for_spreadsheet[['resolution_id',
                                              'form_id',
                                              'anomalies_id',
                                              'anomalies_description',
-                                             'resolution_status',
-                                             'resolver']].fillna('')
+                                             'anomalies_reports_to_wid',
+                                             'resolver',
+                                             'resolution_status']].fillna('')
 
 
 sh = gc.open('odk_form_anomalies')
