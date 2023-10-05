@@ -1,15 +1,18 @@
 ---
-title: "Bohemia Reports"
+title: "Bohemia Reports Catalog"
 description: |
-  Reporting used to track all reports
+  Catalog of all Bohemia BI Reports and how to get there
+date: "`r Sys.time()`"
 output:
   html_document:
-    toc: true
     theme: cerulean
-date: '`r Sys.time()`'
 ---
 
-This is mapping of all reports used in all Kwale data collection.
+### What is this?
+This is the Catalog of all Bohemia BI Reports and how to get there
+
+### Bug Report
+Please report to atediarjo@gmail.com
 
 ```{r, echo=FALSE, message=FALSE}
 knitr::opts_chunk$set(
@@ -32,6 +35,11 @@ library(ggplot2)
 library(plotly)
 ```
 
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri('../../asset/bohemia.jpg'), 
+               alt = 'logo', 
+               style = 'position:absolute; top:0; right:0; padding:10px; width:200px; height:100px')
+```
 
 ```{r}
 create_reactable <- function(data) {
