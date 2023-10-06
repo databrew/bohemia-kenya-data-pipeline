@@ -9,6 +9,10 @@ gc = pg.authorize(service_file='key/key.json')
 
 anomalies_list = pd.read_csv('input/anomalies_detection.csv')
 ever_resolved = pd.read_csv('input/ever_resolved.csv')
+
+# only output confirmed correct as ever resolved, if manual resolution is done but anomalies is still there, then populate google sheets
+ever_resolved = ever_resolved[ever_resolved['resolution_status'] == 'confirmed_correct']
+
 other_status = pd.read_csv('input/resolution_other_status.csv')[['resolution_id', 'resolution_status', 'resolver']]
 
 data_for_spreadsheet = anomalies_list[~anomalies_list['resolution_id'].isin(ever_resolved['resolution_id'].unique())]
