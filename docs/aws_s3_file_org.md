@@ -25,3 +25,15 @@ S3 Folder Hierarchy Structure for Anomalies:
 ## Pipeline Overview
 
 ![Image](../images/s3_bucket_flow.png)
+
+## How to submit Resolution
+
+Submitting resolution is an ad-hoc manual process and not automated to prevent automatic errors. 
+
+1. Go to this [sheet](https://docs.google.com/spreadsheets/d/1i98uVuSj3qETbrH7beC8BkFmKV80rcImGobBvUGuqbU/edit#gid=0)
+
+2. Save file as `odk_form_anomalies - resolution.csv`
+
+3. Submit file to this [S3 bucket](https://s3.console.aws.amazon.com/s3/upload/databrew.org?region=us-east-1&prefix=anomalies/gsheets-fix/)
+
+4. Rerun this [step function](https://us-east-1.console.aws.amazon.com/states/home?region=us-east-1#/statemachines/view/arn:aws:states:us-east-1:354598940118:stateMachine:ODKBatch1437FF8A-eSt3mYmvwFfK)
