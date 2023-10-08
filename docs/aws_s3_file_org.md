@@ -37,3 +37,5 @@ Submitting resolution is an ad-hoc manual process and not automated to prevent a
 3. Submit file to this [S3 bucket](https://s3.console.aws.amazon.com/s3/upload/databrew.org?region=us-east-1&prefix=anomalies/gsheets-fix/)
 
 4. Rerun this [step function](https://us-east-1.console.aws.amazon.com/states/home?region=us-east-1#/statemachines/view/arn:aws:states:us-east-1:354598940118:stateMachine:ODKBatch1437FF8A-eSt3mYmvwFfK)
+
+5. After uploading resolution file to S3, and if there are no errors in step-function, mark `Status` in Google Sheets as `Done`
