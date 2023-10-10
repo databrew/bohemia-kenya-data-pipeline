@@ -190,7 +190,7 @@ eos_reasons <- safety_and_safetynew_eos %>%
   summarise('Number of eos people' = n()) %>%
   arrange(reason) %>%
   rename(Reason = reason) %>%
-  add_row(Reason = 'total eos people visited', 'Number of eos people' = sum(.$'Number of People'))
+  add_row(Reason = 'total eos people visited', 'Number of eos people' = sum(.$'Number of eos people'))
 reactable(eos_reasons)
 ```
 
