@@ -25,6 +25,7 @@ library(htmltools)
 library(glue)
 library(fontawesome)
 library(cloudbrewr)
+library(lubridate)
 ```
 
 
@@ -125,8 +126,7 @@ withdrawals <- base_tbl %>%
                 date_of_withdrawal = todays_date)
 
 active <- base_tbl %>%
-  dplyr::anti_join(withdrawals, by = 'orig_le') %>%
-  dplyr::anti_join(withdrawals, by = 'orig_hhid') %>%
+  dplyr::anti_join(withdrawals, by = 'id') %>%
   dplyr::mutate(active_or_withdrawn = 'active',
                 date_of_withdrawal = NA_Date_)
 
