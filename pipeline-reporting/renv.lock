@@ -348,6 +348,11 @@
       ],
       "Hash": "c2efdd5f0bcd1ea861c2d4e2a883a67d"
     },
+    "formattable": {
+      "Package": "formattable",
+      "Version": "0.2.1",
+      "Source": "Repository"
+    },
     "fs": {
       "Package": "fs",
       "Version": "1.6.3",
