@@ -1213,17 +1213,6 @@
       ],
       "Hash": "8aea3bee1ea38991f23aea27583b93ef"
     },
-    "pdftools": {
-      "Package": "pdftools",
-      "Version": "3.4.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "Rcpp",
-        "qpdf"
-      ],
-      "Hash": "9f04cfdc668ad1149d865a2996ac2045"
-    },
     "pillar": {
       "Package": "pillar",
       "Version": "1.9.0",
