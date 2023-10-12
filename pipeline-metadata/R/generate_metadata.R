@@ -12,6 +12,9 @@ library(sp)
 library(lubridate)
 library(readr)
 
+# to create rmd output
+dir.create('rmds', recursive = TRUE)
+
 # Define production
 # is_production <- TRUE
 # folder <- 'kwale_testing'
