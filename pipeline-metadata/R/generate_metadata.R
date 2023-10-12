@@ -2,18 +2,6 @@
 # https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=389444343
 
 # Remove log files in rmd (they get created in visit control sheet rendering)
-logs <- dir('rmds', pattern = '.log')
-if(length(logs) > 0){
-  for(i in 1:length(logs)){
-    file.remove(paste0('rmds/', logs[i]))
-  }
-}
-
-system(paste0("cat /proc/",Sys.getpid(),"/status | grep VmSize"))
-# Linux memory issues
-library(unix)
-rlimit_as(1e13)  # 12increases to ~12GB
-
 library(logger)
 library(purrr)
 library(dplyr)
@@ -22,10 +10,6 @@ library(data.table)
 library(sf)
 library(sp)
 library(lubridate)
-library(readr)
-library(pdftools)
-library(rmarkdown)
-library(knitr)
 library(readr)
 
 # Define production
@@ -290,7 +274,7 @@ if(start_fresh){
        healtheconnew_repeat_miss_work_school,
        healtheconnew_repeat_other_employment_details,
        # i,
-       is_production,
+       # is_production,
        middle_path,
        object_keys,
        output_dir,
@@ -2019,5 +2003,5 @@ zip(zipfile = 'metadata_zip_files/icf_metadata.zip', files = 'icf_metadata/')
 cloudbrewr::aws_s3_bulk_store(
   bucket = 'databrew.org',
   prefix = '/metadata_zip_files',
-  target_dir = 'metadata_zip_files'
+  target_dir = 'metadata'
 )

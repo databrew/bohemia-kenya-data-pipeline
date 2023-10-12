@@ -9,8 +9,6 @@ library(cloudbrewr)
 library(data.table)
 library(lubridate)
 
-
-
 TARGET_OBJS <- c(
   'test_of_test',
   'health_economics_testing',
