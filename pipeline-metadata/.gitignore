@@ -1,1 +1,6 @@
-/health_economics_metadata/*
+/*
+!Dockerfile
+!Makefile
+!data_public
+!inputs
+!analyses
