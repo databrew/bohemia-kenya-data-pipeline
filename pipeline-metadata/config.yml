@@ -1,0 +1,23 @@
+default:
+  bucket: 'databrew.org'
+  server_name: 'https://databrew.org'
+develop:
+  secret_name: 'test/odk-credentials'
+  pid: 23
+  target:
+    - key: 'icf'
+      s3uri: 'metadata/icf_metadata.zip'
+      fid:
+        - 'sepk_icf_verification'
+      fs:
+        - 'icf_metadata/individual_data.csv'
+production:
+  secret_name: 'prod/odk-credentials'
+  pid: 15
+  target:
+    - key: 'icf'
+      s3uri: 'metadata/icf_metadata.zip'
+      fid:
+        - 'sepk_icf_verification'
+      fs:
+        - 'icf_metadata/individual_data.csv'
