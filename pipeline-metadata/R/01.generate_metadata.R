@@ -2001,10 +2001,3 @@ zip(zipfile = 'metadata_zip_files/safety_metadata.zip', files = 'safety_metadata
 zip(zipfile = 'metadata_zip_files/ntd_metadata.zip', files = 'ntd_metadata/')
 zip(zipfile = 'metadata_zip_files/pk_metadata.zip', files = 'pk_metadata/')
 zip(zipfile = 'metadata_zip_files/icf_metadata.zip', files = 'icf_metadata/')
-
-
-cloudbrewr::aws_s3_bulk_store(
-  bucket = 'databrew.org',
-  prefix = '/metadata',
-  target_dir = 'metadata_zip_files'
-)
