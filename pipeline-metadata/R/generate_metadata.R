@@ -2005,6 +2005,6 @@ zip(zipfile = 'metadata_zip_files/icf_metadata.zip', files = 'icf_metadata/')
 
 cloudbrewr::aws_s3_bulk_store(
   bucket = 'databrew.org',
-  prefix = '/metadata_zip_files',
-  target_dir = 'metadata'
+  prefix = '/metadata',
+  target_dir = 'metadata_zip_files'
 )
