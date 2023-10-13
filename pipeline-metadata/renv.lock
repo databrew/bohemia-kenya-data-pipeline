@@ -350,6 +350,11 @@
       ],
       "Hash": "f20c47fd52fae58b4e377c37bb8c335b"
     },
+    "config": {
+      "Package": "config",
+      "Version": "0.3.2",
+      "Source": "Repository"
+    },
     "conflicted": {
       "Package": "conflicted",
       "Version": "1.2.0",
