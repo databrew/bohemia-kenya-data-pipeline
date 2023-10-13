@@ -6,13 +6,17 @@ RUN apt-get update -y\
   && apt-get install -y git\
   && apt-get install -y libudunits2-dev\
   && apt-get install -y libgdal-dev\
+  && apt-get install -y libpoppler-cpp-dev\
   && apt-get install -y awscli
 
+# run git clone
+RUN git clone -b fit_metadata_with_pipeline https://github.com/databrew/bk.git /root/bk
+
 # copy working directory
-COPY . /root/pipeline-metadata
+COPY . /root/bk/scripts/metadata
 
 # use the bohemia kenya work directory
-WORKDIR /root/pipeline-metadata
+WORKDIR /root/bk/scripts/metadata
 
 # use renv to replicate
 RUN R -e "install.packages('renv')"
