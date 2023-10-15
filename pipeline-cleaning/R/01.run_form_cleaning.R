@@ -123,41 +123,46 @@ purrr::map(config::get('odk_projects'), function(project_name){
 
 
                                          # google sheets resolution
-                                         if(nrow(resolution) > 0){
-                                           clean <- google_sheets_fix(
-                                             data = raw,
+                                         tryCatch({
+                                           if(nrow(resolution) > 0){
+                                             clean <- google_sheets_fix(
+                                               data = raw,
+                                               form_id = form_id,
+                                               repeat_name = repeat_name,
+                                               resolution = resolution)
+                                           }else{
+                                             clean <- raw
+                                           }
+
+                                           # form cluster reassignment
+                                           clean <-
+                                             add_cluster_geo_num(
+                                               data = clean,
+                                               form_id = form_id,
+                                               repeat_name = repeat_name
+                                             )  %>%
+                                             standardize_col_value_case(data = ., col_names = 'village') %>%
+                                             standardize_col_value_case(data = ., col_names = 'village_select') %>%
+                                             standardize_col_value_case(data = ., col_names = 'village_specify') %>%
+                                             standardize_village()
+
+                                           data <- tibble(
+                                             file_path = file_path,
+                                             clean_file_path = clean_file_path,
                                              form_id = form_id,
                                              repeat_name = repeat_name,
-                                             resolution = resolution)
-                                         }else{
-                                           clean <- raw
-                                         }
-
-                                         # form cluster reassignment
-                                         clean <-
-                                           add_cluster_geo_num(
-                                             data = clean,
-                                             form_id = form_id,
-                                             repeat_name = repeat_name
-                                           )  %>%
-                                           standardize_col_value_case(data = ., col_names = 'village') %>%
-                                           standardize_col_value_case(data = ., col_names = 'village_select') %>%
-                                           standardize_col_value_case(data = ., col_names = 'village_specify') %>%
-                                           standardize_village()
-
-                                         data <- tibble(
-                                           file_path = file_path,
-                                           clean_file_path = clean_file_path,
-                                           form_id = form_id,
-                                           repeat_name = repeat_name,
-                                           raw = list(raw),
-                                           resolution = list(resolution),
-                                           clean = list(clean))
-                                         dir.create(glue::glue('projects/clean-form/{form_id}'),
-                                                    recursive = TRUE,
-                                                    showWarnings = FALSE)
-                                         clean %>% fwrite(clean_file_path)
-                                         return(data)
+                                             raw = list(raw),
+                                             resolution = list(resolution),
+                                             clean = list(clean))
+                                           dir.create(glue::glue('projects/clean-form/{form_id}'),
+                                                      recursive = TRUE,
+                                                      showWarnings = FALSE)
+                                           clean %>% fwrite(clean_file_path)
+                                           return(data)
+                                         }, error = function(e){
+                                           logger::log_error(glue::glue('{form_id}={repeat_name} with error {e$message}'))
+                                           stop()
+                                         })
                                        })
 
   # save object to s3
