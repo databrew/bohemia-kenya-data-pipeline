@@ -350,6 +350,11 @@
       ],
       "Hash": "f20c47fd52fae58b4e377c37bb8c335b"
     },
+    "config": {
+      "Package": "config",
+      "Version": "0.3.2",
+      "Source": "Repository"
+    },
     "conflicted": {
       "Package": "conflicted",
       "Version": "1.2.0",
@@ -847,6 +852,11 @@
       ],
       "Hash": "266a20443ca13c65688b2116d5220f76"
     },
+    "kableExtra": {
+      "Package": "kableExtra",
+      "Version": "1.3.4",
+      "Source": "Repository"
+    },
     "knitr": {
       "Package": "knitr",
       "Version": "1.43",
@@ -1212,6 +1222,11 @@
         "paws.common"
       ],
       "Hash": "8aea3bee1ea38991f23aea27583b93ef"
+    },
+    "pdftools": {
+      "Package": "pdftools",
+      "Version": "3.4.0",
+      "Source": "Repository"
     },
     "pillar": {
       "Package": "pillar",
@@ -1824,10 +1839,7 @@
     "unix": {
       "Package": "unix",
       "Version": "1.5.5",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "OS_type": "unix",
-      "Hash": "5bed1fc6d749a278f9bcffdc1a2f02c2"
+      "Source": "Repository"
     },
     "utf8": {
       "Package": "utf8",

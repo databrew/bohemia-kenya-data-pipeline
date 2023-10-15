@@ -233,7 +233,7 @@ google_sheets_fix <- function(data,
                               form_id,
                               repeat_name,
                               resolution){
-  if(nrow(resolution) > 0){
+  if(nrow(resolution) > 0 & nrow(data) > 0){
     data <- batch_delete(data = data,
                          form_id = form_id,
                          repeat_name = repeat_name,
