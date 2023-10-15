@@ -10,7 +10,7 @@ RUN apt-get update -y\
   && apt-get install -y awscli
 
 # run git clone
-RUN git clone -b fit_metadata_with_pipeline https://github.com/databrew/bk.git /root/bk
+RUN git clone https://github.com/databrew/bk.git /root/bk
 
 # copy working directory
 COPY . /root/bk/scripts/metadata
