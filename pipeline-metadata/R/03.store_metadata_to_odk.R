@@ -99,7 +99,7 @@ res <- httr::RETRY("POST",
                    )
 
 
-new_version <- round(as.numeric(Sys.time()))
+new_version <- strftime(lubridate::today(), format = "%y%m%d01")
 logger::log_info('Publishing new version with updated data as version ', new_version)
 res <- httr::RETRY("POST",
                    paste0(env_server_endpoint,
