@@ -1,28 +1,19 @@
 ## Pipeline Metadata
 
-### How to contribute:
+### Architecture
 
-1. Create a new branch / fork this repository
+![img](https://lucid.app/publicSegments/view/55d4c491-a697-4274-b067-246f52973fb0/image.jpeg)
 
-2. **Open this folder as a project / or as the working directory**
+1. This architecture involves the interaction between to repos. `bohemia-kenya-data-pipeline` will act as the enabler on interacting with AWS and ODK where `bk` will be the one generating metadata
 
-3. Restore environment by running:
+2. This pipeline will clone `bk:main` for each scheduled run
 
-```r
-install.packages('renv')
-renv::restore()
-```
+3. How do we handle library addition? 
+If there is a new library that is added to `bk` `generate_metadata.R` or any `rmds` attached to it - do notify @atediarjo on what library should be added to the `renv.lock` file
 
-Note: `renv` may not be able to fully restore environment depending on your locale configuration. 
+4. How data is stored?
+Metadata will be stored as a zip file in S3 for tracking purposes under databrew.org/metadata
 
-4. Rerun all code via Terminal
+5. How form is versioned?
+For each scheduled runs, versioning will be based on `YYMMDD01` (for manual updates, it will be adding through the last suffixes `YYMMDD02`)
 
-```
-make pipeline
-```
-
-5. (Optional) To add a new R library into the workflow, do `renv` snapshot if you are able to work under `renv` project. If not, mark it in the PR the new library you are using
-
-```
-renv::snapshot()
-```
