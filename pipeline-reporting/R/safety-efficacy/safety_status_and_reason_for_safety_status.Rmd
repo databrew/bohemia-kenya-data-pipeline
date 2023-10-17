@@ -1,5 +1,5 @@
 ---
-title: "Reason for Safety Status Report"
+title: "Safety Status Report"
 output: 
   html_document:
     toc: true
@@ -68,6 +68,11 @@ absence1stattempt <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/absences1stattempt/absences1stattempt.csv')) %>%
   pad_hhid()
 
+v0_demography <- cloudbrewr::aws_s3_get_table(
+  bucket = DATA_STAGING_BUCKET_NAME,
+  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography-repeat_individual.csv')) %>%
+  pad_hhid()
+
 safety <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safety/safety.csv')) %>%
@@ -88,55 +93,80 @@ safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safetynew/safetynew-repeat_individual.csv')) %>%
   pad_hhid()
 
-safety_repeat_ae_symptom <- cloudbrewr::aws_s3_get_table(
-  bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safety/safety-repeat_ae_symptom.csv')) %>%
-  pad_hhid()
+#safety_repeat_ae_symptom <- cloudbrewr::aws_s3_get_table(
+ # bucket = DATA_STAGING_BUCKET_NAME,
+ # key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safety/safety-repeat_ae_symptom.csv')) %>%
+  #pad_hhid()
 
-safety_repeat_drug <- cloudbrewr::aws_s3_get_table(
-  bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safety/safety-repeat_drug.csv')) %>%
-  pad_hhid()
+#safety_repeat_drug <- cloudbrewr::aws_s3_get_table(
+ # bucket = DATA_STAGING_BUCKET_NAME,
+  #key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safety/safety-repeat_drug.csv')) %>%
+  #pad_hhid()
 ```
 
-
+## V1 Numbers
 ```{r total}
 ## this will create the table of how many people are in, out, refusal, or eos
 
 # only take the necessary columns (extid and safety_status) from the datasets
-clean_safety <- safety_repeat_individual %>%
-  select(extid, safety_status)
-clean_safetynew <- safetynew_repeat_individual %>%
-  select(extid, safety_status) %>%
+clean_safety_repeat <- safety_repeat_individual %>%
+  select(PARENT_KEY, extid, safety_status)
+clean_safetynew_repeat <- safetynew_repeat_individual %>%
+  select(PARENT_KEY, extid, safety_status) %>%
   rename(safetynew_status = safety_status)
+clean_safety <- safety %>%
+  select(KEY, visit)
+clean_safetynew <- safetynew %>%
+  select(KEY, visit)
+
+# join safety and safety repeat and do the same for safetynew
+joined_safety <- left_join(clean_safety_repeat, clean_safety, by=c('PARENT_KEY' = 'KEY'))
+joined_safetynew <- left_join(clean_safetynew_repeat, clean_safetynew, by=c('PARENT_KEY' = 'KEY'))
 
 # join these two new dataframes
-extid_and_safety_status_df <- bind_rows(clean_safety, clean_safetynew)
+extid_and_safety_status_df <- bind_rows(joined_safety, joined_safetynew)
+
+# since this is only a table for V1 we will only keep V1 people
+extid_and_safety_status_df <- extid_and_safety_status_df %>%
+  filter(visit == 'V1')
 
 # and make the safetynew_status and safety_status into one column
 extid_and_safety_status_df <- extid_and_safety_status_df %>%
-  mutate(safety_and_safetynew_status = ifelse(!is.na(safety_status), safety_status, safetynew_status)) %>%
-  select(extid, safety_and_safetynew_status)
+  mutate(safetystatus = coalesce(safety_status, safetynew_status)) %>% 
+  select(extid, safetystatus)
+
+# we find an UNDEFINED from someone most likely submitting a form without filling it out so we will remove NA from extid 
+extid_and_safety_status_df <- extid_and_safety_status_df %>%
+  filter(safetystatus != 'UNDEFINED')
 
 # create a summary table of safety_status counts
 num_of_safety_status <- extid_and_safety_status_df %>%
-  group_by(safety_and_safetynew_status) %>%
-  summarise('Number of people' = n()) %>%
-  arrange(safety_and_safetynew_status) %>%
-  rename('Safety status' = safety_and_safetynew_status) %>%
-  add_row('Safety status' = 'total people visited', 'Number of people' = sum(.$'Number of people'))
-reactable(num_of_safety_status)
+  group_by(safetystatus) %>%
+  summarise('Number of people visited in V1 (target: 30,727)' = n()) %>%
+  arrange(safetystatus) %>%
+  rename('Safety status' = safetystatus) %>%
+  add_row('Safety status' = 'total people visited', 'Number of people visited in V1 (target: 30,727)' = sum(.$'Number of people visited in V1 (target: 30,727)')) %>%
+  mutate('Percent complete' = (as.numeric(`Number of people visited in V1 (target: 30,727)`)) / as.numeric(nrow(extid_and_safety_status_df)) * 100) %>%
+  mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+  mutate('Percent complete' = paste0(`Percent complete`, '%'))
+reactable(num_of_safety_status, columns = list(
+  `Percent complete` = colDef(align = "right")
+))
 
 ```
 
-### Table of eos individuals and reason they are eos
+### eos
 ```{r eos}
 ## this will create a table of how many people are eos and why they are eos
 # first let's determine the reason someone is eos in the safety repeat individual form 
 safety_eos <- safety_repeat_individual %>%
-  select(extid, safety_status, not_agree_safety_procedures_eos, safety_inclusion_eos, non_resident_eos, weight_eos, study_drug_eos, concom_meds_eos, severe_illness_eos, baby_not_week_old_eos, pregnant_eos, pregnancy_section_eos, other_trials_eos, loa_loa_eos, sum_night_hospital_eos, pregnancy_section_eos_short, preg_test_refuse_eos_short, preg_test_pos_eos_short, preg_test_2_eos_short, short_safety_inclusion_eos, weight_eos_short, concom_meds_eos_short, severe_illness_eos_short, refuse_drug_eos, not_take_drug_reason, refuse_drug_eos_2, not_take_drug_reason_2) %>%
+  select(PARENT_KEY, extid, safety_status, not_agree_safety_procedures_eos, safety_inclusion_eos, non_resident_eos, weight_eos, study_drug_eos, concom_meds_eos, severe_illness_eos, baby_not_week_old_eos, pregnant_eos, pregnancy_section_eos, other_trials_eos, loa_loa_eos, sum_night_hospital_eos, pregnancy_section_eos_short, preg_test_refuse_eos_short, preg_test_pos_eos_short, preg_test_2_eos_short, short_safety_inclusion_eos, weight_eos_short, concom_meds_eos_short, severe_illness_eos_short, refuse_drug_eos, not_take_drug_reason, refuse_drug_eos_2, not_take_drug_reason_2) %>%
   mutate(type = 'safety') %>%
   filter(safety_status == 'eos')# to identify where the person came from later on
+
+# need to filter by visit from clean_safety
+safety_eos <- left_join(safety_eos, clean_safety, by=c('PARENT_KEY'='KEY')) %>%
+  filter(visit == 'V1')
 
 # conditions for not_agree_to_safety_procedures
 safety_eos$reason[safety_eos$not_agree_safety_procedures_eos == 1] <- 'not agree to safety procedures'
@@ -173,9 +203,13 @@ safety_eos$reason[safety_eos$refuse_drug_eos_2 == 1] <- 'participant withdrew in
 
 # next let's determine the reason someone is eos in the safetynew repeat individual data
 safetynew_eos <- safetynew_repeat_individual %>%
-  select(extid, safety_status, not_agree_safety_procedures_eos, safety_inclusion_eos, non_resident_eos, weight_eos, study_drug_eos, concom_meds_eos, severe_illness_eos, baby_not_week_old_eos, pregnant_eos, pregnancy_section_eos, other_trials_eos, loa_loa_eos, refuse_drug_eos, not_take_drug_reason, refuse_drug_eos_2, not_take_drug_reason_2) %>%
+  select(PARENT_KEY, extid, safety_status, not_agree_safety_procedures_eos, safety_inclusion_eos, non_resident_eos, weight_eos, study_drug_eos, concom_meds_eos, severe_illness_eos, baby_not_week_old_eos, pregnant_eos, pregnancy_section_eos, other_trials_eos, loa_loa_eos, refuse_drug_eos, not_take_drug_reason, refuse_drug_eos_2, not_take_drug_reason_2) %>%
   mutate(type = 'safety new') %>%
   filter(safety_status == 'eos')
+
+# get the visit number from clean_safetynew
+safetynew_eos <- left_join(safetynew_eos, clean_safetynew, by=c('PARENT_KEY' = 'KEY')) %>%
+  filter(visit == 'V1')
 
 # conditions for not_agree_to_safety_procedures
 safetynew_eos$reason[safetynew_eos$not_agree_safety_procedures_eos == 1] <- 'not agree to safety procedures'
@@ -204,19 +238,29 @@ eos_reasons <- safety_and_safetynew_eos %>%
   group_by(reason) %>%
   summarise('Number of eos people' = n()) %>%
   arrange(reason) %>%
-  rename(Reason = reason) %>%
-  add_row(Reason = 'total eos people visited', 'Number of eos people' = sum(.$'Number of eos people'))
-reactable(eos_reasons)
+  rename('Reason for eos' = reason) %>%
+  add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_and_safetynew_eos)) * 100) %>%
+  mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+  mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+reactable(eos_reasons, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
 ```
+*Note: breastfeeding is not shown in the table since that has not been a reason that someone is eos*
 
-### Table of out individuals and reason they are out
+### out
 ```{r out}
 ## this will create a table of how many people are out and why they are out
 # let's start with safety
 safety_out <- safety_repeat_individual %>%
-  select('extid', 'safety_status', 'person_out_died', 'person_out_migrated', 'obvious_screening_status', 'obvious_screening', 'person_absent') %>%
+  select('PARENT_KEY', 'extid', 'safety_status', 'person_out_died', 'person_out_migrated', 'obvious_screening_status', 'obvious_screening', 'person_absent') %>%
   mutate(type = 'safety') %>%
   filter(safety_status == 'out')
+
+# need to filter by visit from clean_safety
+safety_out <- left_join(safety_out, clean_safety, by=c('PARENT_KEY'='KEY')) %>%
+  filter(visit == 'V1')
 
 safety_out$reason[safety_out$person_out_died == 1] <- 'died'
 safety_out$reason[safety_out$person_out_migrated == 1] <- 'migrated'
@@ -226,7 +270,6 @@ safety_out$reason[safety_out$obvious_screening == 'Baby'] <- 'A baby that cannot
 safety_out$reason[safety_out$obvious_screening == 'Ill'] <- 'A person so ill that they cannot leave the bed'
 safety_out$reason[safety_out$obvious_screening == 'Witness'] <- 'no witness'
 safety_out$reason[safety_out$person_absent == '1'] <- 'absent'
-safety_out$reason[safety_out$extid %in% absence1stattempt$extid_enter] <- 'absent first attempt'
 
 # this may need to be added eventually
 #safety_out$reason[safety_out$visit == 'V2'] <- 'selected v2'
@@ -236,16 +279,19 @@ safety_out$reason[safety_out$extid %in% absence1stattempt$extid_enter] <- 'absen
 
 # create a new df for safetynew for out individuals with the reason
 safetynew_out <- safetynew_repeat_individual %>%
-  select('extid', 'safety_status', 'obvious_screening_status', 'obvious_screening', 'ind_witness_present') %>%
+  select('PARENT_KEY', 'extid', 'safety_status', 'obvious_screening_status', 'obvious_screening', 'ind_witness_present') %>%
   mutate(type = 'safetynew') %>%
   filter(safety_status == 'out')
+
+# need to filter by visit from clean_safety
+safetynew_out <- left_join(safetynew_out, clean_safetynew, by=c('PARENT_KEY'='KEY')) %>%
+  filter(visit == 'V1')
 
 safetynew_out$reason[safetynew_out$obvious_screening == 'ineligible'] <- 'Ineligible at obvious reasoning'
 safetynew_out$reason[safetynew_out$obvious_screening == 'Pregnant'] <- 'pregnant'
 safetynew_out$reason[safetynew_out$obvious_screening == 'Baby'] <- 'A baby that cannot walk yet'
 safetynew_out$reason[safetynew_out$obvious_screening == 'Ill'] <- 'A person so ill that they cannot leave the bed'
 safetynew_out$reason[safetynew_out$obvious_screening == 'Witness'] <- 'no witness'
-safetynew_out$reason[safetynew_out$extid %in% absence1stattempt$extid_enter] <- 'absent first attempt'
 safetynew_out$reason[safetynew_out$ind_witness_present == 'no'] <- 'no witness'
 
 # merge the datasets to see why people are out
@@ -257,20 +303,25 @@ out_reasons <- safety_and_safetynew_out %>%
   summarise('Number of out people' = n()) %>%
   arrange(reason) %>%
   rename(Reason = reason) %>%
-  add_row(Reason = 'total number of people', 'Number of out people' = sum(.$'Number of out people'))
-reactable(out_reasons)
-
-test <- safety_and_safetynew_out %>% filter(is.na(reason))
+  add_row(Reason = 'total number of people', 'Number of out people' = sum(.$'Number of out people')) %>%
+  mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(safety_and_safetynew_out)) * 100) %>%
+  mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+  mutate('Percent complete' = paste0(`Percent complete`, '%'))
+reactable(out_reasons, columns = list(`Percent complete` = colDef(align = 'right')))
 ```
 
-### Table of refusal individuals and reasons they are refusal
+### refusal
 ```{r refusal}
 ## this will create a table of how many people are refusal and why they are refusal
 # let us start with safety
 safety_refusal <- safety_repeat_individual %>%
-  select('extid', 'safety_status', 'obvious_screening_status', 'obvious_screening', 'ind_thumbprint_status', 'ind_sign_icf_status', 'minor_assent_status') %>%
+  select('PARENT_KEY', 'extid', 'safety_status', 'obvious_screening_status', 'obvious_screening', 'ind_thumbprint_status', 'ind_sign_icf_status', 'minor_assent_status') %>%
   mutate(type = 'safety') %>%
   filter(safety_status == 'refusal')
+
+# need to filter by visit from clean_safety
+safety_refusal <- left_join(safety_refusal, clean_safety, by=c('PARENT_KEY'='KEY')) %>%
+  filter(visit == 'V1')
 
 safety_refusal$reason[safety_refusal$obvious_screening == 'Refusal'] <- 'a person who does not want to participate'
 safety_refusal$reason[safety_refusal$obvious_screening == 'Pregnant'] <- 'pregnant'
@@ -284,9 +335,13 @@ safety_refusal$reason[safety_refusal$minor_assent_status == 0] <- 'minor not sig
 
 # next we will work with safety new
 safetynew_refusal <- safetynew_repeat_individual %>%
-  select('extid', 'safety_status', 'obvious_screening_status', 'obvious_screening', 'ind_thumbprint_status', 'ind_sign_icf_status', 'minor_assent_status') %>%
+  select('PARENT_KEY', 'extid', 'safety_status', 'obvious_screening_status', 'obvious_screening', 'ind_thumbprint_status', 'ind_sign_icf_status', 'minor_assent_status') %>%
   mutate(type = 'safetynew') %>%
   filter(safety_status == 'refusal')
+
+# need to filter by visit from clean_safety
+safetynew_refusal <- left_join(safetynew_refusal, clean_safetynew, by=c('PARENT_KEY'='KEY')) %>%
+  filter(visit == 'V1')
 
 safetynew_refusal$reason[safetynew_refusal$obvious_screening == 'Refusal'] <- 'a person who does not want to participate'
 safetynew_refusal$reason[safetynew_refusal$obvious_screening == 'Pregnant'] <- 'pregnant'
@@ -307,6 +362,33 @@ refusal_reasons <- safety_and_safetynew_refusal %>%
   summarise('Number of refusal people' = n()) %>%
   arrange(reason) %>%
   rename(Reason = reason) %>%
-  add_row(Reason = 'total number of people', 'Number of refusal people' = sum(.$'Number of refusal people'))
-reactable(refusal_reasons)
+  add_row(Reason = 'total number of people', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
+  mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(safety_and_safetynew_refusal)) * 100) %>%
+  mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+  mutate('Percent complete' = paste0(`Percent complete`, '%'))
+reactable(refusal_reasons, columns = list(`Percent complete` = colDef(align = 'right')))
+```
+
+### absence first attempt (to be completed)
+```{r absencefirstattempt}
+# determine who was marked absent first attempt and marked absent, visited, not yet visited again.
+comment({
+absence <- left_join(extid_and_safety_status_df, safety_and_safetynew_eos, by=c('extid')) %>%
+  select(extid, safetystatus, reason) %>%
+  rename(reason_eos = reason)
+absence <- left_join(absence, safety_and_safetynew_out, by=c('extid')) %>%
+  select(extid, safetystatus, reason_eos, reason) %>%
+  rename(reason_out = reason)
+absence <- left_join(absence, safety_and_safetynew_refusal, by=c('extid')) %>%
+  select(extid, safetystatus,reason_eos, reason_out, reason)
+absence <- absence %>%
+  mutate(reason = coalesce(reason_eos, reason_out, reason)) %>%
+  select(extid, safetystatus, reason)
+absence$firstattempt[absence$extid %in% absence1stattempt$extid_enter] <- 'absent first attempt'
+absence <- absence %>%
+  filter(firstattempt == 'absent first attempt')
+safetynew_refusal$reason[safetynew_refusal$minor_assent_status == 0] <- 'minor not sign assent'
+absence$group[absence$reason == 'absent'] <- 'marked absent'
+absence$group[absence$safetystatus == 'in'] <- 'visited and not absent' 
+})
 ```
