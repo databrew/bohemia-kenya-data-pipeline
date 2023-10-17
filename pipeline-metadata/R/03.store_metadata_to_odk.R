@@ -73,6 +73,18 @@ purrr::map(config::get('target'), function(obj){
     env_odk_password)
 
 
+  # Get metadata of form
+  curr_version <- httr::RETRY("GET",
+              paste0(env_server_endpoint,
+                     "/v1/projects/",
+                     config::get('pid'),
+                     "/forms/",
+                     obj$fid),
+              basic_authentication
+  ) %>%
+    httr::content(.) %>% .$version
+
+
   # Create a draft form
   # (the below fails if not already created on the server)
   logger::log_info('Making new draft')
@@ -102,14 +114,22 @@ purrr::map(config::get('target'), function(obj){
 
 
   new_version <- strftime(lubridate::today(), format = "%y%m%d01")
-  logger::log_info('Publishing new version with updated data as version ', new_version)
+
+  if(new_version > curr_version){
+    version = new_version
+  }else{
+    version = as.character(as.numeric(curr_version) + 1)
+  }
+
+  logger::log_info('Publishing new version with updated data as version ', version)
   res <- httr::RETRY("POST",
                      paste0(env_server_endpoint,
                             "/v1/projects/",
                             config::get('pid'),
                             "/forms/",
                             obj$fid,
-                            "/draft/publish?version=",new_version),
+                            "/draft/publish?version=",
+                            version),
                      basic_authentication) %>%
     httr::content(.)
 })
