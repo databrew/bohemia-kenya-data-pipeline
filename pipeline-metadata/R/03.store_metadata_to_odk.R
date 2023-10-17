@@ -53,62 +53,66 @@ tryCatch({
   stop(e$message)
 })
 
-#########################
-# ICF Metadata
-#########################
-
-# unzip file
-target_dir <- glue::glue('/tmp')
-unlink(target_dir, recursive = TRUE, force = TRUE)
-dir.create(target_dir, recursive = TRUE)
-cloudbrewr::aws_s3_get_object(
-  bucket = config::get('bucket'),
-  key = config::get('target')[[1]]$s3uri) %>%
-  .$file_path %>%
-  unzip(exdir = target_dir)
-
-target_file <- glue::glue('{target_dir}/{config::get(\'target\')[[1]]$fs}')
-
-basic_authentication <- httr::authenticate(env_odk_username, env_odk_password)
-
-# Create a draft form
-# (the below fails if not already created on the server)
-logger::log_info('Making new draft')
-res <- httr::RETRY("POST",
-                   paste0(env_server_endpoint,
-                          "/v1/projects/",
-                          config::get('pid'),
-                          "/forms/",
-                          config::get('target')[[1]]$fid,
-                          "/draft"),
-                   basic_authentication
-) %>%
-  httr::content(.)
 
 
-logger::log_info('Uploading individual_data.csv')
-res <- httr::RETRY("POST",
-                   paste0(env_server_endpoint,
-                          "/v1/projects/",
-                          config::get('pid'),
-                          "/forms/",
-                          config::get('target')[[1]]$fid,
-                          "/draft/attachments/individual_data.csv"),
-                   body = httr::upload_file(target_file),
-                   basic_authentication
-                   )
+
+purrr::map(config::get('target'), function(obj){
+  # unzip file
+  target_dir <- glue::glue('/tmp')
+  unlink(target_dir, recursive = TRUE, force = TRUE)
+  dir.create(target_dir, recursive = TRUE)
+  cloudbrewr::aws_s3_get_object(
+    bucket = config::get('bucket'),
+    key = obj$s3uri) %>%
+    .$file_path %>%
+    unzip(exdir = target_dir)
+
+  target_file <- glue::glue('{target_dir}/{obj$fs[[1]]}')
+  basic_authentication <- httr::authenticate(
+    env_odk_username,
+    env_odk_password)
 
 
-new_version <- strftime(lubridate::today(), format = "%y%m%d01")
-logger::log_info('Publishing new version with updated data as version ', new_version)
-res <- httr::RETRY("POST",
-                   paste0(env_server_endpoint,
-                          "/v1/projects/",
-                          config::get('pid'),
-                          "/forms/",
-                          config::get('target')[[1]]$fid,
-                          "/draft/publish?version=",new_version),
-                   basic_authentication) %>%
-  httr::content(.)
+  # Create a draft form
+  # (the below fails if not already created on the server)
+  logger::log_info('Making new draft')
+  res <- httr::RETRY("POST",
+                     paste0(env_server_endpoint,
+                            "/v1/projects/",
+                            config::get('pid'),
+                            "/forms/",
+                            obj$fid,
+                            "/draft"),
+                     basic_authentication
+  ) %>%
+    httr::content(.)
+
+
+  logger::log_info('Uploading individual_data.csv')
+  res <- httr::RETRY("POST",
+                     paste0(env_server_endpoint,
+                            "/v1/projects/",
+                            config::get('pid'),
+                            "/forms/",
+                            obj$fid,
+                            glue::glue("/draft/attachments/{basename(target_file)}")),
+                     body = httr::upload_file(target_file),
+                     basic_authentication
+  )
+
+
+  new_version <- strftime(lubridate::today(), format = "%y%m%d01")
+  logger::log_info('Publishing new version with updated data as version ', new_version)
+  res <- httr::RETRY("POST",
+                     paste0(env_server_endpoint,
+                            "/v1/projects/",
+                            config::get('pid'),
+                            "/forms/",
+                            obj$fid,
+                            "/draft/publish?version=",new_version),
+                     basic_authentication) %>%
+    httr::content(.)
+})
+
 
 logger::log_info('Metadata update succeed')
