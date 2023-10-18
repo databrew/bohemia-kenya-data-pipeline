@@ -121,30 +121,27 @@ purrr::map(config::get('odk_projects'), function(project_name){
                                                 raw = ..5,
                                                 resolution = ..6){
 
-
                                          # google sheets resolution
                                          tryCatch({
-                                           if(nrow(resolution) > 0){
+                                           if(nrow(resolution) > 0 &
+                                              project_name == 'kwale' &
+                                              nrow(raw) > 0){
                                              clean <- google_sheets_fix(
-                                               data = raw,
-                                               form_id = form_id,
-                                               repeat_name = repeat_name,
-                                               resolution = resolution)
+                                                data = raw,
+                                                form_id = form_id,
+                                                repeat_name = repeat_name,
+                                                resolution = resolution) %>%
+                                               add_cluster_geo_num(
+                                                 data = .,
+                                                 form_id = form_id,
+                                                 repeat_name = repeat_name) %>%
+                                               standardize_col_value_case(data = ., col_names = 'village') %>%
+                                               standardize_col_value_case(data = ., col_names = 'village_select') %>%
+                                               standardize_col_value_case(data = ., col_names = 'village_specify') %>%
+                                               standardize_village()
                                            }else{
                                              clean <- raw
                                            }
-
-                                           # form cluster reassignment
-                                           clean <-
-                                             add_cluster_geo_num(
-                                               data = clean,
-                                               form_id = form_id,
-                                               repeat_name = repeat_name
-                                             )  %>%
-                                             standardize_col_value_case(data = ., col_names = 'village') %>%
-                                             standardize_col_value_case(data = ., col_names = 'village_select') %>%
-                                             standardize_col_value_case(data = ., col_names = 'village_specify') %>%
-                                             standardize_village()
 
                                            data <- tibble(
                                              file_path = file_path,
