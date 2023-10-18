@@ -113,7 +113,10 @@ purrr::map(config::get('target'), function(obj){
   )
 
 
-  new_version <- strftime(lubridate::today(), format = "%y%m%d01")
+  new_version <- strftime(
+    lubridate::today(tzone = 'Africa/Nairobi'),
+    format = "%y%m%d01"
+  )
 
   if(new_version > curr_version){
     version = new_version
