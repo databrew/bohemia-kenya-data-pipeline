@@ -5,6 +5,7 @@ default:
     - ento
     - anomalies-detection
     - safety-efficacy
+    - pharmacy
 develop:
   report_index:
     - v0
@@ -12,3 +13,4 @@ develop:
     - ento
     - anomalies-detection
     - safety-efficacy
+    - pharmacy

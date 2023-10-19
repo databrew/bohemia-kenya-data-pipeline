@@ -223,7 +223,7 @@ plot_2 <- dplyr::bind_rows(p1,p2,p3) %>%
 
 ```{r, fig.width = 9, fig.height=3}
 subplot(ggplotly(plot_1), 
-        style(ggplotly(plot_2),showlegend=FALSE), 
+        plotly::style(ggplotly(plot_2),showlegend=FALSE), 
         margin = 0.05)
 ```
 
