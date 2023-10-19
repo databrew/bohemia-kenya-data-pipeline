@@ -31,6 +31,8 @@ library(dplyr)
 library(reactable)
 library(data.table)
 library(cloudbrewr)
+library(fontawesome)
+library(shiny)
 
 ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
 DATA_STAGING_BUCKET_NAME <- 'databrew.org'
@@ -93,6 +95,19 @@ safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safetynew/safetynew-repeat_individual.csv')) %>%
   pad_hhid()
 
+# this is a function to create a download csv button
+wrap_download <- function(reactable_obj, element_id, output_filename){
+  onclick_command <- glue::glue(
+    "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
+  htmltools::browsable(
+    tagList(
+      tags$button(
+        tagList(fontawesome::fa("download"), "Download as CSV"),
+        onclick = onclick_command),
+      reactable_obj
+    ))
+}
+
 #safety_repeat_ae_symptom <- cloudbrewr::aws_s3_get_table(
  # bucket = DATA_STAGING_BUCKET_NAME,
  # key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safety/safety-repeat_ae_symptom.csv')) %>%
@@ -102,6 +117,14 @@ safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
  # bucket = DATA_STAGING_BUCKET_NAME,
   #key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safety/safety-repeat_drug.csv')) %>%
   #pad_hhid()
+
+# identify the repeats in safety and safetynew
+errors_safety <- safety %>%
+  select(instanceID, hhid, start_time, end_time) %>%
+  filter(duplicated(hhid) | duplicated(hhid, fromLast = TRUE))
+errors_safetynew <- safetynew %>%
+  select(instanceID, hhid, start_time, end_time) %>%
+  filter(duplicated(hhid) | duplicated(hhid, fromLast = TRUE))
 ```
 
 ## V1 Numbers
@@ -110,14 +133,15 @@ safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
 
 # only take the necessary columns (extid and safety_status) from the datasets
 clean_safety_repeat <- safety_repeat_individual %>%
-  select(PARENT_KEY, extid, safety_status)
+  select(PARENT_KEY, extid, safety_status, sex)
 clean_safetynew_repeat <- safetynew_repeat_individual %>%
-  select(PARENT_KEY, extid, safety_status) %>%
-  rename(safetynew_status = safety_status)
+  select(PARENT_KEY, extid, safety_status, sex) %>%
+  rename(safetynew_status = safety_status,
+         sex_safetynew = sex)
 clean_safety <- safety %>%
-  select(KEY, visit)
+  select(KEY, visit, cluster, todays_date)
 clean_safetynew <- safetynew %>%
-  select(KEY, visit)
+  select(KEY, visit, cluster, todays_date)
 
 # join safety and safety repeat and do the same for safetynew
 joined_safety <- left_join(clean_safety_repeat, clean_safety, by=c('PARENT_KEY' = 'KEY'))
@@ -130,10 +154,11 @@ extid_and_safety_status_df <- bind_rows(joined_safety, joined_safetynew)
 extid_and_safety_status_df <- extid_and_safety_status_df %>%
   filter(visit == 'V1')
 
-# and make the safetynew_status and safety_status into one column
+# and make the safetynew_status and safety_status into one column and the sexes
 extid_and_safety_status_df <- extid_and_safety_status_df %>%
-  mutate(safetystatus = coalesce(safety_status, safetynew_status)) %>% 
-  select(extid, safetystatus)
+  mutate(safetystatus = coalesce(safety_status, safetynew_status,
+                                 sex = coalesce(sex, sex_safetynew))) %>% 
+  select(extid, safetystatus, cluster, sex, todays_date)
 
 # we find an UNDEFINED from someone most likely submitting a form without filling it out so we will remove NA from extid 
 extid_and_safety_status_df <- extid_and_safety_status_df %>%
@@ -154,6 +179,7 @@ reactable(num_of_safety_status, columns = list(
 ))
 
 ```
+
 
 ### eos
 ```{r eos}
@@ -246,8 +272,27 @@ eos_reasons <- safety_and_safetynew_eos %>%
 reactable(eos_reasons, columns = list(
   `Percent complete` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
+
+# because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
+# Specify the names you want to check for
+names_to_check <- c('not agree to safety procedures', 'not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'other trials', 'visited loa loa', 'participant withdrew informed consent', 'pregnancy test refusal', 'spent night at the hospital')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% safety_eos$reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("Note: The reasons (", paste0(not_found_names, collapse = ", "), ") are not shown because it is not a reason for anyone being missing.")
+}
 ```
-*Note: breastfeeding is not shown in the table since that has not been a reason that someone is eos*
+
 
 ### out
 ```{r out}
@@ -369,26 +414,83 @@ refusal_reasons <- safety_and_safetynew_refusal %>%
 reactable(refusal_reasons, columns = list(`Percent complete` = colDef(align = 'right')))
 ```
 
-### absence first attempt (to be completed)
+### Absences in V1
 ```{r absencefirstattempt}
-# determine who was marked absent first attempt and marked absent, visited, not yet visited again.
-comment({
-absence <- left_join(extid_and_safety_status_df, safety_and_safetynew_eos, by=c('extid')) %>%
-  select(extid, safetystatus, reason) %>%
-  rename(reason_eos = reason)
-absence <- left_join(absence, safety_and_safetynew_out, by=c('extid')) %>%
-  select(extid, safetystatus, reason_eos, reason) %>%
-  rename(reason_out = reason)
-absence <- left_join(absence, safety_and_safetynew_refusal, by=c('extid')) %>%
-  select(extid, safetystatus,reason_eos, reason_out, reason)
-absence <- absence %>%
-  mutate(reason = coalesce(reason_eos, reason_out, reason)) %>%
-  select(extid, safetystatus, reason)
-absence$firstattempt[absence$extid %in% absence1stattempt$extid_enter] <- 'absent first attempt'
-absence <- absence %>%
-  filter(firstattempt == 'absent first attempt')
-safetynew_refusal$reason[safetynew_refusal$minor_assent_status == 0] <- 'minor not sign assent'
-absence$group[absence$reason == 'absent'] <- 'marked absent'
-absence$group[absence$safetystatus == 'in'] <- 'visited and not absent' 
-})
+## this will create a table of absent people and tell us whether they had an absence first attempt form filled out or not
+absence <- bind_rows(safety_and_safetynew_eos, safety_and_safetynew_out, safety_and_safetynew_refusal) %>%
+  select(extid, safety_status, visit, reason) %>%
+  filter(reason == 'absent') %>%
+  mutate(group = (ifelse(absence$extid %in% absence1stattempt$extid_enter, 'absent with form', 'absent w/out form')))
+
+# make the table
+absent_table <- absence %>%
+  group_by(group) %>%
+  summarise('Count' = n()) %>%
+  arrange(group) %>%
+  add_row(group = 'Total absent', 'Count' = sum(.$'Count')) %>%
+  mutate('Percent' = (as.numeric(`Count`)) / as.numeric(nrow(absence)) * 100) %>%
+  mutate('Percent' = round(`Percent`, 2)) %>%
+  mutate('Percent' = paste0(`Percent`, '%')) %>%
+  rename('Absent category' = group)
+
+reactable(absent_table, columns = list(`Percent` = colDef(align = 'right')))
+
+# this next part will show the sex and age distribution of those who were absent
+
+distribution <- bind_rows(safety_and_safetynew_eos, safety_and_safetynew_out, safety_and_safetynew_refusal) %>%
+  select(extid, safety_status, visit, reason) %>%
+  filter(reason == 'absent') 
+dist_sex <- left_join(distribution, extid_and_safety_status_df, by=c('extid')) %>%
+  select(extid, safety_status, sex, todays_date) %>%
+  rename(safety_status_use = safety_status,
+         sex_use = sex)
+
+dist_age <- left_join(dist_sex, v0_demography, by=c('extid')) %>%
+  select(extid, safety_status_use, sex_use, dob, todays_date) %>%
+  rename(safety_status = safety_status_use,
+         sex = sex_use)
+
+# make raw_dob and todays_date dates so that the appropriate calculation can be made to calculate age
+dist_age$dob <- as.Date(dist_age$dob, format = '%Y-%m-%d')
+dist_age$todays_date <- as.Date(dist_age$todays_date, format = '%Y-%m-%d')
+
+dist_table <- dist_age %>%
+  mutate(age = round(as.numeric(difftime(todays_date, dob, units = "days")) / 365.25, 2)) %>%
+  select(extid, sex, age)
+
+# make a histogram of age
+hist(dist_table$age, main = "Age Distribution", xlab = "Age")
+
+# make a bar plot of sex
+barplot(table(dist_table$sex), main = "Sex Distribution", xlab = "Sex", ylab = "Count")
+# need to edit these graphs a bit and then make them appear in RMarkdown and then push code :) 
+
+```
+
+```{r cluster}
+element_id <- 'safety-reason-by-cluster'
+
+## this will create a table of "Safety Status" and "Reason they are out" by cluster
+
+# need to get the cluster number which is in safety and safetynew or in the df created earlier extid_safety_status_df
+cluster <- bind_rows(safety_and_safetynew_eos, safety_and_safetynew_out, safety_and_safetynew_refusal) %>%
+  select(extid, safety_status, visit, reason)
+cluster <- left_join(cluster, extid_and_safety_status_df, by=c('extid')) %>%
+  select(extid, cluster, safety_status, reason)
+
+# make the table requested
+cluster_table <- cluster %>%
+  group_by(cluster, safety_status, reason) %>%
+  summarise(Count = n()) %>%
+  rename('Cluster' = cluster,
+         'Safety status' = safety_status,
+         'Reason' = reason)
+
+table <- reactable(cluster_table)
+
+wrap_download(
+  table, 
+  element_id,
+  'safety_status_reason_by_cluster.csv')
+
 ```
