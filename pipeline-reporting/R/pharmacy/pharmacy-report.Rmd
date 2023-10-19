@@ -1,0 +1,512 @@
+---
+title: "Pharmacy Reports"
+description: |
+  Reporting used to track SE and PFU
+date: "`r Sys.time()`"
+output:
+  html_document:
+    toc: yes
+    theme: cerulean
+  pdf_document:
+    toc: yes
+---
+
+Notes:
+
+- Report is refreshed hourly 9-5pm EAT, once 12AM EAT
+- Please reach out to atediarjo@gmail.com for bug reports
+
+Description:
+
+This report is used for Pharmacy based on this [Reporting Document](https://docs.google.com/document/d/15-BOyB24J81B7JwMggHYBmX8RGpoC4raIKk8TOkdrf0/edit#heading=h.vk0h181v4mre)
+
+Disclaimer: 
+
+Only `safety`, `safetynew` is used for CL reporting. Thus there is only ALB being reported from site.
+
+
+```{r, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  comment = '', 
+  echo = FALSE,
+  message = FALSE,
+  cache=FALSE,
+  warning=FALSE
+)
+```
+
+```{r, echo=FALSE, message=FALSE}
+library(reactable)
+library(data.table)
+library(dplyr)
+library(htmltools)
+library(glue)
+library(fontawesome)
+library(ggplot2)
+library(plotly)
+library(tidyr)
+```
+
+```{r}
+# STATIC VARIABLES FOR I/O
+ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
+DATA_STAGING_BUCKET_NAME <- 'databrew.org'
+DATA_LAKE_BUCKET_NAME <- 'bohemia-lake-db'
+PROJECT_SOURCE <- 'kwale'
+SE_FOLDER_TARGET <- glue::glue('{PROJECT_SOURCE}/clean-form')
+```
+
+```{r}
+INPUT_KEY <- list(
+  sepk_icf_verification = glue::glue('{SE_FOLDER_TARGET}/sepk_icf_verification/sepk_icf_verification.csv'),
+  sepk_icf_resolution =  glue::glue('{SE_FOLDER_TARGET}/sepk_icf_resolution/sepk_icf_resolution.csv'),
+  safety = glue::glue('{SE_FOLDER_TARGET}/safety/safety.csv'),
+  safetynew = glue::glue('{SE_FOLDER_TARGET}/safetynew/safetynew.csv'),
+  efficacy =  glue::glue('{SE_FOLDER_TARGET}/efficacy/efficacy.csv'),
+  pkday0 =  glue::glue('{SE_FOLDER_TARGET}/pkday0/pkday0.csv')
+)
+
+
+tryCatch({
+  logger::log_info('Attempt AWS login')
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = 'cloudbrewr-aws-role',
+    profile_name =  'cloudbrewr-aws-role',
+    pipeline_stage = ENV_PIPELINE_STAGE)
+
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+```
+
+```{r}
+pad_hhid <- function(data){
+  if('hhid' %in% names(data)){
+    data %>%
+      dplyr::mutate(hhid = stringr::str_pad(hhid, 5, pad = "0"))
+  }else{
+    data
+  }
+}
+
+wrap_download <- function(reactable_obj, element_id, output_filename){
+  onclick_command <- glue::glue(
+    "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
+  htmltools::browsable(
+    tagList(
+      tags$button(
+        tagList(fontawesome::fa("download"), "Download as CSV"),
+        onclick = onclick_command),
+      reactable_obj
+    ))
+}
+```
+
+
+```{r}
+#################################
+# Fetch v0 demography
+#################################
+pharmacy_fa <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/pharmacy_fa/pharmacy_fa.csv'
+) %>%
+  pad_hhid() %>% 
+    tidyr::separate_rows(iptype, sep = " ")
+
+pharmacy_sfa <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/pharmacy_sfa/pharmacy_sfa.csv'
+) %>%
+  pad_hhid() %>% 
+    tidyr::separate_rows(iptype, sep = " ")
+
+pharmacy <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/pharmacy/pharmacy.csv'
+) %>%
+  pad_hhid() %>% 
+    tidyr::separate_rows(iptype, sep = " ")
+
+v0_repeat <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/v0demography/v0demography-repeat_individual.csv'
+) %>%
+  pad_hhid() 
+
+
+efficacy <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/efficacy/efficacy.csv')) %>%
+  pad_hhid()
+
+safety <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/safety/safety.csv')) %>%
+  pad_hhid()
+
+safetynew <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/safetynew/safetynew.csv')) %>%
+  pad_hhid()
+
+safety_repeat_individual <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/safety/safety-repeat_individual.csv')) %>%
+  pad_hhid()
+
+safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/safetynew/safetynew-repeat_individual.csv')) %>%
+  pad_hhid()
+
+
+assignment <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = glue::glue('bohemia_prod/dim_arm_assignment/assignments.csv')) %>%
+  pad_hhid()
+```
+
+### a. Bar chart showing stock level
+
+```{r}
+data_list <- list()
+
+data_list$pharmacy <- pharmacy %>%
+    dplyr::group_by(operation) %>% 
+    dplyr::summarise(n = n_distinct(instanceID)) %>% 
+    dplyr::mutate(source = 'pharmacy')
+
+data_list$pharmacy_sfa <- pharmacy_sfa %>%
+    dplyr::group_by(operation) %>% 
+    dplyr::summarise(n =n_distinct(instanceID)) %>% 
+    dplyr::mutate(source = 'pharmacy_sfa')
+
+data_list$pharmacy_fa <- pharmacy_fa %>%
+    dplyr::group_by(operation) %>% 
+    dplyr::summarise(n = n_distinct(instanceID)) %>% 
+    dplyr::mutate(source = 'pharmacy_fa')
+
+
+plot_1 <- data_list %>% 
+  purrr::reduce(dplyr::bind_rows)  %>% 
+    ggplot(aes(y = source, x = n, fill = operation)) +
+    geom_col(position = 'dodge') +
+    theme_minimal() +
+    scale_fill_brewer(palette = "Paired")
+```
+
+
+
+```{r}
+p1 <- pharmacy %>%
+    dplyr::group_by(iptype, operation) %>% 
+    dplyr::summarise(n = n()) %>% dplyr::ungroup()
+p2 <- pharmacy_sfa %>%
+    dplyr::group_by(iptype, operation) %>% 
+    dplyr::summarise(n= n()) %>% dplyr::ungroup()
+p3 <- pharmacy_fa %>%
+    dplyr::group_by(iptype, operation) %>% 
+    dplyr::summarise(n = n()) %>% dplyr::ungroup()
+ 
+plot_2 <- dplyr::bind_rows(p1,p2,p3) %>% 
+    dplyr::group_by(iptype, operation) %>% 
+    dplyr::summarise(n = sum(n)) %>% 
+    ggplot(aes(y = iptype, x = n, fill = operation)) +
+    geom_col(position = 'dodge') +
+    theme_minimal() +
+    scale_fill_brewer(palette = "Paired")
+```
+
+
+```{r, fig.width = 9, fig.height=3}
+subplot(ggplotly(plot_1), 
+        style(ggplotly(plot_2),showlegend=FALSE), 
+        margin = 0.05)
+```
+
+
+```{r}
+
+data_list <- list()
+
+data_list$p1 <- p1 %>% 
+    tidyr::pivot_wider(id_cols = 'iptype', 
+                       names_from = 'operation', 
+                       values_from = 'n') %>% 
+    dplyr::mutate(arrival = replace_na(arrival, 0),
+                  dispatch = replace_na(dispatch,0)) %>% 
+    dplyr::mutate(current_stock = arrival - dispatch) %>% 
+    dplyr::select(
+      iptype, 
+      `Stock received at pharmacy` = arrival, 
+      `Stock sent out to field` = dispatch)
+
+
+data_list$p2 <-p2 %>% 
+    tidyr::pivot_wider(id_cols = 'iptype', 
+                       names_from = 'operation', 
+                       values_from = 'n') %>% 
+    dplyr::mutate(arrival = replace_na(arrival, 0),
+                  dispatch = replace_na(dispatch,0)) %>% 
+    dplyr::mutate(current_stock = arrival - dispatch) %>% 
+    dplyr::select(
+      iptype, 
+      `Stock received by sfa` = arrival, 
+      `Stock sent out to fa` = dispatch)
+
+data_list$p3 <- p3 %>% 
+    tidyr::pivot_wider(id_cols = 'iptype', 
+                       names_from = 'operation', 
+                       values_from = 'n') %>% 
+    dplyr::mutate(arrival = replace_na(arrival, 0),
+                  dispatch = replace_na(dispatch,0)) %>% 
+    dplyr::mutate(current_stock = arrival - dispatch) %>% 
+    dplyr::select(
+      iptype, 
+      `Stock sent out to CL` = dispatch)
+
+data_list$p4 <- safety_repeat_individual %>% 
+    dplyr::select(num_albendzole_pills) %>% 
+    tidyr::drop_na(num_albendzole_pills) %>%
+    dplyr::summarise(`Stock dispensed to participants` = n()) %>%
+    dplyr::mutate(iptype = 'ALB')
+
+df <- data_list %>% 
+    purrr::reduce(dplyr::full_join) %>% 
+  mutate(
+    across(everything(), ~replace_na(.x, 0))
+  )
+
+```
+
+### b. Pharmacy Status
+
+```{r}
+element_id = 'pharmacy_status'
+tbl <- reactable(
+  df %>% 
+  dplyr::mutate(
+    current_stock = 
+      `Stock received at pharmacy` - `Stock sent out to field`) %>% 
+    dplyr::select(
+        iptype,
+        `Stock received at pharmacy`,
+        `Stock sent out to field`,
+        `Current Stock at Pharmacy` = current_stock
+    ),
+  elementId = element_id
+)
+
+wrap_download(
+  tbl, 
+  element_id,
+  'pharmacy_status.csv')
+```
+
+### c. Summary table - IP movement
+
+```{r}
+element_id = 'ip_movement'
+
+tbl <- reactable(df, elementId = element_id)
+
+wrap_download(
+  tbl, 
+  element_id,
+  'ip_movement.csv')
+```
+
+### d. Summary table - IP movement sFA
+
+```{r}
+element_id = 'ip_movement_sfa'
+
+t <- pharmacy_sfa %>% 
+    dplyr::select(id_username, iptype, operation) %>% 
+    dplyr::mutate(value = 1) %>%
+    tidyr::pivot_wider(id_cols = c(id_username, iptype), 
+                       names_from = operation,
+                       values_from = value,
+                       values_fn = sum
+                    )
+
+tbl <- reactable(
+    t,
+    groupBy = c("id_username", "iptype"),
+    columns = list(
+        id_username = colDef(
+            name = "ID Username", 
+            filterable = TRUE),
+        arrival = colDef(
+            name = "Arrival",
+            aggregate = "sum"
+        ),
+        dispatch = colDef(
+            name = "Dispatch",
+            aggregate = "sum"
+        )
+    ),
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE,
+    elementId = element_id
+)
+
+wrap_download(
+  tbl, 
+  element_id,
+  'ip_movement_sfa.csv')
+```
+
+
+### e. Summary table - IP movement FA
+
+```{r}
+element_id = 'ip_movement_fa'
+
+t <- pharmacy_fa %>% 
+    dplyr::filter(source_entry != 'cl') %>%
+    dplyr::select(id_username, iptype, operation) %>% 
+    dplyr::mutate(value = 1) %>%
+    tidyr::pivot_wider(id_cols = c(id_username, iptype), 
+                       names_from = operation,
+                       values_from = value,
+                       values_fn = sum
+                    )
+
+tbl <- reactable(
+    t,
+    groupBy = c("id_username", "iptype"),
+    columns = list(
+        id_username = colDef(
+            name = "ID Username", 
+            filterable = TRUE),
+        arrival = colDef(
+            name = "Arrival",
+            aggregate = "sum"
+        ),
+        dispatch = colDef(
+            name = "Dispatch",
+            aggregate = "sum"
+        )
+    ),
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE,
+    elementId = element_id
+)
+
+wrap_download(
+  tbl, 
+  element_id,
+  'ip_movement_fa.csv')
+```
+
+### f. Summary table - IP movement CL
+
+```{r}
+element_id = 'ip_movement_cl'
+
+# Data to CL
+data_to_cl <- pharmacy_fa %>% 
+    dplyr::select(cl_wid_sending, iptype, todays_date) %>% 
+    dplyr::group_by(cl_wid_sending, iptype, todays_date) %>% 
+    dplyr::summarise(n = n()) %>% 
+    dplyr::ungroup() %>%
+    tidyr::separate(col = 'cl_wid_sending', 
+                    sep = ' - ', into = c('wid', 'name'), remove = FALSE) %>% 
+    dplyr::select(wid, todays_date, iptype, n) %>% 
+    tidyr::pivot_wider(
+        id_cols = c(wid, todays_date), 
+        names_from = iptype, 
+        values_from = n, 
+        values_fn = sum, 
+        values_fill = 0)
+
+# Meds used
+cl1 <- safety %>% 
+    dplyr::inner_join(
+      safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>% 
+    dplyr::group_by(wid, todays_date) %>% 
+    dplyr::summarise(ALB = sum(num_albendzole_pills, na.rm = T)) %>% 
+    tidyr::drop_na() %>% 
+    dplyr::mutate(wid = as.character(wid))
+
+
+cl2 <- safetynew %>% 
+    dplyr::inner_join(
+      safetynew_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>% 
+    dplyr::group_by(wid, todays_date) %>% 
+    dplyr::summarise(ALB = sum(num_albendzole_pills, na.rm = T)) %>% 
+    tidyr::drop_na() %>% 
+    dplyr::mutate(wid = as.character(wid))
+
+cl_used <- dplyr::bind_rows(cl1,cl2) %>% 
+    dplyr::group_by(wid, todays_date) %>% 
+    dplyr::summarise(ALB = sum(ALB)) %>% 
+    dplyr::mutate(pRDT = 0,
+                  IVM = 0)
+
+df <- data_to_cl %>% 
+    dplyr::full_join(cl_used, by = c('wid', 'todays_date')) %>%
+    dplyr::select(wid, 
+                  todays_date,
+                  starts_with('ALB'), 
+                  starts_with('pRDT'), 
+                  starts_with('IVM'))
+
+
+
+tbl <- reactable(
+    df,
+    groupBy = c("wid"),
+    columns = list(
+      wid = colDef(
+            name = "wid", 
+            filterable = TRUE),
+      todays_date = colDef(
+            name = "Date",
+      ),
+      ALB.x = colDef(
+            name = "ALB Received",
+            aggregate = "sum"
+      ),
+      ALB.y = colDef(
+            name = "ALB Used",
+            aggregate = "sum"
+      ),
+      IVM.x = colDef(
+            name = "IVM Received",
+            aggregate = "sum"
+      ),
+      IVM.y = colDef(
+            name = "IVM Used",
+            aggregate = "sum"
+      ),
+      pRDT.x = colDef(
+            name = "pRDT Received",
+            aggregate = "sum"
+      ),
+      pRDT.y = colDef(
+            name = "pRDT Used",
+            aggregate = "sum"
+      )
+    ),
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE,
+    elementId = element_id
+)
+
+wrap_download(
+  tbl, 
+  element_id,
+  'ip_movement_fa.csv')
+```
+
