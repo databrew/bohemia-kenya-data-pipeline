@@ -53,6 +53,7 @@ SE_FOLDER_TARGET <- glue::glue('{PROJECT_SOURCE}/clean-form')
 
 ```{r}
 INPUT_KEY <- list(
+    v0 = glue::glue('{SE_FOLDER_TARGET}/v0demography/v0demography.csv'),
     v0_repeat = glue::glue('{SE_FOLDER_TARGET}/v0demography/v0demography-repeat_individual.csv'),
     sepk_icf_verification = glue::glue('{SE_FOLDER_TARGET}/sepk_icf_verification/sepk_icf_verification.csv'),
     # sepk_icf_resolution =  glue::glue('{SE_FOLDER_TARGET}/sepk_icf_resolution/sepk_icf_resolution.csv'),
