@@ -335,7 +335,7 @@ t <- pharmacy_sfa %>%
 
 tbl <- reactable(
     t,
-    groupBy = c("id_username", "iptype"),
+    groupBy = c("id_username"),
     columns = list(
         id_username = colDef(
             name = "ID Username", 
@@ -380,7 +380,7 @@ t <- pharmacy_fa %>%
 
 tbl <- reactable(
     t,
-    groupBy = c("id_username", "iptype"),
+    groupBy = c("id_username"),
     columns = list(
         id_username = colDef(
             name = "ID Username", 
