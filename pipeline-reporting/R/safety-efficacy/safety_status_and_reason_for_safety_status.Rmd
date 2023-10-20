@@ -417,10 +417,12 @@ reactable(refusal_reasons, columns = list(`Percent complete` = colDef(align = 'r
 ### Absences in V1
 ```{r absencefirstattempt}
 ## this will create a table of absent people and tell us whether they had an absence first attempt form filled out or not
-absence <- bind_rows(safety_and_safetynew_eos, safety_and_safetynew_out, safety_and_safetynew_refusal) %>%
+absence <- bind_rows(safety_and_safetynew_eos, 
+                     safety_and_safetynew_out, 
+                     safety_and_safetynew_refusal) %>%
   select(extid, safety_status, visit, reason) %>%
   filter(reason == 'absent') %>%
-  mutate(group = (ifelse(absence$extid %in% absence1stattempt$extid_enter, 'absent with form', 'absent w/out form')))
+  mutate(group = (ifelse(.$extid %in% absence1stattempt$extid_enter, 'absent with form', 'absent w/out form')))
 
 # make the table
 absent_table <- absence %>%
