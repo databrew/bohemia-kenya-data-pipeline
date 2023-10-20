@@ -1176,6 +1176,11 @@
       ],
       "Hash": "f4d1414c2ddc0a34ea27923134ac3c7b"
     },
+    "shiny": {
+      "Package": "shiny",
+      "Version": "1.7.5.1",
+      "Source": "Repository"
+    },
     "stringi": {
       "Package": "stringi",
       "Version": "1.7.12",
