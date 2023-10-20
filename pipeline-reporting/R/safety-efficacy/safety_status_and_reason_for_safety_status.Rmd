@@ -469,6 +469,8 @@ barplot(table(dist_table$sex), main = "Sex Distribution", xlab = "Sex", ylab = "
 
 ```
 
+
+### Safety status and reason by cluster
 ```{r cluster}
 element_id <- 'safety-reason-by-cluster'
 
@@ -489,6 +491,8 @@ cluster_table <- cluster %>%
          'Reason' = reason)
 
 table <- reactable(cluster_table)
+
+reactable(cluster_table, elementId = element_id)
 
 wrap_download(
   table, 
