@@ -123,8 +123,7 @@ purrr::map(config::get('odk_projects'), function(project_name){
 
                                          # google sheets resolution
                                          tryCatch({
-                                           if(nrow(resolution) > 0 &
-                                              project_name == 'kwale' &
+                                           if(project_name == 'kwale' &
                                               nrow(raw) > 0){
                                              clean <- google_sheets_fix(
                                                 data = raw,
