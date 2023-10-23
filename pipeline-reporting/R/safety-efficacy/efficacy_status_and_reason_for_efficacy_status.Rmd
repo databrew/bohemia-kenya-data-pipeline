@@ -121,7 +121,9 @@ total_efficacy_status <- total_efficacy_v1 %>%
   mutate('Percent complete' = (as.numeric(`Number of people visited in V1 (target: ?)`)) / as.numeric(nrow(total_efficacy_v1)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%'))
-reactable(total_efficacy_v1, columns = list(
+
+
+reactable(total_efficacy_status, columns = list(
   `Percent complete` = colDef(align = "right")
 ))
 
@@ -241,7 +243,13 @@ if (length(not_found_names) > 0) {
 ## this will create a table of how many people are refusal and why they are refusal
 # let us start with safety
 efficacy_refusal <- efficacy %>%
-  select(KEY, extid, visit, starting_efficacy_status, thumbprint_status, sign_icf_status, minor_assent_status, person_absent) %>%
+  select(KEY,
+         extid, visit, 
+         starting_efficacy_status,
+         thumbprint_status,
+         sign_icf_status, minor_assent_status,
+         efficacy_status, 
+         person_absent) %>%
   filter(efficacy_status == 'refusal',
          visit == 'V1') 
 

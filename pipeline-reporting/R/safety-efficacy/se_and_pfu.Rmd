@@ -154,6 +154,13 @@ prep_safety_tbl <- function(safety_df,
   
   # edge case 1: create 0 placeholder
   if(nrow(output) == 0){
+    output <- tibble(visit = visit_list) %>% 
+          dplyr::mutate(hh = 0, ind = 0) %>% 
+          dplyr::select(visit, 
+                        any_of(group_cols), 
+                        hh, 
+                        ind)
+    
     output <- target_df %>% 
           dplyr::mutate(hh = 0, ind = 0) %>% 
           dplyr::select(visit, 
@@ -169,7 +176,7 @@ prep_safety_tbl <- function(safety_df,
 }
 
 
-get_target_by_assignment <- function(visit_list){
+get_safety_target_by_assignment <- function(visit_list){
   # create targets
   v0_target <- v0 %>% 
       dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY')) %>%
@@ -200,7 +207,7 @@ get_target_by_assignment <- function(visit_list){
   return(target)
 }
 
-get_target_by_cluster_and_village <- function(visit_list){
+get_safety_target_by_cluster_and_village <- function(visit_list){
     v0_target <- v0 %>% 
       dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY')) %>%
       dplyr::group_by(geo_cluster_num, village) %>%
@@ -236,6 +243,102 @@ get_target_by_cluster_and_village <- function(visit_list){
   
   return(target)
 }
+
+
+get_efficacy_target_by_assignment <- function(visit_list){
+  # v0 merged_tbl
+  v0_merged_tbl <- v0 %>% 
+      dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY'))  %>%
+      dplyr::inner_join(
+        assignment, 
+        by = c('geo_cluster_num' = 'cluster_number'))
+  
+  # create targets
+  target <- v0_merged_tbl %>% 
+      dplyr::inner_join(
+        efficacy_selection, 
+        by = c('extid')) %>% 
+      dplyr::group_by(assignment) %>%
+      dplyr::summarise(hh_target = n_distinct(hhid),
+                       ind_target = n_distinct(extid))  
+  
+  # create targets
+  remove_from_next_target <- efficacy %>% 
+      dplyr::filter(efficacy_status == 'eos') %>% 
+      dplyr::select(hhid, extid, visit) %>%
+      dplyr::inner_join(v0_merged_tbl %>% dplyr::select(assignment, extid), 
+                        by = 'extid') %>% 
+      dplyr::group_by(assignment, visit) %>%
+      dplyr::summarise(hh_rm = n_distinct(hhid),
+                       ind_rm = n_distinct(extid))  %>%
+    dplyr::mutate(
+        next_visit_num = 
+            as.numeric(glue::glue(
+              stringr::str_extract(visit, "[0-9]+"))) + 1,
+        visit = glue::glue('V{next_visit_num}'))
+  
+    target <- purrr::map_dfr(visit_list, function(visit){
+      target %>% 
+          dplyr::mutate(visit = visit) %>% 
+          dplyr::left_join(remove_from_next_target, 
+                           by = c('visit', 'assignment')) %>% 
+          dplyr::mutate(across(everything(), .fns = ~replace_na(.,0))) %>%
+          dplyr::mutate(hh_target = hh_target - hh_rm,
+                        ind_target = ind_target - ind_rm)
+    }) %>% dplyr::select(assignment, ends_with('target'), visit)
+  
+  return(target)
+}
+
+get_efficacy_target_by_cluster_and_village <- function(visit_list){
+  # v0 merged_tbl
+  v0_merged_tbl <- v0 %>% 
+      dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY'))  %>%
+      dplyr::inner_join(
+        assignment, 
+        by = c('geo_cluster_num' = 'cluster_number'))
+  
+  # create targets
+  target <- v0_merged_tbl %>% 
+      dplyr::inner_join(
+        efficacy_selection, 
+        by = c('extid')) %>% 
+      dplyr::group_by(geo_cluster_num, village) %>%
+      dplyr::summarise(hh_target = n_distinct(hhid),
+                       ind_target = n_distinct(extid)) %>% 
+      dplyr::select(cluster = geo_cluster_num, everything())
+  
+  # target to remove next visit
+  remove_from_next_target <- efficacy %>% 
+      dplyr::filter(efficacy_status == 'eos') %>% 
+      dplyr::select(hhid, extid, visit, cluster, village) %>%
+      dplyr::inner_join(v0_merged_tbl %>% dplyr::select(extid), 
+                        by = 'extid') %>% 
+      dplyr::group_by(visit, cluster, village) %>%
+      dplyr::summarise(hh_rm = n_distinct(hhid),
+                       ind_rm = n_distinct(extid)) %>%
+    dplyr::mutate(
+        next_visit_num = 
+            as.numeric(glue::glue(
+              stringr::str_extract(visit, "[0-9]+"))) + 1,
+        visit = glue::glue('V{next_visit_num}'))
+  
+    target <- purrr::map_dfr(visit_list, function(visit){
+      target %>% 
+          dplyr::mutate(visit = visit) %>% 
+          dplyr::left_join(remove_from_next_target, 
+                           by = c('visit', 'cluster', 'village')) %>% 
+          dplyr::mutate(across(everything(), .fns = ~replace_na(.,0))) %>%
+          dplyr::mutate(hh_target = hh_target - hh_rm,
+                        ind_target = ind_target - ind_rm)
+    }) %>% dplyr::select(cluster, 
+                         village, 
+                         ends_with('target'), 
+                         visit)
+  
+  return(target)
+}
+
 ```
 
 
@@ -292,6 +395,12 @@ assignment <- cloudbrewr::aws_s3_get_table(
   bucket = 'bohemia-lake-db',
   key = glue::glue('bohemia_prod/dim_arm_assignment/assignments.csv')) %>%
   pad_hhid()
+
+
+efficacy_selection <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = glue::glue('bohemia_ext/efficacy_selection.csv')) %>%
+  pad_hhid()
 ```
 
 
@@ -315,10 +424,23 @@ safetynew_merged_tbl <- safetynew %>%
   dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>% 
   dplyr::left_join(village_mapping, by = 'hhid')
 
-unique_visit_list <- safety_merged_tbl$visit %>% unique()
+# efficacy df
+efficacy_df <-  efficacy %>% 
+    dplyr::inner_join(assignment %>% 
+                          dplyr::select(cluster_number, assignment), 
+                      by = c('cluster' = 'cluster_number'))
 
-target_df_by_assignment = get_target_by_assignment(visit_list =  unique_visit_list)
-target_df_by_cluster_and_village = get_target_by_cluster_and_village(visit_list =  unique_visit_list)
+
+# goals
+target_safety_by_assignment = get_safety_target_by_assignment(
+  visit_list =  safety_merged_tbl$visit %>% unique())
+target_safety_by_cluster_and_village = get_safety_target_by_cluster_and_village(
+  visit_list =  safety_merged_tbl$visit %>% unique())
+
+target_efficacy_by_assignment  <- get_efficacy_target_by_assignment(
+  visit_list =  efficacy$visit %>% unique())
+target_efficacy_by_cluster_and_village  <- get_efficacy_target_by_cluster_and_village(
+  visit_list =  efficacy$visit %>% unique())
 
 ```
 
@@ -334,17 +456,26 @@ plot_submission_by_day(safety)
 plot_submission_by_day(safetynew)
 ```
 
+### Efficacy
+```{r, fig.width=10, fig.height=3}
+plot_submission_by_day(efficacy)
+```
+
+## S&E by Assignment
+
+### Safety
 
 ```{r}
 data_list <- list()
 group_cols <- c('visit','assignment')
+unique_visit_list <- safety_merged_tbl$visit %>% unique()
 
 # prep safety overall
 data_list$safety_overall <- prep_safety_tbl(
     safety_df = safety_merged_tbl, 
     safetynew_df = safetynew_merged_tbl, 
     indicator = 'safety_overall',
-    target_df = target_df_by_assignment,
+    target_df = target_safety_by_assignment,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -356,7 +487,7 @@ data_list$safety_in <- prep_safety_tbl(
   safetynew_df = safetynew_merged_tbl %>% 
     dplyr::filter(safety_status == 'in'),
   indicator = 'safety_in',
-    target_df = target_df_by_assignment,
+    target_df = target_safety_by_assignment,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -368,7 +499,7 @@ data_list$safety_in_absent <- prep_safety_tbl(
       safety_status == 'in',
       person_absent_reason == 'Absent'),
   indicator = 'safety_in_absent',
-    target_df = target_df_by_assignment,
+    target_df = target_safety_by_assignment,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -380,7 +511,7 @@ data_list$safety_refusal <- prep_safety_tbl(
   safetynew_df = safetynew_merged_tbl %>% 
     dplyr::filter(safety_status == 'refusal'),
   indicator = 'safety_refusal',
-    target_df = target_df_by_assignment,
+    target_df = target_safety_by_assignment,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -392,7 +523,7 @@ data_list$safety_eos <- prep_safety_tbl(
   safetynew_df = safetynew_merged_tbl %>% 
     dplyr::filter(safety_status == 'eos'),
   indicator = 'safety_eos',
-    target_df = target_df_by_assignment,
+    target_df = target_safety_by_assignment,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -404,7 +535,7 @@ data_list$safety_out <- prep_safety_tbl(
   safetynew_df = safetynew_merged_tbl %>% 
     dplyr::filter(safety_status == 'out'),
   indicator = 'safety_out',
-    target_df = target_df_by_assignment,
+    target_df = target_safety_by_assignment,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -415,7 +546,7 @@ data_list$safety_out_absent <- prep_safety_tbl(
     dplyr::filter(safety_status == 'out',
                   person_absent_reason == 'Absent'),
     indicator = 'safety_out_absent',
-   target_df = target_df_by_assignment,
+   target_df = target_safety_by_assignment,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -426,7 +557,7 @@ data_list$safety_migrated <- prep_safety_tbl(
   safety_df = safety_merged_tbl %>% 
     dplyr::filter(person_absent_reason == 'Migrated'),
   indicator = 'safety_migrated',
-    target_df = target_df_by_assignment,
+    target_df = target_safety_by_assignment,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -436,17 +567,14 @@ data_list$safety_died <- prep_safety_tbl(
   safety_df = safety_merged_tbl %>% 
     dplyr::filter(person_absent_reason == 'Died'),
   indicator = 'safety_died',
-    target_df = target_df_by_assignment,
+    target_df = target_safety_by_assignment,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
 ```
-## S&E by Assignment
-
-### Safety
 
 ```{r}
-summary <- target_df_by_assignment %>%
+summary <- target_safety_by_assignment %>%
     dplyr::left_join(purrr::reduce(data_list, dplyr::bind_rows), by = group_cols) %>%
     tidyr::pivot_wider(names_from = metric, 
                        id_cols = c(any_of(group_cols), 'hh_target', 'ind_target'),
@@ -539,7 +667,196 @@ wrap_download(
 
 ### Efficacy
 
-No data collection yet
+```{r}
+data_list <- list()
+group_cols <- c('visit','assignment')
+unique_visit_list <- efficacy_df$visit %>% unique()
+
+# prep safety overall
+data_list$overall <- prep_safety_tbl(
+    safety_df = efficacy_df, 
+    indicator = 'efficacy_overall',
+    target_df = target_efficacy_by_assignment,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+# prep safety in
+data_list$in_status <- prep_safety_tbl(
+  safety_df =  efficacy_df %>% 
+    dplyr::filter(efficacy_status == 'in'),
+  indicator = 'efficacy_in',
+    target_df = target_efficacy_by_assignment,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+# prep safety in & absent
+data_list$in_absent_status <- prep_safety_tbl(
+  safety_df =  efficacy_df %>%
+    dplyr::filter(
+      efficacy_status == 'in',
+      person_absent_reason == 'Absent'),
+  indicator = 'efficacy_in_absent',
+    target_df = target_efficacy_by_assignment,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+# prep safety refusal
+data_list$refusal_status <- prep_safety_tbl(
+  safety_df = efficacy_df %>% 
+    dplyr::filter(efficacy_status == 'refusal'),
+  indicator = 'efficacy_refusal',
+    target_df = target_efficacy_by_assignment,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+# prep safety eos
+data_list$eos_status <- prep_safety_tbl(
+  safety_df = efficacy_df %>% 
+    dplyr::filter(efficacy_status == 'eos'),
+  indicator = 'efficacy_eos',
+    target_df = target_efficacy_by_assignment,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+# prep safety eos
+data_list$out_status <- prep_safety_tbl(
+  safety_df = efficacy_df %>% 
+    dplyr::filter(efficacy_status == 'out'),
+  indicator = 'efficacy_out',
+    target_df = target_efficacy_by_assignment,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+# prep safety out absent
+data_list$out_absent_status <- prep_safety_tbl(
+  safety_df = efficacy_df %>% 
+    dplyr::filter(safety_status == 'out',
+                  person_absent_reason == 'Absent'),
+    indicator = 'efficacy_out_absent',
+    target_df = target_efficacy_by_assignment,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+
+# prep safety out absent
+data_list$migrated_status <- prep_safety_tbl(
+  safety_df = efficacy_df %>% 
+    dplyr::filter(person_absent_reason == 'Migrated'),
+  indicator = 'efficacy_migrated',
+  target_df = target_efficacy_by_assignment,
+  group_cols = group_cols,
+  visit_list = unique_visit_list
+)
+
+# prep safety out absent
+data_list$died_status <- prep_safety_tbl(
+  safety_df = efficacy_df %>% 
+    dplyr::filter(person_absent_reason == 'Died'),
+  indicator = 'efficacy_died',
+  target_df = target_efficacy_by_assignment,
+  group_cols = group_cols,
+  visit_list = unique_visit_list
+)
+```
+
+```{r}
+summary <- target_safety_by_assignment %>%
+    dplyr::inner_join(purrr::reduce(data_list, dplyr::bind_rows), by = group_cols) %>%
+    tidyr::pivot_wider(names_from = metric, 
+                       id_cols = c(any_of(group_cols), 'hh_target', 'ind_target'),
+                       values_from = c('ind','hh')) %>% 
+    dplyr::mutate(hh_efficacy_overall_perc = hh_efficacy_overall / hh_target,
+                  ind_efficacy_overall_perc = ind_efficacy_overall / ind_target) %>% 
+    dplyr::select(any_of(group_cols),
+                  hh_target, 
+                  ind_target, 
+                  hh_efficacy_overall,
+                  hh_efficacy_overall_perc,
+                  ind_efficacy_overall,
+                  ind_efficacy_overall_perc,
+                  ind_efficacy_died,
+                  ind_efficacy_migrated,
+                  ind_efficacy_in,
+                  ind_efficacy_in_absent,
+                  ind_efficacy_out,
+                  ind_efficacy_out_absent,
+                  ind_efficacy_eos,
+                  ind_efficacy_refusal) %>%
+  dplyr::mutate(across(everything(), .fns = ~replace_na(.,0)))
+
+
+element_id <- 'tbl2'
+tbl <- reactable(
+    summary %>% dplyr::ungroup(),
+    columns = list(
+        visit = colDef(name = 'Visit', filterable = TRUE),
+        assignment = colDef(name = 'Arm', filterable = TRUE),
+        hh_target = colDef(name = "Target Household"),
+        ind_target = colDef(name = "Target Individual"),
+        hh_efficacy_overall = colDef(name = "Household Visits"),
+        ind_efficacy_overall = colDef(name = "Individual Visits"),
+        hh_efficacy_overall_perc = colDef(
+            name = 'Household Visit %',
+            format = colFormat(percent = TRUE, digits = 1),
+            style = function(value) {
+                if (value >= 1) {
+                    color <- "#008000"
+                } else if (value < 1) {
+                    color <- "#e00000"
+                } else {
+                    color <- "#777"
+                }
+                list(color = color, fontWeight = "bold")
+            }),
+        ind_efficacy_overall_perc = colDef(
+            name = 'Individual Visit %',
+            format = colFormat(percent = TRUE, digits = 1),
+            style = function(value) {
+                if (value >= 1) {
+                    color <- "#008000"
+                } else if (value < 1) {
+                    color <- "#e00000"
+                } else {
+                    color <- "#777"
+                }
+                list(color = color, fontWeight = "bold")
+            }),
+        ind_efficacy_died = colDef(name = "Individual Safety Died"),
+        ind_efficacy_migrated = colDef(name = "Individual Safety Migrated"),
+        ind_efficacy_in = colDef(name = "Individual Safety-In"),
+        ind_efficacy_in_absent = colDef(name = "Individual Safety-In Absent"),
+        ind_efficacy_out = colDef(name = "Individual Safety-Out"),
+        ind_efficacy_out_absent = colDef(name = "Individual Safety-Out Absent"),
+        ind_efficacy_eos = colDef(name = "Individual Safety EOS"),
+        ind_efficacy_refusal = colDef(name = "Individual Safety Refusal")
+    ),
+    columnGroups = list(
+      colGroup(name = "Target", 
+               columns = c('hh_target', 'ind_target')),
+      colGroup(name = "Overall Completion", 
+               columns = c('hh_efficacy_overall', 
+                           'hh_efficacy_overall_perc', 
+                           'ind_efficacy_overall', 
+                           'ind_efficacy_overall_perc'))),
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE,
+    elementId = element_id
+)
+
+wrap_download(
+  tbl, 
+  element_id,
+  'efficacy_by_arm_assignment.csv')
+```
 
 ## S&E by Cluster & Village
 
@@ -547,17 +864,15 @@ No data collection yet
 
 ```{r}
 data_list <- list()
-# parameter
-group_cols <- c('visit',
-                'cluster', 
-                'village')
+group_cols <- c('visit','cluster', 'village')
+unique_visit_list <- safety_merged_tbl$visit %>% unique()
 
 # prep safety overall
 data_list$safety_overall <- prep_safety_tbl(
     safety_df = safety_merged_tbl, 
     safetynew_df = safetynew_merged_tbl, 
     indicator = 'safety_overall',
-    target_df = target_df_by_cluster_and_village,
+    target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -569,7 +884,7 @@ data_list$safety_in <- prep_safety_tbl(
   safetynew_df = safetynew_merged_tbl %>% 
     dplyr::filter(safety_status == 'in'),
   indicator = 'safety_in',
-    target_df = target_df_by_cluster_and_village,
+    target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -581,7 +896,7 @@ data_list$safety_in_absent <- prep_safety_tbl(
       safety_status == 'in',
       person_absent_reason == 'Absent'),
   indicator = 'safety_in_absent',
-    target_df = target_df_by_cluster_and_village,
+    target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -593,7 +908,7 @@ data_list$safety_refusal <- prep_safety_tbl(
   safetynew_df = safetynew_merged_tbl %>% 
     dplyr::filter(safety_status == 'refusal'),
   indicator = 'safety_refusal',
-    target_df = target_df_by_cluster_and_village,
+    target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -605,7 +920,7 @@ data_list$safety_eos <- prep_safety_tbl(
   safetynew_df = safetynew_merged_tbl %>% 
     dplyr::filter(safety_status == 'eos'),
   indicator = 'safety_eos',
-    target_df = target_df_by_cluster_and_village,
+    target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -617,7 +932,7 @@ data_list$safety_out <- prep_safety_tbl(
   safetynew_df = safetynew_merged_tbl %>% 
     dplyr::filter(safety_status == 'out'),
   indicator = 'safety_out',
-    target_df = target_df_by_cluster_and_village,
+    target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -628,7 +943,7 @@ data_list$safety_out_absent <- prep_safety_tbl(
     dplyr::filter(safety_status == 'out',
                   person_absent_reason == 'Absent'),
     indicator = 'safety_out_absent',
-    target_df = target_df_by_cluster_and_village,
+    target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
 )
@@ -639,9 +954,9 @@ data_list$safety_migrated <- prep_safety_tbl(
   safety_df = safety_merged_tbl %>% 
     dplyr::filter(person_absent_reason == 'Migrated'),
   indicator = 'safety_migrated',
-    target_df = target_df_by_cluster_and_village,
-    group_cols = group_cols,
-    visit_list = unique_visit_list
+  target_df = target_safety_by_cluster_and_village,
+  group_cols = group_cols,
+  visit_list = unique_visit_list
 )
 
 # prep safety out absent
@@ -649,17 +964,14 @@ data_list$safety_died <- prep_safety_tbl(
   safety_df = safety_merged_tbl %>% 
     dplyr::filter(person_absent_reason == 'Died'),
   indicator = 'safety_died',
-    target_df = target_df_by_cluster_and_village,
-    group_cols = group_cols,
-    visit_list = unique_visit_list
+  target_df = target_safety_by_cluster_and_village,
+  group_cols = group_cols,
+  visit_list = unique_visit_list
 )
 ```
 
 ```{r}
-
-element_id <- 'table2'
-
-summary <- target_df_by_cluster_and_village %>%
+summary <- target_safety_by_cluster_and_village %>%
     dplyr::left_join(purrr::reduce(data_list, dplyr::bind_rows), by = group_cols) %>%
     tidyr::pivot_wider(names_from = metric, 
                        id_cols = c(any_of(group_cols), 'hh_target', 'ind_target'),
@@ -683,12 +995,14 @@ summary <- target_df_by_cluster_and_village %>%
                   ind_safety_refusal) %>%
   dplyr::mutate(across(everything(), .fns = ~replace_na(.,0)))
 
+
+element_id <- 'tbl3'
 tbl <- reactable(
     summary %>% dplyr::ungroup(),
     columns = list(
         visit = colDef(name = 'Visit', filterable = TRUE),
-        cluster= colDef(name = 'Cluster', filterable = TRUE),
-        village = colDef(name = 'Village', filterable = TRUE, minWidth = 200),
+        cluster = colDef(name = 'Cluster', filterable = TRUE),
+        village = colDef(name = 'Village', filterable = TRUE, minWidth = 140),
         hh_target = colDef(name = "Target Household"),
         ind_target = colDef(name = "Target Individual"),
         hh_safety_overall = colDef(name = "Household Visits"),
@@ -746,12 +1060,202 @@ tbl <- reactable(
 wrap_download(
   tbl, 
   element_id,
-  'safety_efficacy_target_by_cluster_and_village.csv')
+  'safety_by_cluster_and_villages.csv')
 ```
 
 ### Efficacy
 
-No data collection yet
+```{r}
+data_list <- list()
+group_cols <- c('visit','cluster', 'village')
+unique_visit_list <- efficacy_df$visit %>% unique()
+
+# prep safety overall
+data_list$overall <- prep_safety_tbl(
+    safety_df = efficacy_df, 
+    indicator = 'efficacy_overall',
+    target_df = target_efficacy_by_cluster_and_village,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+# prep safety in
+data_list$in_status <- prep_safety_tbl(
+  safety_df =  efficacy_df %>% 
+    dplyr::filter(efficacy_status == 'in'),
+  indicator = 'efficacy_in',
+    target_df = target_efficacy_by_cluster_and_village,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+# prep safety in & absent
+data_list$in_absent_status <- prep_safety_tbl(
+  safety_df =  efficacy_df %>%
+    dplyr::filter(
+      efficacy_status == 'in',
+      person_absent_reason == 'Absent'),
+  indicator = 'efficacy_in_absent',
+    target_df = target_efficacy_by_cluster_and_village,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+# prep safety refusal
+data_list$refusal_status <- prep_safety_tbl(
+  safety_df = efficacy_df %>% 
+    dplyr::filter(efficacy_status == 'refusal'),
+  indicator = 'efficacy_refusal',
+    target_df = target_efficacy_by_cluster_and_village,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+# prep safety eos
+data_list$eos_status <- prep_safety_tbl(
+  safety_df = efficacy_df %>% 
+    dplyr::filter(efficacy_status == 'eos'),
+  indicator = 'efficacy_eos',
+    target_df = target_efficacy_by_cluster_and_village,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+# prep safety eos
+data_list$out_status <- prep_safety_tbl(
+  safety_df = efficacy_df %>% 
+    dplyr::filter(efficacy_status == 'out'),
+  indicator = 'efficacy_out',
+    target_df = target_efficacy_by_cluster_and_village,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+# prep safety out absent
+data_list$out_absent_status <- prep_safety_tbl(
+  safety_df = efficacy_df %>% 
+    dplyr::filter(safety_status == 'out',
+                  person_absent_reason == 'Absent'),
+    indicator = 'efficacy_out_absent',
+    target_df = target_efficacy_by_cluster_and_village,
+    group_cols = group_cols,
+    visit_list = unique_visit_list
+)
+
+
+# prep safety out absent
+data_list$migrated_status <- prep_safety_tbl(
+  safety_df = efficacy_df %>% 
+    dplyr::filter(person_absent_reason == 'Migrated'),
+  indicator = 'efficacy_migrated',
+  target_df = target_efficacy_by_cluster_and_village,
+  group_cols = group_cols,
+  visit_list = unique_visit_list
+)
+
+# prep safety out absent
+data_list$died_status <- prep_safety_tbl(
+  safety_df = efficacy_df %>% 
+    dplyr::filter(person_absent_reason == 'Died'),
+  indicator = 'efficacy_died',
+  target_df = target_efficacy_by_cluster_and_village,
+  group_cols = group_cols,
+  visit_list = unique_visit_list
+)
+```
+
+```{r}
+summary <- target_efficacy_by_cluster_and_village %>%
+    dplyr::inner_join(purrr::reduce(data_list, dplyr::bind_rows), by = group_cols) %>%
+    tidyr::pivot_wider(names_from = metric, 
+                       id_cols = c(any_of(group_cols), 'hh_target', 'ind_target'),
+                       values_from = c('ind','hh')) %>% 
+    dplyr::mutate(hh_efficacy_overall_perc = hh_efficacy_overall / hh_target,
+                  ind_efficacy_overall_perc = ind_efficacy_overall / ind_target) %>% 
+    dplyr::select(any_of(group_cols),
+                  hh_target, 
+                  ind_target, 
+                  hh_efficacy_overall,
+                  hh_efficacy_overall_perc,
+                  ind_efficacy_overall,
+                  ind_efficacy_overall_perc,
+                  ind_efficacy_died,
+                  ind_efficacy_migrated,
+                  ind_efficacy_in,
+                  ind_efficacy_in_absent,
+                  ind_efficacy_out,
+                  ind_efficacy_out_absent,
+                  ind_efficacy_eos,
+                  ind_efficacy_refusal) %>%
+  dplyr::mutate(across(everything(), .fns = ~replace_na(.,0)))
+
+
+element_id <- 'tbl4'
+tbl <- reactable(
+    summary %>% dplyr::ungroup(),
+    columns = list(
+        visit = colDef(name = 'Visit', filterable = TRUE),
+        cluster = colDef(name = 'Cluster', filterable = TRUE),
+        village = colDef(name = 'Village', filterable = TRUE, minWidth = 140),
+        hh_target = colDef(name = "Target Household"),
+        ind_target = colDef(name = "Target Individual"),
+        hh_efficacy_overall = colDef(name = "Household Visits"),
+        ind_efficacy_overall = colDef(name = "Individual Visits"),
+        hh_efficacy_overall_perc = colDef(
+            name = 'Household Visit %',
+            format = colFormat(percent = TRUE, digits = 1),
+            style = function(value) {
+                if (value >= 1) {
+                    color <- "#008000"
+                } else if (value < 1) {
+                    color <- "#e00000"
+                } else {
+                    color <- "#777"
+                }
+                list(color = color, fontWeight = "bold")
+            }),
+        ind_efficacy_overall_perc = colDef(
+            name = 'Individual Visit %',
+            format = colFormat(percent = TRUE, digits = 1),
+            style = function(value) {
+                if (value >= 1) {
+                    color <- "#008000"
+                } else if (value < 1) {
+                    color <- "#e00000"
+                } else {
+                    color <- "#777"
+                }
+                list(color = color, fontWeight = "bold")
+            }),
+        ind_efficacy_died = colDef(name = "Individual Safety Died"),
+        ind_efficacy_migrated = colDef(name = "Individual Safety Migrated"),
+        ind_efficacy_in = colDef(name = "Individual Safety-In"),
+        ind_efficacy_in_absent = colDef(name = "Individual Safety-In Absent"),
+        ind_efficacy_out = colDef(name = "Individual Safety-Out"),
+        ind_efficacy_out_absent = colDef(name = "Individual Safety-Out Absent"),
+        ind_efficacy_eos = colDef(name = "Individual Safety EOS"),
+        ind_efficacy_refusal = colDef(name = "Individual Safety Refusal")
+    ),
+    columnGroups = list(
+      colGroup(name = "Target", 
+               columns = c('hh_target', 'ind_target')),
+      colGroup(name = "Overall Completion", 
+               columns = c('hh_efficacy_overall', 
+                           'hh_efficacy_overall_perc', 
+                           'ind_efficacy_overall', 
+                           'ind_efficacy_overall_perc'))),
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE,
+    elementId = element_id
+)
+
+wrap_download(
+  tbl, 
+  element_id,
+  'efficacy_by_clusters_and_villages.csv')
+```
 
 ## PFU 
 
@@ -766,10 +1270,16 @@ element_id <- 'attendance-tracker'
 master <- dplyr::bind_rows(
   safety %>% 
     dplyr::select(wid, instanceID, SubmissionDate) %>% 
-    dplyr::mutate(form_id = 'safety'), 
+    dplyr::mutate(form_id = 'safety',
+                  wid = as.character(wid)), 
   safetynew %>% 
     dplyr::select(wid, instanceID, SubmissionDate)%>% 
-    dplyr::mutate(form_id = 'safetynew')
+    dplyr::mutate(form_id = 'safetynew',
+                  wid = as.character(wid)),
+  efficacy %>% 
+    dplyr::select(wid, instanceID, SubmissionDate)%>% 
+    dplyr::mutate(form_id = 'efficacy',
+                  wid = as.character(wid))
 )
 
 
