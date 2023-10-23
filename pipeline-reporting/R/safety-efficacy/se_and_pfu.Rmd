@@ -875,7 +875,7 @@ data_list$safety_overall <- prep_safety_tbl(
     target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety in
 data_list$safety_in <- prep_safety_tbl(
@@ -887,7 +887,7 @@ data_list$safety_in <- prep_safety_tbl(
     target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety in & absent
 data_list$safety_in_absent <- prep_safety_tbl(
@@ -899,7 +899,7 @@ data_list$safety_in_absent <- prep_safety_tbl(
     target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety refusal
 data_list$safety_refusal <- prep_safety_tbl(
@@ -911,7 +911,7 @@ data_list$safety_refusal <- prep_safety_tbl(
     target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety eos
 data_list$safety_eos <- prep_safety_tbl(
@@ -923,7 +923,7 @@ data_list$safety_eos <- prep_safety_tbl(
     target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety eos
 data_list$safety_out <- prep_safety_tbl(
@@ -935,7 +935,7 @@ data_list$safety_out <- prep_safety_tbl(
     target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety out absent
 data_list$safety_out_absent <- prep_safety_tbl(
@@ -946,8 +946,7 @@ data_list$safety_out_absent <- prep_safety_tbl(
     target_df = target_safety_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
-
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety out absent
 data_list$safety_migrated <- prep_safety_tbl(
@@ -957,7 +956,7 @@ data_list$safety_migrated <- prep_safety_tbl(
   target_df = target_safety_by_cluster_and_village,
   group_cols = group_cols,
   visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety out absent
 data_list$safety_died <- prep_safety_tbl(
@@ -967,12 +966,12 @@ data_list$safety_died <- prep_safety_tbl(
   target_df = target_safety_by_cluster_and_village,
   group_cols = group_cols,
   visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 ```
 
 ```{r}
 summary <- target_safety_by_cluster_and_village %>%
-    dplyr::left_join(purrr::reduce(data_list, dplyr::bind_rows), by = group_cols) %>%
+    dplyr::inner_join(purrr::reduce(data_list, dplyr::bind_rows), by = group_cols) %>%
     tidyr::pivot_wider(names_from = metric, 
                        id_cols = c(any_of(group_cols), 'hh_target', 'ind_target'),
                        values_from = c('ind','hh')) %>% 
@@ -1077,7 +1076,7 @@ data_list$overall <- prep_safety_tbl(
     target_df = target_efficacy_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety in
 data_list$in_status <- prep_safety_tbl(
@@ -1087,7 +1086,7 @@ data_list$in_status <- prep_safety_tbl(
     target_df = target_efficacy_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety in & absent
 data_list$in_absent_status <- prep_safety_tbl(
@@ -1099,7 +1098,7 @@ data_list$in_absent_status <- prep_safety_tbl(
     target_df = target_efficacy_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety refusal
 data_list$refusal_status <- prep_safety_tbl(
@@ -1109,7 +1108,7 @@ data_list$refusal_status <- prep_safety_tbl(
     target_df = target_efficacy_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety eos
 data_list$eos_status <- prep_safety_tbl(
@@ -1119,7 +1118,7 @@ data_list$eos_status <- prep_safety_tbl(
     target_df = target_efficacy_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety eos
 data_list$out_status <- prep_safety_tbl(
@@ -1129,7 +1128,7 @@ data_list$out_status <- prep_safety_tbl(
     target_df = target_efficacy_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety out absent
 data_list$out_absent_status <- prep_safety_tbl(
@@ -1140,7 +1139,7 @@ data_list$out_absent_status <- prep_safety_tbl(
     target_df = target_efficacy_by_cluster_and_village,
     group_cols = group_cols,
     visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 
 # prep safety out absent
@@ -1151,7 +1150,7 @@ data_list$migrated_status <- prep_safety_tbl(
   target_df = target_efficacy_by_cluster_and_village,
   group_cols = group_cols,
   visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 
 # prep safety out absent
 data_list$died_status <- prep_safety_tbl(
@@ -1161,12 +1160,13 @@ data_list$died_status <- prep_safety_tbl(
   target_df = target_efficacy_by_cluster_and_village,
   group_cols = group_cols,
   visit_list = unique_visit_list
-)
+) %>% dplyr::mutate(village = toupper(village))
 ```
 
 ```{r}
 summary <- target_efficacy_by_cluster_and_village %>%
-    dplyr::inner_join(purrr::reduce(data_list, dplyr::bind_rows), by = group_cols) %>%
+    dplyr::inner_join(purrr::reduce(data_list, dplyr::bind_rows), 
+                      by = group_cols) %>%
     tidyr::pivot_wider(names_from = metric, 
                        id_cols = c(any_of(group_cols), 'hh_target', 'ind_target'),
                        values_from = c('ind','hh')) %>% 
