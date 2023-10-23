@@ -33,6 +33,7 @@ library(data.table)
 library(cloudbrewr)
 library(fontawesome)
 library(shiny)
+library(ggplot2)
 
 ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
 DATA_STAGING_BUCKET_NAME <- 'databrew.org'
@@ -117,14 +118,6 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
  # bucket = DATA_STAGING_BUCKET_NAME,
   #key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safety/safety-repeat_drug.csv')) %>%
   #pad_hhid()
-
-# identify the repeats in safety and safetynew
-errors_safety <- safety %>%
-  select(instanceID, hhid, start_time, end_time) %>%
-  filter(duplicated(hhid) | duplicated(hhid, fromLast = TRUE))
-errors_safetynew <- safetynew %>%
-  select(instanceID, hhid, start_time, end_time) %>%
-  filter(duplicated(hhid) | duplicated(hhid, fromLast = TRUE))
 ```
 
 ## V1 Numbers
@@ -457,15 +450,44 @@ dist_age$dob <- as.Date(dist_age$dob, format = '%Y-%m-%d')
 dist_age$todays_date <- as.Date(dist_age$todays_date, format = '%Y-%m-%d')
 
 dist_table <- dist_age %>%
-  mutate(age = round(as.numeric(difftime(todays_date, dob, units = "days")) / 365.25, 2)) %>%
+  mutate(age = round(as.numeric(difftime(todays_date, dob, units = "days")) / 365, 2)) %>%
   select(extid, sex, age)
 
-# make a histogram of age
-hist(dist_table$age, main = "Age Distribution", xlab = "Age")
+# Create a new column 'age_category' based on 10-year increments
+dist_table$age_category <- cut(dist_table$age, breaks = seq(-10, max(dist_table$age) + 10, by = 10), right = FALSE)
+
+# make the appropriate dataframe for a bar plot of ages
+dist_age <- dist_table %>%
+  group_by(age_category) %>%
+  summarise(count = n())
+
+# make the bar plot for age
+ggplot(dist_age, aes(x = age_category,
+                     y = count,
+                     fill = 'black')) +
+  geom_bar(stat = 'identity', 
+           position = 'dodge',
+           show.legend = FALSE) +
+  labs(x = 'Ages of Absent Individuals',
+       y = 'Count of Absent Individuals') +
+  scale_x_discrete(labels = c('below 0', '1-9', '10-19', '20-29', '30-39', '40-49', '50-59', '60-69', '70-79', '80-89')) +
+  geom_text(aes(label = count), vjust = 0) +
+  theme_minimal()
+
+# make the appropriate data frame for a bar plot of sex
+dist_sex <- dist_table %>%
+  group_by(sex) %>%
+  summarise(count = n())
 
 # make a bar plot of sex
-barplot(table(dist_table$sex), main = "Sex Distribution", xlab = "Sex", ylab = "Count")
-# need to edit these graphs a bit and then make them appear in RMarkdown and then push code :) 
+ggplot(dist_sex, aes(x = sex, y = count, fill = sex)) +
+  geom_bar(stat = 'identity', 
+           position = 'dodge',
+           show.legend = FALSE) +
+  labs(x = 'Sex of Absent Individuals',
+       y = 'Count of Absent Individuals') +
+  geom_text(aes(label = count), vjust = 1.5) +
+  theme_minimal()
 
 ```
 
@@ -485,6 +507,7 @@ cluster <- left_join(cluster, extid_and_safety_status_df, by=c('extid')) %>%
 # make the table requested
 cluster_table <- cluster %>%
   group_by(cluster, safety_status, reason) %>%
+  filter(safety_status == 'out') %>%
   summarise(Count = n()) %>%
   rename('Cluster' = cluster,
          'Safety status' = safety_status,
