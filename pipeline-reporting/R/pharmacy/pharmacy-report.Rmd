@@ -1,7 +1,7 @@
 ---
 title: "Pharmacy Reports"
 description: |
-  Reporting used to track SE and PFU
+  Reporting used to track Pharmacy, Pharmacy SFA, Pharmacy FA and Field CL
 date: "`r Sys.time()`"
 output:
   html_document:
@@ -19,6 +19,14 @@ Notes:
 Description:
 
 This report is used for Pharmacy based on this [Reporting Document](https://docs.google.com/document/d/15-BOyB24J81B7JwMggHYBmX8RGpoC4raIKk8TOkdrf0/edit#heading=h.vk0h181v4mre)
+
+Several notations are used here:
+
+- `alb`: Albendazole
+- `ivm`: Ivermectin
+- `coartem20`: Coartem 20/120 mg
+- `coartem80`: Coartem 80/480 mg
+- `prdt`: Pregnancy Test Kits
 
 Disclaimer: 
 
@@ -113,22 +121,17 @@ pharmacy_fa <- cloudbrewr::aws_s3_get_table(
   bucket = 'databrew.org',
   key = 'kwale/clean-form/pharmacy_fa/pharmacy_fa.csv'
 ) %>%
-  pad_hhid() %>% 
-    tidyr::separate_rows(iptype, sep = " ")
-
+  pad_hhid()
 pharmacy_sfa <- cloudbrewr::aws_s3_get_table(
   bucket = 'databrew.org',
   key = 'kwale/clean-form/pharmacy_sfa/pharmacy_sfa.csv'
 ) %>%
-  pad_hhid() %>% 
-    tidyr::separate_rows(iptype, sep = " ")
-
+  pad_hhid() 
 pharmacy <- cloudbrewr::aws_s3_get_table(
   bucket = 'databrew.org',
   key = 'kwale/clean-form/pharmacy/pharmacy.csv'
 ) %>%
-  pad_hhid() %>% 
-    tidyr::separate_rows(iptype, sep = " ")
+  pad_hhid() 
 
 v0_repeat <- cloudbrewr::aws_s3_get_table(
   bucket = 'databrew.org',
@@ -169,55 +172,338 @@ assignment <- cloudbrewr::aws_s3_get_table(
   pad_hhid()
 ```
 
+
+```{r}
+
+## pharmacy
+pharmacy_list <- list()
+
+# pharmacy initial stock
+pharmacy_list$pharmacy_initial_stock <- pharmacy %>% 
+    dplyr::filter(source_entry == 'supplier') %>% 
+    dplyr::select(alb_tabno, 
+                  ivm_tabno, 
+                  coartem80_tabno, 
+                  coartem20_tabno,
+                  prdt_kitsno) %>%
+    tidyr::pivot_longer(cols =  everything()) %>% 
+    tidyr::drop_na() %>% 
+    dplyr::group_by(name) %>% 
+    dplyr::summarise(pharmacy_arrival = sum(value)) %>% 
+    dplyr::mutate(name = case_when(stringr::str_detect(name, 'ivm') ~ 'ivm',
+                                  stringr::str_detect(name, 'alb') ~ 'alb',
+                                  stringr::str_detect(name, 'coartem8') ~ 'coartem80',
+                                  stringr::str_detect(name, 'coartem2') ~ 'coartem20',
+                                  stringr::str_detect(name, 'prdt') ~ 'prdt'))
+
+
+pharmacy_list$pharmacy_sent_to_sfa <- pharmacy %>% 
+    dplyr::filter(operation == 'dispatch') %>% 
+    dplyr::select(alb_tabno, 
+                  ivm_tabno, 
+                  coartem80_tabno, 
+                  coartem20_tabno,
+                  prdt_kitsno) %>%
+    tidyr::pivot_longer(cols =  everything()) %>% 
+    tidyr::drop_na() %>% 
+    dplyr::group_by(name) %>% 
+    dplyr::summarise(pharmacy_dispatch = sum(value)) %>% 
+    dplyr::mutate(name = case_when(stringr::str_detect(name, 'ivm') ~ 'ivm',
+                                  stringr::str_detect(name, 'alb') ~ 'alb',
+                                  stringr::str_detect(name, 'coartem8') ~ 'coartem80',
+                                  stringr::str_detect(name, 'coartem2') ~ 'coartem20',
+                                  stringr::str_detect(name, 'prdt') ~ 'prdt'))
+
+pharmacy_list$pharmacy_sent_back_form_sfa <- pharmacy %>% 
+    dplyr::filter(operation == 'arrival',
+                  source_entry == 'field') %>% 
+    dplyr::select(starts_with('unused'),
+                  unusable_coartem24_no) %>%
+    tidyr::pivot_longer(cols =  everything()) %>% 
+    tidyr::drop_na() %>% 
+    dplyr::group_by(name) %>%
+    dplyr::summarise(pharmacy_return = sum(value)) %>% 
+    dplyr::mutate(name = case_when(stringr::str_detect(name, 'ivm') ~ 'ivm',
+                                  stringr::str_detect(name, 'alb') ~ 'alb',
+                                  stringr::str_detect(name, 'coartem8') ~ 'coartem80',
+                                  stringr::str_detect(name, 'coartem2') ~ 'coartem20',
+                                  stringr::str_detect(name, 'prdt') ~ 'prdt'))
+
+pharmacy_flow_df <- pharmacy_list %>% 
+    purrr::reduce(dplyr::left_join) %>% 
+    mutate(
+        across(everything(), ~replace_na(.x, 0))
+    )
+
+
+## pharmacy
+pharmacy_sfa_list <- list()
+
+# pharmacy initial stock
+pharmacy_sfa_list$pharmacy_sfa_initial_stock <- pharmacy_sfa %>% 
+    dplyr::filter(source_entry == 'pharmacy') %>% 
+    dplyr::select(alb_tabsno, 
+                  ivm_tabletno, 
+                  coartem80_tabletno, 
+                  coartem24_tabletno,
+                  prdt_kitsno) %>%
+    tidyr::pivot_longer(cols =  everything()) %>% 
+    dplyr::mutate(name = case_when(stringr::str_detect(name, 'ivm') ~ 'ivm',
+                                  stringr::str_detect(name, 'alb') ~ 'alb',
+                                  stringr::str_detect(name, 'coartem8') ~ 'coartem80',
+                                  stringr::str_detect(name, 'coartem2') ~ 'coartem20',
+                                  stringr::str_detect(name, 'prdt') ~ 'prdt')) %>%
+    tidyr::drop_na() %>% 
+    dplyr::group_by(name) %>% 
+    dplyr::summarise(pharmacy_sfa_arrival = sum(value))
+
+
+pharmacy_sfa_list$pharmacy_sfa_sent_to_fa <- pharmacy_sfa %>% 
+    dplyr::filter(operation == 'dispatch') %>% 
+    dplyr::select(alb_tabsno, 
+                  ivm_tabletno, 
+                  coartem80_tabletno, 
+                  coartem24_tabletno,
+                  prdt_kitsno) %>%
+    tidyr::pivot_longer(cols =  everything()) %>% 
+    dplyr::mutate(name = case_when(stringr::str_detect(name, 'ivm') ~ 'ivm',
+                                  stringr::str_detect(name, 'alb') ~ 'alb',
+                                  stringr::str_detect(name, 'coartem8') ~ 'coartem80',
+                                  stringr::str_detect(name, 'coartem2') ~ 'coartem20',
+                                  stringr::str_detect(name, 'prdt') ~ 'prdt')) %>%
+    tidyr::drop_na() %>% 
+    dplyr::group_by(name) %>% 
+    dplyr::summarise(pharmacy_sfa_dispatch = sum(value))
+
+
+pharmacy_sfa_list$return <- pharmacy_sfa %>% 
+    dplyr::filter(operation == 'arrival',
+                  source_entry == 'fa') %>% 
+    dplyr::select(starts_with('unused'),
+                  unusable_coartem24_no) %>%
+    tidyr::pivot_longer(cols =  everything()) %>% 
+    dplyr::mutate(name = case_when(stringr::str_detect(name, 'ivm') ~ 'ivm',
+                                  stringr::str_detect(name, 'alb') ~ 'alb',
+                                  stringr::str_detect(name, 'coartem8') ~ 'coartem80',
+                                  stringr::str_detect(name, 'coartem2') ~ 'coartem20',
+                                  stringr::str_detect(name, 'prdt') ~ 'prdt')) %>%
+    tidyr::drop_na() %>% 
+    dplyr::group_by(name) %>% 
+    dplyr::summarise(pharmacy_sfa_return = sum(value))
+
+pharmacy_sfa_flow_df <- pharmacy_sfa_list %>% 
+    purrr::reduce(dplyr::left_join) %>% 
+    mutate(
+        across(everything(), ~replace_na(.x, 0))
+    )
+
+
+
+## pharmacy
+pharmacy_fa_list <- list()
+
+# pharmacy initial stock
+pharmacy_fa_list$initial_stock <- pharmacy_fa %>% 
+    dplyr::filter(source_entry == 'sfa') %>% 
+    dplyr::select(alb_tabletno, 
+                  ivm_tabletno, 
+                  coartem80_tabletno, 
+                  coartem24_tabletno,
+                  prdt_kitsno) %>%
+    tidyr::pivot_longer(cols =  everything()) %>% 
+    dplyr::mutate(name = case_when(stringr::str_detect(name, 'ivm') ~ 'ivm',
+                                  stringr::str_detect(name, 'alb') ~ 'alb',
+                                  stringr::str_detect(name, 'coartem8') ~ 'coartem80',
+                                  stringr::str_detect(name, 'coartem2') ~ 'coartem20',
+                                  stringr::str_detect(name, 'prdt') ~ 'prdt')) %>%
+    tidyr::drop_na() %>% 
+    dplyr::group_by(name) %>% 
+    dplyr::summarise(pharmacy_fa_arrival = sum(value)) 
+
+
+pharmacy_fa_list$dispatch <- pharmacy_fa %>% 
+    dplyr::filter(operation == 'dispatch') %>% 
+    dplyr::select(alb_tabletno, 
+                  ivm_tabletno, 
+                  coartem80_tabletno, 
+                  coartem24_tabletno,
+                  prdt_kitsno) %>%
+    tidyr::pivot_longer(cols =  everything()) %>% 
+    dplyr::mutate(name = case_when(stringr::str_detect(name, 'ivm') ~ 'ivm',
+                                  stringr::str_detect(name, 'alb') ~ 'alb',
+                                  stringr::str_detect(name, 'coartem8') ~ 'coartem80',
+                                  stringr::str_detect(name, 'coartem2') ~ 'coartem20',
+                                  stringr::str_detect(name, 'prdt') ~ 'prdt')) %>%
+    tidyr::drop_na() %>% 
+    dplyr::group_by(name) %>% 
+    dplyr::summarise(pharmacy_fa_dispatch = sum(value))
+
+pharmacy_fa_list$return <- pharmacy_fa %>% 
+    dplyr::filter(operation == 'arrival',
+                  source_entry == 'cl') %>% 
+    dplyr::select(starts_with('unused'),
+                  unusable_coartem24_no) %>%
+    tidyr::pivot_longer(cols =  everything()) %>% 
+    dplyr::mutate(name = case_when(stringr::str_detect(name, 'ivm') ~ 'ivm',
+                                  stringr::str_detect(name, 'alb') ~ 'alb',
+                                  stringr::str_detect(name, 'coartem8') ~ 'coartem80',
+                                  stringr::str_detect(name, 'coartem2') ~ 'coartem20',
+                                  stringr::str_detect(name, 'prdt') ~ 'prdt')) %>%
+    tidyr::drop_na() %>% 
+    dplyr::group_by(name) %>% 
+    dplyr::summarise(pharmacy_fa_return = sum(value))
+
+
+pharmacy_fa_flow_df <- pharmacy_fa_list %>% 
+    purrr::reduce(dplyr::left_join) %>% 
+    mutate(
+        across(everything(), ~replace_na(.x, 0))
+    )
+
+
+
+cl_list <- list()
+cl_list$safety <- safety_repeat_individual %>% 
+    dplyr::select(num_ivermectin_tablets_taken,
+                  num_ivermectin_tablets_taken_2,
+                  num_albendzole_pills,
+                  num_albendzole_pills_2,
+                  num_extra_albendazole,
+                  num_extra_albendazole_2,
+                  num_extra_ivermectin,
+                  num_extra_ivermectin_2,
+                  preg_test_result, 
+                  preg_test_2_result) %>% 
+    dplyr::mutate(preg_test_result = case_when(preg_test_result != "" ~ 1, TRUE ~ 0),
+                  preg_test_2_result = case_when(preg_test_2_result != "" ~ 1, TRUE ~ 0)) %>% 
+    tidyr::pivot_longer(cols = everything()) %>% 
+    dplyr::mutate(grp = case_when(stringr::str_detect(name, 'ivermectin') ~ 'ivm',
+                                  stringr::str_detect(name, 'albendzole') ~ 'alb',
+                                  stringr::str_detect(name, 'albendazole') ~ 'alb',
+                                  stringr::str_detect(name, 'preg') ~ 'prdt')) %>% 
+    mutate(
+        across(everything(), ~replace_na(.x, 0))
+    ) %>% 
+    dplyr::group_by(grp) %>% 
+    dplyr::summarise(stock_used_by_cl = sum(value))
+
+
+cl_list$safetynew <- safetynew_repeat_individual %>% 
+    dplyr::select(num_ivermectin_tablets_taken,
+                  num_ivermectin_tablets_taken_2,
+                  num_albendzole_pills,
+                  num_albendzole_pills_2,
+                  num_extra_albendazole,
+                  num_extra_albendazole_2,
+                  num_extra_ivermectin,
+                  num_extra_ivermectin_2,
+                  preg_test_result, 
+                  preg_test_2_result) %>% 
+    dplyr::mutate(preg_test_result = case_when(preg_test_result != "" ~ 1, TRUE ~ 0),
+                  preg_test_2_result = case_when(preg_test_2_result != "" ~ 1, TRUE ~ 0)) %>% 
+    tidyr::pivot_longer(cols = everything()) %>% 
+    dplyr::mutate(grp = case_when(stringr::str_detect(name, 'ivermectin') ~ 'ivm',
+                                  stringr::str_detect(name, 'albendzole') ~ 'alb',
+                                  stringr::str_detect(name, 'albendazole') ~ 'alb',
+                                  stringr::str_detect(name, 'preg') ~ 'prdt')) %>% 
+    mutate(
+        across(everything(), ~replace_na(.x, 0))
+    ) %>% 
+    dplyr::group_by(grp) %>% 
+    dplyr::summarise(stock_used_by_cl = sum(value))
+
+cl_list$efficacy <- efficacy %>% 
+    dplyr::mutate(grp = case_when(have_80_480_coartem != 'yes' ~ 'coartem20',
+                                   TRUE ~ 'coartem80')) %>% 
+    dplyr::group_by(grp) %>% 
+    dplyr::summarise(coartem = sum(num_coartem_tablets_given, na.rm = T),
+                     coartem_ext = sum(num_extra_coartem_tablets_used, na.rm = T)) %>% 
+    dplyr::mutate(stock_used_by_cl = coartem + coartem_ext) %>% 
+    dplyr::select(grp, stock_used_by_cl)
+
+stock_used_by_cl <- cl_list %>% 
+    purrr::reduce(dplyr::full_join) %>% 
+    dplyr::group_by(grp) %>% 
+    dplyr::summarise(stock_used_by_cl = sum(stock_used_by_cl)) %>% 
+    dplyr::select(name = grp, everything())
+
+df <- pharmacy_flow_df %>% 
+    dplyr::left_join(pharmacy_sfa_flow_df, by = 'name') %>% 
+    dplyr::left_join(pharmacy_fa_flow_df, by = 'name') %>% 
+    dplyr::left_join(stock_used_by_cl, by = 'name') %>% 
+    mutate(
+        across(everything(), ~replace_na(.x, 0))
+    ) %>% 
+  dplyr::mutate(
+    pharmacy_stock = pharmacy_arrival - 
+      pharmacy_dispatch + 
+      pharmacy_return,
+    pharmacy_sfa_stock = pharmacy_sfa_arrival - 
+      pharmacy_sfa_dispatch + 
+      pharmacy_sfa_return,
+    pharmacy_fa_stock = pharmacy_fa_arrival - 
+      pharmacy_fa_dispatch + 
+      pharmacy_fa_return)
+
+```
+
+
 ### a. Bar chart showing stock level
 
 ```{r}
-data_list <- list()
+plot_df <- df %>% 
+    dplyr::select(-contains('_stock'))%>%
+    tidyr::pivot_longer(cols = !name, 
+                        names_to = 'step',
+                        values_to = 'value') %>% 
+    dplyr::mutate(grp = case_when(stringr::str_detect(step, 'pharmacy_sfa') ~ 'sfa',
+                                  stringr::str_detect(step, 'pharmacy_fa') ~ 'fa',
+                                  stringr::str_detect(step, 'cl') ~ 'cl',
+                                  TRUE ~ 'pharmacy')
+                  ) %>% 
+    dplyr::mutate(op = case_when(stringr::str_detect(step, 'arrival') ~ 'arrival',
+                                  stringr::str_detect(step, 'dispatch') ~ 'dispatch',
+                                  stringr::str_detect(step, 'return') ~ 'arrival',
+                                 stringr::str_detect(step, 'used') ~ 'used')
+                  ) %>%
+    group_by(grp, op) %>% 
+    summarise(value = sum(value, na.rm =TRUE)) 
 
-data_list$pharmacy <- pharmacy %>%
-    dplyr::group_by(operation) %>% 
-    dplyr::summarise(n = n_distinct(instanceID)) %>% 
-    dplyr::mutate(source = 'pharmacy')
-
-data_list$pharmacy_sfa <- pharmacy_sfa %>%
-    dplyr::group_by(operation) %>% 
-    dplyr::summarise(n =n_distinct(instanceID)) %>% 
-    dplyr::mutate(source = 'pharmacy_sfa')
-
-data_list$pharmacy_fa <- pharmacy_fa %>%
-    dplyr::group_by(operation) %>% 
-    dplyr::summarise(n = n_distinct(instanceID)) %>% 
-    dplyr::mutate(source = 'pharmacy_fa')
-
-
-plot_1 <- data_list %>% 
-  purrr::reduce(dplyr::bind_rows)  %>% 
-    ggplot(aes(y = source, x = n, fill = operation)) +
+plot_1 <- plot_df %>% 
+    ggplot(aes(y = grp, x = value, fill = op)) +
     geom_col(position = 'dodge') +
     theme_minimal() +
-    scale_fill_brewer(palette = "Paired")
+    scale_fill_brewer(palette = "Paired") +
+    labs(x = '')
 ```
 
 
 
 ```{r}
-p1 <- pharmacy %>%
-    dplyr::group_by(iptype, operation) %>% 
-    dplyr::summarise(n = n()) %>% dplyr::ungroup()
-p2 <- pharmacy_sfa %>%
-    dplyr::group_by(iptype, operation) %>% 
-    dplyr::summarise(n= n()) %>% dplyr::ungroup()
-p3 <- pharmacy_fa %>%
-    dplyr::group_by(iptype, operation) %>% 
-    dplyr::summarise(n = n()) %>% dplyr::ungroup()
- 
-plot_2 <- dplyr::bind_rows(p1,p2,p3) %>% 
-    dplyr::group_by(iptype, operation) %>% 
-    dplyr::summarise(n = sum(n)) %>% 
-    ggplot(aes(y = iptype, x = n, fill = operation)) +
+plot_df <- df %>% 
+    dplyr::select(-contains('_stock'))%>%
+    tidyr::pivot_longer(cols = !name, 
+                        names_to = 'step',
+                        values_to = 'value') %>% 
+    dplyr::mutate(grp = case_when(stringr::str_detect(step, 'pharmacy_sfa') ~ 'sfa',
+                                  stringr::str_detect(step, 'pharmacy_fa') ~ 'fa',
+                                  stringr::str_detect(step, 'cl') ~ 'cl',
+                                  TRUE ~ 'pharmacy')
+                  ) %>% 
+    dplyr::mutate(op = case_when(stringr::str_detect(step, 'arrival') ~ 'arrival',
+                                  stringr::str_detect(step, 'dispatch') ~ 'dispatch',
+                                  stringr::str_detect(step, 'return') ~ 'arrival',
+                                 stringr::str_detect(step, 'used') ~ 'used')
+                  ) %>%
+    group_by(name, op) %>% 
+    summarise(value = sum(value, na.rm =TRUE)) 
+
+plot_2 <- plot_df %>% 
+    ggplot(aes(y = name, x = value, fill = op)) +
     geom_col(position = 'dodge') +
     theme_minimal() +
-    scale_fill_brewer(palette = "Paired")
+    scale_fill_brewer(palette = "Paired") +
+    labs(x = '')
 ```
 
 
@@ -227,91 +513,87 @@ subplot(ggplotly(plot_1),
         margin = 0.05)
 ```
 
+### b. Stock & IP Movement
+
+Stock is measured by: `Arrival` - `Dispatch` + `Returns (unused item)`
 
 ```{r}
-
-data_list <- list()
-
-data_list$p1 <- p1 %>% 
-    tidyr::pivot_wider(id_cols = 'iptype', 
-                       names_from = 'operation', 
-                       values_from = 'n') %>% 
-    dplyr::mutate(arrival = replace_na(arrival, 0),
-                  dispatch = replace_na(dispatch,0)) %>% 
-    dplyr::mutate(current_stock = arrival - dispatch) %>% 
-    dplyr::select(
-      iptype, 
-      `Stock received at pharmacy` = arrival, 
-      `Stock sent out to field` = dispatch)
-
-
-data_list$p2 <-p2 %>% 
-    tidyr::pivot_wider(id_cols = 'iptype', 
-                       names_from = 'operation', 
-                       values_from = 'n') %>% 
-    dplyr::mutate(arrival = replace_na(arrival, 0),
-                  dispatch = replace_na(dispatch,0)) %>% 
-    dplyr::mutate(current_stock = arrival - dispatch) %>% 
-    dplyr::select(
-      iptype, 
-      `Stock received by sfa` = arrival, 
-      `Stock sent out to fa` = dispatch)
-
-data_list$p3 <- p3 %>% 
-    tidyr::pivot_wider(id_cols = 'iptype', 
-                       names_from = 'operation', 
-                       values_from = 'n') %>% 
-    dplyr::mutate(arrival = replace_na(arrival, 0),
-                  dispatch = replace_na(dispatch,0)) %>% 
-    dplyr::mutate(current_stock = arrival - dispatch) %>% 
-    dplyr::select(
-      iptype, 
-      `Stock sent out to CL` = dispatch)
-
-data_list$p4 <- safety_repeat_individual %>% 
-    dplyr::select(num_albendzole_pills) %>% 
-    tidyr::drop_na(num_albendzole_pills) %>%
-    dplyr::summarise(`Stock dispensed to participants` = n()) %>%
-    dplyr::mutate(iptype = 'ALB')
-
-df <- data_list %>% 
-    purrr::reduce(dplyr::full_join) %>% 
-  mutate(
-    across(everything(), ~replace_na(.x, 0))
-  )
-
-```
-
-### b. Pharmacy Status
-
-```{r}
-element_id = 'pharmacy_status'
+element_id = 'stock_status'
 tbl <- reactable(
-  df %>% 
-  dplyr::mutate(
-    current_stock = 
-      `Stock received at pharmacy` - `Stock sent out to field`) %>% 
-    dplyr::select(
-        iptype,
-        `Stock received at pharmacy`,
-        `Stock sent out to field`,
-        `Current Stock at Pharmacy` = current_stock
+  df %>% dplyr::select(name, contains('_stock')), 
+  elementId = element_id,
+  columns = list(
+    name = colDef(
+      name = "Item", 
+      filterable = TRUE
     ),
-  elementId = element_id
+    pharmacy_stock = colDef(
+      name = "Pharmacy Stock"
+    ),
+    pharmacy_sfa_stock = colDef(
+      name = "Pharmacy SFA Stock"
+    ),
+    pharmacy_fa_stock = colDef(
+      name = "Pharmacy FA Stock"
+    )),
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE
 )
 
 wrap_download(
   tbl, 
   element_id,
-  'pharmacy_status.csv')
-```
+  'stock.csv')
 
-### c. Summary table - IP movement
 
-```{r}
+
 element_id = 'ip_movement'
-
-tbl <- reactable(df, elementId = element_id)
+tbl <- reactable(
+  df %>% dplyr::select(name, everything(), -ends_with('_stock')), 
+  elementId = element_id,
+  columns = list(
+    name = colDef(
+      name = "Item", 
+      filterable = TRUE
+    ),
+    pharmacy_arrival = colDef(
+      name = "Pharmacy Arrival"
+    ),
+    pharmacy_dispatch = colDef(
+      name = "Pharmacy Dispatch"
+    ),
+    pharmacy_return = colDef(
+      name = "Pharmacy Return"
+    ),
+    pharmacy_sfa_arrival = colDef(
+      name = "Pharmacy SFA Arrival"
+    ),
+    pharmacy_sfa_dispatch = colDef(
+      name = "Pharmacy SFA Dispatch",
+      minWidth = 100
+    ),
+    pharmacy_sfa_return = colDef(
+      name = "Pharmacy SFA Return"
+    ),
+    pharmacy_fa_arrival = colDef(
+      name = "Pharmacy FA Arrival"
+    ),
+    pharmacy_fa_dispatch = colDef(
+      name = "Pharmacy FA Dispatch"
+    ),
+    pharmacy_fa_return = colDef(
+      name = "Pharmacy FA Return"
+    ),
+    stock_used_by_cl = colDef(
+      name = "CL Item Used"
+    )),
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE
+)
 
 wrap_download(
   tbl, 
@@ -319,26 +601,53 @@ wrap_download(
   'ip_movement.csv')
 ```
 
-### d. Summary table - IP movement sFA
+### c. Summary table - IP movement sFA by Worker
 
 ```{r}
-element_id = 'ip_movement_sfa'
+element_id = 'wid_sfa'
 
-t <- pharmacy_sfa %>% 
-    dplyr::select(id_username, iptype, operation) %>% 
-    dplyr::mutate(value = 1) %>%
-    tidyr::pivot_wider(id_cols = c(id_username, iptype), 
+## pharmacy
+data_list <- list()
+
+# pharmacy initial stock
+data_list$pharmacy_sfa <- pharmacy_sfa %>% 
+    dplyr::select(
+      id_username,
+      operation,
+      alb_tabsno, 
+      ivm_tabletno, 
+      coartem80_tabletno, 
+      coartem24_tabletno,
+      prdt_kitsno,
+      starts_with('unused'),
+      unusable_coartem24_no) %>%
+    tidyr::pivot_longer(cols =  -c(id_username, operation)) %>% 
+    dplyr::mutate(
+      operation = case_when(stringr::str_detect(name, 'unused') ~'return',
+                            TRUE ~ operation),
+      name = case_when(stringr::str_detect(name, 'ivm') ~ 'ivm',
+                       stringr::str_detect(name, 'alb') ~ 'alb',
+                       stringr::str_detect(name, 'coartem8') ~ 'coartem80',
+                       stringr::str_detect(name, 'coartem2') ~ 'coartem20',
+                       stringr::str_detect(name, 'prdt') ~ 'prdt')) %>%
+    dplyr::mutate(across(everything(), ~replace_na(.x, 0))) %>%
+    dplyr::mutate(key = glue::glue('{operation}_{name}')) %>% 
+    tidyr::pivot_wider(id_cols = c(id_username, name),
                        names_from = operation,
                        values_from = value,
-                       values_fn = sum
-                    )
+                       values_fn = sum,
+                       values_fill = 0) %>%
+    dplyr::select(id_username, name, arrival, dispatch, return)
 
 tbl <- reactable(
-    t,
+    data_list$pharmacy_sfa,
     groupBy = c("id_username"),
     columns = list(
         id_username = colDef(
             name = "ID Username", 
+            filterable = TRUE),
+        name = colDef(
+            name = "Item", 
             filterable = TRUE),
         arrival = colDef(
             name = "Arrival",
@@ -346,6 +655,10 @@ tbl <- reactable(
         ),
         dispatch = colDef(
             name = "Dispatch",
+            aggregate = "sum"
+        ),
+        return = colDef(
+            name = "FA Unused / Return",
             aggregate = "sum"
         )
     ),
@@ -359,31 +672,56 @@ tbl <- reactable(
 wrap_download(
   tbl, 
   element_id,
-  'ip_movement_sfa.csv')
+  'wid_sfa.csv')
 ```
 
-
-### e. Summary table - IP movement FA
+### d. Summary table - IP movement FA by Worker
 
 ```{r}
-element_id = 'ip_movement_fa'
+element_id = 'wid_fa'
 
-t <- pharmacy_fa %>% 
-    dplyr::filter(source_entry != 'cl') %>%
-    dplyr::select(id_username, iptype, operation) %>% 
-    dplyr::mutate(value = 1) %>%
-    tidyr::pivot_wider(id_cols = c(id_username, iptype), 
+## pharmacy
+data_list <- list()
+
+# pharmacy initial stock
+data_list$pharmacy_fa <- pharmacy_fa %>% 
+    dplyr::select(
+      id_username,
+      operation,
+      alb_tabletno, 
+      ivm_tabletno, 
+      coartem80_tabletno, 
+      coartem24_tabletno,
+      prdt_kitsno,
+      starts_with('unused'),
+      unusable_coartem24_no) %>%
+    tidyr::pivot_longer(cols =  -c(id_username, operation)) %>% 
+    dplyr::mutate(
+      operation = case_when(stringr::str_detect(name, 'unused') ~'return',
+                            TRUE ~ operation),
+      name = case_when(stringr::str_detect(name, 'ivm') ~ 'ivm',
+                       stringr::str_detect(name, 'alb') ~ 'alb',
+                       stringr::str_detect(name, 'coartem8') ~ 'coartem80',
+                       stringr::str_detect(name, 'coartem2') ~ 'coartem20',
+                       stringr::str_detect(name, 'prdt') ~ 'prdt')) %>%
+    dplyr::mutate(across(everything(), ~replace_na(.x, 0))) %>%
+    dplyr::mutate(key = glue::glue('{operation}_{name}')) %>% 
+    tidyr::pivot_wider(id_cols = c(id_username, name),
                        names_from = operation,
                        values_from = value,
-                       values_fn = sum
-                    )
+                       values_fn = sum,
+                       values_fill = 0) %>%
+    dplyr::select(id_username, name, arrival, dispatch, return)
 
 tbl <- reactable(
-    t,
+    data_list$pharmacy_fa,
     groupBy = c("id_username"),
     columns = list(
         id_username = colDef(
             name = "ID Username", 
+            filterable = TRUE),
+        name = colDef(
+            name = "Item", 
             filterable = TRUE),
         arrival = colDef(
             name = "Arrival",
@@ -391,6 +729,10 @@ tbl <- reactable(
         ),
         dispatch = colDef(
             name = "Dispatch",
+            aggregate = "sum"
+        ),
+        return = colDef(
+            name = "CL Unused / Return",
             aggregate = "sum"
         )
     ),
@@ -404,62 +746,85 @@ tbl <- reactable(
 wrap_download(
   tbl, 
   element_id,
-  'ip_movement_fa.csv')
+  'wid_fa.csv')
 ```
 
-### f. Summary table - IP movement CL
+### e. Summary table - IP movement CL
 
 ```{r}
-element_id = 'ip_movement_cl'
-
-# Data to CL
-data_to_cl <- pharmacy_fa %>% 
-    dplyr::select(cl_wid_sending, iptype, todays_date) %>% 
-    dplyr::group_by(cl_wid_sending, iptype, todays_date) %>% 
-    dplyr::summarise(n = n()) %>% 
-    dplyr::ungroup() %>%
-    tidyr::separate(col = 'cl_wid_sending', 
-                    sep = ' - ', into = c('wid', 'name'), remove = FALSE) %>% 
-    dplyr::select(wid, todays_date, iptype, n) %>% 
-    tidyr::pivot_wider(
-        id_cols = c(wid, todays_date), 
-        names_from = iptype, 
-        values_from = n, 
-        values_fn = sum, 
-        values_fill = 0)
+element_id = 'wid_cl'
 
 # Meds used
 cl1 <- safety %>% 
     dplyr::inner_join(
       safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>% 
-    dplyr::group_by(wid, todays_date) %>% 
-    dplyr::summarise(ALB = sum(num_albendzole_pills, na.rm = T)) %>% 
-    tidyr::drop_na() %>% 
+    dplyr::select(
+      wid,todays_date,
+      num_ivermectin_tablets_taken,
+                  num_ivermectin_tablets_taken_2,
+                  num_albendzole_pills,
+                  num_albendzole_pills_2,
+                  num_extra_albendazole,
+                  num_extra_albendazole_2,
+                  num_extra_ivermectin,
+                  num_extra_ivermectin_2,
+                  preg_test_result, 
+                  preg_test_2_result) %>% 
+    dplyr::mutate(preg_test_result = case_when(preg_test_result != "" ~ 1, TRUE ~ 0),
+                  preg_test_2_result = case_when(preg_test_2_result != "" ~ 1, TRUE ~ 0)) %>% 
+    tidyr::pivot_longer(cols = -c(wid,todays_date)) %>% 
+    dplyr::mutate(grp = case_when(stringr::str_detect(name, 'ivermectin') ~ 'ivm',
+                                  stringr::str_detect(name, 'albendzole') ~ 'alb',
+                                  stringr::str_detect(name, 'albendazole') ~ 'alb',
+                                  stringr::str_detect(name, 'preg') ~ 'prdt')) %>% 
+    mutate(
+        across(everything(), ~replace_na(.x, 0))
+    ) %>% 
+    dplyr::group_by(wid, todays_date, grp) %>% 
+    dplyr::summarise(value = sum(value)) %>% 
     dplyr::mutate(wid = as.character(wid))
 
 
 cl2 <- safetynew %>% 
     dplyr::inner_join(
       safetynew_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>% 
-    dplyr::group_by(wid, todays_date) %>% 
-    dplyr::summarise(ALB = sum(num_albendzole_pills, na.rm = T)) %>% 
-    tidyr::drop_na() %>% 
+    dplyr::select(
+      wid,todays_date,
+      num_ivermectin_tablets_taken,
+                  num_ivermectin_tablets_taken_2,
+                  num_albendzole_pills,
+                  num_albendzole_pills_2,
+                  num_extra_albendazole,
+                  num_extra_albendazole_2,
+                  num_extra_ivermectin,
+                  num_extra_ivermectin_2,
+                  preg_test_result, 
+                  preg_test_2_result) %>% 
+    dplyr::mutate(preg_test_result = case_when(preg_test_result != "" ~ 1, TRUE ~ 0),
+                  preg_test_2_result = case_when(preg_test_2_result != "" ~ 1, TRUE ~ 0)) %>% 
+    tidyr::pivot_longer(cols = -c(wid,todays_date)) %>% 
+    dplyr::mutate(grp = case_when(stringr::str_detect(name, 'ivermectin') ~ 'ivm',
+                                  stringr::str_detect(name, 'albendzole') ~ 'alb',
+                                  stringr::str_detect(name, 'albendazole') ~ 'alb',
+                                  stringr::str_detect(name, 'preg') ~ 'prdt')) %>% 
+    mutate(
+        across(everything(), ~replace_na(.x, 0))
+    ) %>% 
+    dplyr::group_by(wid, todays_date, grp) %>% 
+    dplyr::summarise(value = sum(value)) %>% 
     dplyr::mutate(wid = as.character(wid))
 
-cl_used <- dplyr::bind_rows(cl1,cl2) %>% 
-    dplyr::group_by(wid, todays_date) %>% 
-    dplyr::summarise(ALB = sum(ALB)) %>% 
-    dplyr::mutate(pRDT = 0,
-                  IVM = 0)
+cl3 <- efficacy %>% 
+    dplyr::mutate(grp = case_when(have_80_480_coartem != 'yes' ~ 'coartem20',
+                                   TRUE ~ 'coartem80')) %>% 
+    dplyr::group_by(wid, todays_date, grp) %>% 
+    dplyr::summarise(coartem = sum(num_coartem_tablets_given, na.rm = T),
+                     coartem_ext = sum(num_extra_coartem_tablets_used, na.rm = T)) %>% 
+    dplyr::mutate(value = coartem + coartem_ext) %>% 
+    dplyr::select(wid, todays_date, grp, value) %>% 
+    dplyr::mutate(wid = as.character(wid))
 
-df <- data_to_cl %>% 
-    dplyr::full_join(cl_used, by = c('wid', 'todays_date')) %>%
-    dplyr::select(wid, 
-                  todays_date,
-                  starts_with('ALB'), 
-                  starts_with('pRDT'), 
-                  starts_with('IVM'))
-
+df <- dplyr::bind_rows(cl1, cl2, cl3)
 
 
 tbl <- reactable(
@@ -472,28 +837,12 @@ tbl <- reactable(
       todays_date = colDef(
             name = "Date",
       ),
-      ALB.x = colDef(
-            name = "ALB Received",
-            aggregate = "sum"
+      grp = colDef(
+            name = "Item",
+            filterable = TRUE
       ),
-      ALB.y = colDef(
-            name = "ALB Used",
-            aggregate = "sum"
-      ),
-      IVM.x = colDef(
-            name = "IVM Received",
-            aggregate = "sum"
-      ),
-      IVM.y = colDef(
-            name = "IVM Used",
-            aggregate = "sum"
-      ),
-      pRDT.x = colDef(
-            name = "pRDT Received",
-            aggregate = "sum"
-      ),
-      pRDT.y = colDef(
-            name = "pRDT Used",
+      value = colDef(
+            name = "Used",
             aggregate = "sum"
       )
     ),
@@ -507,6 +856,6 @@ tbl <- reactable(
 wrap_download(
   tbl, 
   element_id,
-  'ip_movement_fa.csv')
+  'wid_cl.csv')
 ```
 
