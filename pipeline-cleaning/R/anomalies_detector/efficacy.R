@@ -96,7 +96,7 @@ anomalies_list$sus_rdt_time_diff <- efficacy %>%
 anomalies_list$sus_individual_repeat_visit <- efficacy %>%
   dplyr::group_by(hhid, extid, visit) %>%
   dplyr::mutate(n = n()) %>%
-  dplyr::filter(n >= 1) %>%
+  dplyr::filter(n > 1) %>%
   dplyr::mutate(form_id = 'efficacy',
                 anomalies_id = glue::glue('ind_visit_already_in_dataset'),
                 anomalies_description = glue::glue('hhid:{hhid} extid:{extid}, visit:{visit} already in dataset'),
