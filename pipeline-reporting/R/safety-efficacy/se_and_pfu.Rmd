@@ -767,7 +767,7 @@ data_list$died_status <- prep_safety_tbl(
 ```
 
 ```{r}
-summary <- target_safety_by_assignment %>%
+summary <- target_efficacy_by_assignment %>%
     dplyr::inner_join(purrr::reduce(data_list, dplyr::bind_rows), by = group_cols) %>%
     tidyr::pivot_wider(names_from = metric, 
                        id_cols = c(any_of(group_cols), 'hh_target', 'ind_target'),
