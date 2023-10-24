@@ -132,7 +132,10 @@ df <- list(
         dplyr::mutate(key = 'safety'),
       safety = data_list$safety_repeat_individual %>% 
         summarise(value = sum(ind_sign_icf_status, na.rm = TRUE)) %>% 
-        dplyr::mutate(key = 'safety')
+        dplyr::mutate(key = 'safety'),
+      efficacy = data_list$efficacy %>% 
+        summarise(value = sum(sign_icf_status, na.rm = TRUE)) %>% 
+        dplyr::mutate(key = 'efficacy')
       ) %>% 
       purrr::reduce(bind_rows) %>% 
       dplyr::mutate(metric = 'Total Participants who signed ICFs')
@@ -189,7 +192,10 @@ merged_tbl <- list(
                   cluster,
                   todays_date,
                   start_time,
-                  ind_sign_icf_status) %>% dplyr::mutate(source = 'safety')
+                  ind_sign_icf_status) %>% 
+    dplyr::mutate(source = 'safety') %>% 
+    dplyr::mutate(wid = as.character(wid))
+  
   , data_list$safetynew %>% 
     dplyr::inner_join(data_list$safetynew_repeat_individual %>% 
                         dplyr::select(extid, PARENT_KEY, ind_sign_icf_status), by = c('KEY' = 'PARENT_KEY')) %>% 
@@ -199,7 +205,19 @@ merged_tbl <- list(
                   cluster,
                   todays_date,
                   start_time,
-                  ind_sign_icf_status) %>% dplyr::mutate(source = 'safetynew')
+                  ind_sign_icf_status) %>% 
+    dplyr::mutate(source = 'safetynew') %>% 
+    dplyr::mutate(wid = as.character(wid))
+  
+  , data_list$efficacy %>% 
+    dplyr::select(hhid, 
+                  wid, 
+                  extid,
+                  cluster,
+                  todays_date,
+                  start_time,
+                  ind_sign_icf_status = sign_icf_status) %>% 
+    dplyr::mutate(source = 'efficacy')
   
   # add other tables once available
 ) %>% 
@@ -244,7 +262,7 @@ tbl <- reactable(
         hhid = colDef(name = "HH ID", filterable = TRUE),
         cl_id = colDef(name = "CL ID", filterable = TRUE),
         fa_id = colDef(name = "FA ID", filterable = TRUE),
-        ind_sign_icf_status = colDef(name = "Safety ICF Signed", filterable = TRUE),
+        ind_sign_icf_status = colDef(name = "ICF Signed", filterable = TRUE),
         icf_stat = colDef(name = "ICF Stat", filterable = TRUE)
     ),
     highlight = TRUE,
@@ -285,7 +303,7 @@ tbl <- reactable(
         hhid = colDef(name = "HH ID", filterable = TRUE),
         cl_id = colDef(name = "CL ID", filterable = TRUE),
         fa_id = colDef(name = "FA ID", filterable = TRUE),
-        ind_sign_icf_status = colDef(name = "Safety ICF Signed", filterable = TRUE),
+        ind_sign_icf_status = colDef(name = "ICF Signed", filterable = TRUE),
         icf_stat = colDef(name = "ICF Stat", filterable = TRUE),
         archivist_select = colDef(name = "Archivist ID", filterable = TRUE)
     ),
@@ -339,7 +357,7 @@ tbl <- reactable(
         hhid = colDef(name = "HH ID", filterable = TRUE),
         cl_id = colDef(name = "CL ID", filterable = TRUE),
         fa_id = colDef(name = "FA ID", filterable = TRUE),
-        ind_sign_icf_status = colDef(name = "Safety ICF Signed", filterable = TRUE),
+        ind_sign_icf_status = colDef(name = "ICF Signed", filterable = TRUE),
         icf_stat = colDef(name = "ICF Stat", filterable = TRUE),
         archivist_select = colDef(name = "Archivist ID", filterable = TRUE)
     ),
@@ -382,7 +400,7 @@ tbl <- reactable(
         hhid = colDef(name = "HH ID", filterable = TRUE),
         cl_id = colDef(name = "CL ID", filterable = TRUE),
         fa_id = colDef(name = "FA ID", filterable = TRUE),
-        ind_sign_icf_status = colDef(name = "Safety ICF Signed", filterable = TRUE),
+        ind_sign_icf_status = colDef(name = "ICF Signed", filterable = TRUE),
         icf_stat = colDef(name = "ICF Stat", filterable = TRUE),
         archivist_select = colDef(name = "Archivist ID", filterable = TRUE)
     ),
