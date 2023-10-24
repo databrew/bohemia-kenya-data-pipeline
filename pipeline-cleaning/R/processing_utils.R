@@ -8,7 +8,17 @@ clean_column_names <- function(data){
 #' @description  clean pii column
 #' @param data data to sanitize
 clean_pii_columns <- function(data){
-  pii_columns <- c('firstname', 'lastname', 'person_signed_icf')
+  pii_columns <- c('firstname',
+                   'lastname',
+                   'person_signed_icf',
+                   'member_select',
+                   'person_string',
+                   'fullname',
+                   'fullname_id',
+                   'fa_id',
+                   'dob_pulled',
+                   'household_members',
+                   'taken')
   data %>% dplyr::select(-any_of(pii_columns))
 }
 

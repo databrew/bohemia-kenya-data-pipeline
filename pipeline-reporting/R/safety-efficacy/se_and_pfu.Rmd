@@ -260,22 +260,43 @@ get_efficacy_target_by_assignment <- function(visit_list){
         by = c('extid')) %>% 
       dplyr::group_by(assignment) %>%
       dplyr::summarise(hh_target = n_distinct(hhid),
-                       ind_target = n_distinct(extid))  
+                       ind_target = n_distinct(extid)) 
+  
+  
+  # available efficacy ind members
+  avail_ind_members <- v0_merged_tbl %>% 
+      dplyr::inner_join(
+        efficacy_selection, 
+        by = c('extid')) %>%
+    dplyr::select(extid, hhid) %>% 
+    dplyr::group_by(hhid) %>% 
+    dplyr::summarise(avail_ind_members = n_distinct(extid))
+  
+  # get efficacy eos
+  ind_eos <- efficacy %>% 
+      dplyr::select(visit, hhid, extid, efficacy_status) %>%
+      dplyr::filter(efficacy_status == 'eos') %>% 
+      dplyr::inner_join(v0_merged_tbl %>% dplyr::select(extid), 
+                        by = 'extid') %>% 
+      dplyr::group_by(visit, hhid) %>%
+      dplyr::summarise(ind_eos = n_distinct(extid))
   
   # create targets
-  remove_from_next_target <- efficacy %>% 
-      dplyr::filter(efficacy_status == 'eos') %>% 
-      dplyr::select(hhid, extid, visit) %>%
-      dplyr::inner_join(v0_merged_tbl %>% dplyr::select(assignment, extid), 
-                        by = 'extid') %>% 
-      dplyr::group_by(assignment, visit) %>%
-      dplyr::summarise(hh_rm = n_distinct(hhid),
-                       ind_rm = n_distinct(extid))  %>%
+  remove_from_next_target <- ind_eos %>% 
+    dplyr::inner_join(avail_ind_members) %>% 
+    dplyr::mutate(remaining_member = avail_ind_members - ind_eos) %>% 
+    dplyr::inner_join(v0_merged_tbl %>% 
+                          dplyr::select(hhid, assignment) %>% 
+                          dplyr::distinct(), 
+                      by = 'hhid') %>%
+    dplyr::group_by(visit, assignment) %>% 
+    dplyr::summarise(ind_rm = sum(ind_eos),
+                     hh_rm = n_distinct(hhid[remaining_member == 0])) %>%
+    dplyr::ungroup() %>% 
     dplyr::mutate(
-        next_visit_num = 
-            as.numeric(glue::glue(
-              stringr::str_extract(visit, "[0-9]+"))) + 1,
-        visit = glue::glue('V{next_visit_num}'))
+        next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,
+        visit = glue::glue('V{next_visit_num}')
+    )
   
     target <- purrr::map_dfr(visit_list, function(visit){
       target %>% 
@@ -309,14 +330,34 @@ get_efficacy_target_by_cluster_and_village <- function(visit_list){
       dplyr::select(cluster = geo_cluster_num, everything())
   
   # target to remove next visit
-  remove_from_next_target <- efficacy %>% 
+  
+  # available efficacy ind members
+  avail_ind_members <- v0_merged_tbl %>% 
+      dplyr::inner_join(
+        efficacy_selection, 
+        by = c('extid')) %>%
+    dplyr::select(extid, hhid) %>% 
+    dplyr::group_by(hhid) %>% 
+    dplyr::summarise(avail_ind_members = n_distinct(extid))
+  
+  # get efficacy eos
+  ind_eos <- efficacy %>% 
+      dplyr::select(visit, hhid, extid, efficacy_status) %>%
       dplyr::filter(efficacy_status == 'eos') %>% 
-      dplyr::select(hhid, extid, visit, cluster, village) %>%
       dplyr::inner_join(v0_merged_tbl %>% dplyr::select(extid), 
                         by = 'extid') %>% 
-      dplyr::group_by(visit, cluster, village) %>%
-      dplyr::summarise(hh_rm = n_distinct(hhid),
-                       ind_rm = n_distinct(extid)) %>%
+      dplyr::group_by(visit, hhid) %>%
+      dplyr::summarise(ind_eos = n_distinct(extid))
+  
+  # get summary of user and household to remove next visit
+  remove_from_next_target <- ind_eos %>% 
+    dplyr::inner_join(avail_ind_members) %>% 
+    dplyr::mutate(remaining_member = avail_ind_members - ind_eos) %>% 
+    dplyr::inner_join(v0_merged_tbl %>% dplyr::select(hhid, cluster = geo_cluster_num, village), 
+                      by = 'hhid') %>%
+    dplyr::group_by(visit, cluster, village) %>% 
+    dplyr::summarise(ind_rm = sum(ind_eos),
+                     hh_rm = n_distinct(hhid[remaining_member == 0])) %>%
     dplyr::mutate(
         next_visit_num = 
             as.numeric(glue::glue(
@@ -828,14 +869,14 @@ tbl <- reactable(
                 }
                 list(color = color, fontWeight = "bold")
             }),
-        ind_efficacy_died = colDef(name = "Individual Safety Died"),
-        ind_efficacy_migrated = colDef(name = "Individual Safety Migrated"),
-        ind_efficacy_in = colDef(name = "Individual Safety-In"),
-        ind_efficacy_in_absent = colDef(name = "Individual Safety-In Absent"),
-        ind_efficacy_out = colDef(name = "Individual Safety-Out"),
-        ind_efficacy_out_absent = colDef(name = "Individual Safety-Out Absent"),
-        ind_efficacy_eos = colDef(name = "Individual Safety EOS"),
-        ind_efficacy_refusal = colDef(name = "Individual Safety Refusal")
+        ind_efficacy_died = colDef(name = "Individual Efficacy Died"),
+        ind_efficacy_migrated = colDef(name = "Individual Efficacy Migrated"),
+        ind_efficacy_in = colDef(name = "Individual Efficacy-In"),
+        ind_efficacy_in_absent = colDef(name = "Individual Efficacy-In Absent"),
+        ind_efficacy_out = colDef(name = "Individual Efficacy-Out"),
+        ind_efficacy_out_absent = colDef(name = "Individual Efficacy-Out Absent"),
+        ind_efficacy_eos = colDef(name = "Individual Efficacy EOS"),
+        ind_efficacy_refusal = colDef(name = "Individual Efficacy Refusal")
     ),
     columnGroups = list(
       colGroup(name = "Target", 
@@ -1227,14 +1268,14 @@ tbl <- reactable(
                 }
                 list(color = color, fontWeight = "bold")
             }),
-        ind_efficacy_died = colDef(name = "Individual Safety Died"),
-        ind_efficacy_migrated = colDef(name = "Individual Safety Migrated"),
-        ind_efficacy_in = colDef(name = "Individual Safety-In"),
-        ind_efficacy_in_absent = colDef(name = "Individual Safety-In Absent"),
-        ind_efficacy_out = colDef(name = "Individual Safety-Out"),
-        ind_efficacy_out_absent = colDef(name = "Individual Safety-Out Absent"),
-        ind_efficacy_eos = colDef(name = "Individual Safety EOS"),
-        ind_efficacy_refusal = colDef(name = "Individual Safety Refusal")
+        ind_efficacy_died = colDef(name = "Individual Efficacy Died"),
+        ind_efficacy_migrated = colDef(name = "Individual Efficacy Migrated"),
+        ind_efficacy_in = colDef(name = "Individual Efficacy-In"),
+        ind_efficacy_in_absent = colDef(name = "Individual Efficacy-In Absent"),
+        ind_efficacy_out = colDef(name = "Individual Efficacy-Out"),
+        ind_efficacy_out_absent = colDef(name = "Individual Efficacy-Out Absent"),
+        ind_efficacy_eos = colDef(name = "Individual Efficacy EOS"),
+        ind_efficacy_refusal = colDef(name = "Individual Efficacy Refusal")
     ),
     columnGroups = list(
       colGroup(name = "Target", 
