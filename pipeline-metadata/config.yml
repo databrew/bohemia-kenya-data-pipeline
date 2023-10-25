@@ -12,6 +12,16 @@ default:
     fid: 'sepk_icf_resolution'
     fs:
      - 'icf_metadata/individual_data.csv'
+  - key: 'lab1'
+    s3uri: 'metadata/lab_metadata.zip'
+    fid: 'lab'
+    fs:
+     - 'lab_metadata/lab_data.csv'
+  - key: 'lab2'
+    s3uri: 'metadata/lab_metadata.zip'
+    fid: 'lab2'
+    fs:
+     - 'lab_metadata/lab_data.csv'
 develop:
   secret_name: 'test/odk-credentials'
   pid: 23
