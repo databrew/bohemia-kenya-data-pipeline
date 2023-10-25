@@ -1,3 +1,4 @@
+# function to make pad hhid with zero
 pad_hhid <- function(data){
   if('hhid' %in% names(data)){
     data %>%
