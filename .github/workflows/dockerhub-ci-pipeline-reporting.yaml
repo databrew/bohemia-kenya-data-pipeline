@@ -25,8 +25,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./pipeline-reporting
-          file: ./pipeline-reporting/Dockerfile
+          context: pipeline-reporting
           push: true
           tags: databrewllc/pipeline-reporting:develop
           cache-from: type=registry,ref=databrewllc/pipeline-reporting:develop
