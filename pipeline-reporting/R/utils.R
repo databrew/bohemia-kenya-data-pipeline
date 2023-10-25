@@ -1,4 +1,4 @@
-# function to pad hhids with zero
+# function to pad hhid with zero
 pad_hhid <- function(data){
   if('hhid' %in% names(data)){
     data %>%
