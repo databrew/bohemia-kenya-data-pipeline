@@ -1,3 +1,4 @@
+# function to pad hhid
 pad_hhid <- function(data){
   if('hhid' %in% names(data)){
     data %>%
