@@ -22,17 +22,14 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Checkout Repository
-        uses: actions/checkout@v3
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
-          load: true
           push: true
           tags: databrewllc/pipeline-reporting:develop
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=databrewllc/pipeline-reporting:develop
+          cache-to: type=inline
 
   deploy-to-prod:
     runs-on: ubuntu-latest
