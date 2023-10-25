@@ -95,11 +95,12 @@ anomalies_list$sus_rdt_time_diff <- efficacy %>%
 # repeat visit number selected for individual
 anomalies_list$sus_individual_repeat_visit <- efficacy %>%
   dplyr::group_by(hhid, extid, visit) %>%
-  dplyr::mutate(n = n()) %>%
+  dplyr::mutate(n = n(),
+                key_list = paste0(KEY, collapse = ',')) %>%
   dplyr::filter(n > 1) %>%
   dplyr::mutate(form_id = 'efficacy',
                 anomalies_id = glue::glue('ind_visit_already_in_dataset'),
-                anomalies_description = glue::glue('hhid:{hhid} extid:{extid}, visit:{visit} already in dataset'),
+                anomalies_description = glue::glue('hhid:{hhid} extid:{extid}, visit:{visit} already in dataset; here are the instanceIDs: {key_list}'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
   dplyr::ungroup() %>%
   dplyr::select(all_of(final_col_list))
