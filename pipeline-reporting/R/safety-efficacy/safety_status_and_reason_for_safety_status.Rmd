@@ -141,8 +141,8 @@ total_safety_v1 <- total_safety %>%
 
 # and make the safetynew_status and safety_status into one column and the sexes
 total_safety_v1 <- total_safety_v1 %>%
-  mutate(safetystatus = coalesce(safety_status, safetynew_status,
-                                 sex = coalesce(sex, sex_safetynew))) %>% 
+  mutate(safetystatus = coalesce(safety_status, safetynew_status),
+                                 sex = coalesce(sex, sex_safetynew)) %>% 
   select(extid, safetystatus, cluster, sex, todays_date)
 
 # we find an UNDEFINED from someone most likely submitting a form without filling it out so we will remove NA from extid 
