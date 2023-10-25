@@ -15,7 +15,7 @@ COPY . /root/pipeline-reporting
 WORKDIR /root/pipeline-reporting
 
 # use renv to replicate
-RUN R -e "install.packages('renv')"
+RUN R -e "install.packages('renv', repos = c(CRAN = 'https://cloud.r-project.org'))"
 RUN R -e "renv::init(bare = TRUE)"
 RUN R -e "renv::restore()"
 
