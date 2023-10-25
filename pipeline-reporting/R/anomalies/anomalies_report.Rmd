@@ -14,9 +14,15 @@ date: '`r Sys.time()`'
 - Please reach out to [Aryton Tediarjo](atediarjo@gmail.com) via Slack for bug found in this report
 - To resolve anomalies please refer to this [Google Sheets Resolution Sheet](https://docs.google.com/spreadsheets/d/1i98uVuSj3qETbrH7beC8BkFmKV80rcImGobBvUGuqbU/edit#gid=0)
 
+**What does it mean if resolution is `pending`?**
+
+This status means that the resolution made and logged in [anomalies_resolution_tracker](https://docs.google.com/spreadsheets/d/1i98uVuSj3qETbrH7beC8BkFmKV80rcImGobBvUGuqbU/edit#gid=1439010444) does not clear out the anomaly attached to it based on their respective `resolution_id`
+
 **Changelog**
 
 - 2023/07/17: change from less than 10 to less than 4 mins data collection time per this [thread](https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1689599637156259?thread_ts=1689579002.400869&cid=C042KSRLYUA)
+- 2023/10/17: Height and weight removal [thread](https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1697551157408559)
+- 2023/10/23: Fix bug on duplicate household visits logic [git](https://github.com/databrew/bohemia-kenya-data-pipeline/blob/f03c31741df1b3b91af2be618e2df70ab47e960c/pipeline-cleaning/R/anomalies_detector/safety.R#L97)
 
 
 ```{r, echo=FALSE, message=FALSE}
@@ -65,16 +71,74 @@ tryCatch({
 
 anomalies <- cloudbrewr::aws_s3_get_table(
   bucket = 'bohemia-lake-db',
-  key = 'bohemia_prod/fact_anomalies/fact_anomalies.csv'
-)
+  key = 'bohemia_prod/anomalies_detection/anomalies_detection.csv'
+) %>% 
+  dplyr::filter(!form_id %in% c('v0demography', 'v0demography-repeat_individual'))
 
+
+resolution <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = 'bohemia_prod/anomalies_resolution/anomalies_resolution.csv'
+) %>% 
+  dplyr::filter(!form_id %in% c('v0demography', 'v0demography-repeat_individual'))
+
+
+resolution_sheet <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'anomalies/gsheets-fix/odk_form_anomalies - resolution.csv'
+) %>% 
+  dplyr::filter(!`Form` %in% c('v0demography', 
+                               'v0demography-repeat_individual',
+                               'reconaregistration',
+                               'reconbhousehold'))
+
+
+fully_resolved <- resolution %>% 
+    dplyr::anti_join(anomalies, by = 'resolution_id') %>%
+    dplyr::select(resolution_id, 
+                  form_id, 
+                  anomalies_id, 
+                  KEY, 
+                  resolver, 
+                  resolution_status, 
+                  run_time)
+
+pending_resolution <- resolution %>% 
+    dplyr::inner_join(anomalies %>% dplyr::select(resolution_id), by = 'resolution_id') %>%
+    dplyr::filter(resolution_status != 'confirmed_correct') %>%
+    dplyr::select(resolution_id, 
+                  form_id, 
+                  anomalies_id, 
+                  KEY, 
+                  resolver, 
+                  resolution_status, 
+                  run_time,
+                  anomalies_description,
+                  anomalies_reports_to_wid)
+
+```
+
+### Summary
+
+```{r}
+data_list <- list()
+data_list$total <- anomalies %>% 
+  dplyr::summarise(anomalies = n_distinct(resolution_id))
+
+data_list$resolved <- fully_resolved %>% 
+  dplyr::summarise(`Resolved` = n_distinct(resolution_id))
+
+data_list$pending <- pending_resolution %>% 
+  dplyr::summarise(`Pending Resolution` = n_distinct(resolution_id))
+
+reactable(data_list %>% purrr::reduce(dplyr::bind_cols))
 ```
 
 ```{r}
 # read in historical table
 cloudbrewr::aws_s3_bulk_get(
     bucket = 'bohemia-lake-db',
-    prefix = '/bohemia_prod/summary_anomalies_history',
+    prefix = '/bohemia_prod/anomalies_detection_summary_hist',
     output_dir = 'data/summary_anomalies_history'
 )
 
@@ -88,7 +152,8 @@ tbl <- tibble(file_path = list.files(path = 'data',recursive = TRUE,full.names =
 
 
 anomalies_history <- tbl$data %>% purrr::reduce(dplyr::bind_rows)  %>% 
-    dplyr::mutate(snapshot_date = lubridate::date(snapshot_date))
+    dplyr::mutate(snapshot_date = lubridate::date(snapshot_date)) %>% 
+    dplyr::filter(!form_id %in% c('v0demography', 'v0demography-repeat_individual'))
 ```
 
 
@@ -120,9 +185,8 @@ p1 <- anomalies_history_grp %>%
 
 p2 <- anomalies_history %>%
     ggplot(aes(x = snapshot_date, y = anomalies_count, fill = anomalies_id)) +
-    geom_col(width = 0.4) +
+    geom_col(width = 0.8) +
     theme_minimal() +
-    scale_fill_brewer(palette="Paired") +
     labs(x = '', y = '')
 
 ggplotly(p1)
@@ -135,7 +199,7 @@ ggplotly(p2)
 element_id <- 'anomalies_list_grouped'
 tbl <- reactable(
   anomalies %>% 
-    dplyr::select(form_id, anomalies_id, KEY),
+    dplyr::select(form_id, anomalies_id, KEY, anomalies_reports_to_wid),
   groupBy = c("form_id", "anomalies_id"),
   columns = list(
     form_id = colDef(
@@ -148,7 +212,9 @@ tbl <- reactable(
     ),
     `KEY` = colDef(
       name = 'anomalies_count',
-      aggregate = "count")
+      aggregate = "count"),
+    anomalies_reports_to_wid = colDef(
+      name = 'Assigned Worker ID')
   ),
   highlight = TRUE,
   resizable = TRUE,
@@ -168,12 +234,14 @@ wrap_download(tbl,
 ```{r}
 element_id <- 'anomalies_list_raw'
 tbl <- reactable(
-  anomalies,
+  anomalies %>% 
+    dplyr::select(-resolution_status),
   columns = list(
     `KEY` = colDef(name = 'KEY', filterable = TRUE),
-    form_id = colDef(name = "form_id", filterable = TRUE),
-    anomalies_id = colDef(name = "anomalies_id", filterable = TRUE),
-    anomalies_description = colDef(name = "anomalies_description")
+    form_id = colDef(name = "Form ID", filterable = TRUE),
+    anomalies_id = colDef(name = "Anomalies ID", filterable = TRUE),
+    anomalies_reports_to_wid = colDef(name = "Worker ID", filterable = TRUE),
+    anomalies_description = colDef(name = "Description")
   ),
   highlight = TRUE,
   resizable = TRUE,
@@ -189,3 +257,86 @@ wrap_download(tbl,
 
 ```
 
+
+### Fully Resolved
+
+```{r}
+element_id <- 'anomalies_list_reso'
+tbl <- reactable(
+  resolution %>% 
+    dplyr::anti_join(anomalies, by = 'resolution_id') %>%
+    dplyr::select(resolution_id, 
+                  form_id, 
+                  anomalies_id, 
+                  KEY, 
+                  resolver, 
+                  resolution_status, 
+                  run_time),
+  columns = list(
+    resolution_id = colDef(name = 'Resolution ID', 
+                           filterable = TRUE,
+                           minWidth = 200),
+    form_id = colDef(name = "Form ID", filterable = TRUE,minWidth = 200),
+    anomalies_id = colDef(name = "Anomalies ID", filterable = TRUE),
+    `KEY` = colDef(name = "Key", filterable = TRUE),
+    resolver = colDef(name = "Resolver", filterable = TRUE),
+    resolution_status = colDef(name = "Resolution Status", filterable = TRUE, minWidth = 200),
+    run_time = colDef(name = "Timestamp", minWidth = 200)
+  ),
+  highlight = TRUE,
+  resizable = TRUE,
+  bordered = TRUE,
+  striped = TRUE,
+  wrap = TRUE,
+  elementId = element_id
+)
+
+wrap_download(tbl, 
+              element_id, 
+              'anomalies_list_reso.csv')
+```
+
+### Pending Resolution
+
+This is the list of anomalies that has been marked as resolved, but still detected in the anomalies detection pipeline
+
+```{r}
+element_id <- 'anomalies_resolution_pending'
+tbl <- reactable(
+  resolution %>% 
+    dplyr::inner_join(anomalies %>% dplyr::select(resolution_id), by = 'resolution_id') %>%
+    dplyr::filter(resolution_status != 'confirmed_correct') %>%
+    dplyr::select(resolution_id, 
+                  form_id, 
+                  anomalies_id, 
+                  KEY, 
+                  resolver, 
+                  resolution_status, 
+                  run_time,
+                  anomalies_description,
+                  anomalies_reports_to_wid),
+  columns = list(
+    resolution_id = colDef(name = 'Resolution ID', 
+                           filterable = TRUE,
+                           minWidth = 200),
+    form_id = colDef(name = "Form ID", filterable = TRUE,minWidth = 200),
+    anomalies_id = colDef(name = "Anomalies ID", filterable = TRUE),
+    `KEY` = colDef(name = "Key", filterable = TRUE),
+    resolver = colDef(name = "Resolver", filterable = TRUE),
+    resolution_status = colDef(name = "Resolution Status", filterable = TRUE, minWidth = 200),
+    run_time = colDef(name = "Timestamp", minWidth = 200),
+    anomalies_description = colDef(name = "Anomalies Description", minWidth = 200),
+    anomalies_reports_to_wid = colDef(name = "Worker ID", filterable = TRUE, minWidth = 200)
+  ),
+  highlight = TRUE,
+  resizable = TRUE,
+  bordered = TRUE,
+  striped = TRUE,
+  wrap = TRUE,
+  elementId = element_id
+)
+
+wrap_download(tbl, 
+              element_id, 
+              'anomalies_resolution_pending.csv')
+```
