@@ -84,11 +84,12 @@ final_col_list <- c('KEY',
 # repeat visit number selected for household
 anomalies_list$visit_already_in_dataset <- safetynew %>%
   dplyr::group_by(hhid, visit) %>%
-  dplyr::mutate(n = n()) %>%
+  dplyr::mutate(n = n(),
+                key_list = paste0(KEY, collapse = ',')) %>%
   dplyr::filter(n > 1) %>%
   dplyr::mutate(form_id = 'safetynew',
                 anomalies_id = glue::glue('hh_visit_already_in_dataset'),
-                anomalies_description = glue::glue('hhid:{hhid} visit:{visit} already in dataset'),
+                anomalies_description = glue::glue('hhid:{hhid} visit:{visit} already in dataset, please check these keys {key_list}'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
   dplyr::ungroup() %>%
   dplyr::select(all_of(final_col_list))
