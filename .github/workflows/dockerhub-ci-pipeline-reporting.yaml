@@ -8,9 +8,6 @@ jobs:
 
   deploy-to-dev:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./pipeline-reporting
     if: github.ref == 'refs/heads/dev'
     steps:
       - name: Set up QEMU
@@ -25,7 +22,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: pipeline-reporting
+          context: ./pipeline-reporting
           push: true
           tags: databrewllc/pipeline-reporting:develop
           cache-from: type=registry,ref=databrewllc/pipeline-reporting:develop
