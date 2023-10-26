@@ -1,14 +1,19 @@
 #' @description get user age based on available dob after fixes
 get_corrected_age <- function(data) {
-  if(('age' %in% names(data)) &
-      ('dob' %in% names(data)) &
-      (nrow(data) > 0)) {
-    output <- data %>%
-      dplyr::mutate(corrected_age = as.numeric((lubridate::today() - lubridate::date(dob))/365.25))
-  }else{
-    output <- data
-  }
-  return(output)
+  tryCatch({
+    if(('age' %in% names(data)) &
+       ('dob' %in% names(data)) &
+       (nrow(data) > 0)) {
+      output <- data %>%
+        dplyr::mutate(corrected_age = as.numeric((lubridate::today() - lubridate::date(dob))/365.25))
+    }else{
+      output <- data
+    }
+    return(output)
+  }, error = function(e){
+    logger::log_error(e$message)
+    return(data)
+  })
 }
 
 #' @description clean column names
