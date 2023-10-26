@@ -91,7 +91,8 @@ purrr::map(config::get('odk_projects'), function(project_name){
   resolution_file <- cloudbrewr::aws_s3_get_table(
     bucket = BUCKET_NAME,
     key = S3_RESOLUTION_OBJECT_KEY) %>%
-    dplyr::filter(!Form %in% EXCLUDED_FORM_ID)
+    dplyr::filter(!Form %in% EXCLUDED_FORM_ID) %>%
+    expand_resolution_file_with_connected_cols()
 
   # Read local file mapping and create tibble-list inside the dataframe for
   # easier indexing
@@ -137,7 +138,10 @@ purrr::map(config::get('odk_projects'), function(project_name){
                                                standardize_col_value_case(data = ., col_names = 'village') %>%
                                                standardize_col_value_case(data = ., col_names = 'village_select') %>%
                                                standardize_col_value_case(data = ., col_names = 'village_specify') %>%
-                                               standardize_village()
+                                               standardize_col_value_case(data = ., col_names = 'firstname') %>%
+                                               standardize_col_value_case(data = ., col_names = 'lastname') %>%
+                                               standardize_village() %>%
+                                               get_corrected_age()
                                            }else{
                                              clean <- raw
                                            }

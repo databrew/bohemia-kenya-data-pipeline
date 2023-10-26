@@ -99,7 +99,6 @@ safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
   pad_hhid()
 ```
 
-## V1 Numbers
 ```{r total}
 ## this will create the table of how many people are in, out, refusal, or eos in efficacy v1
 
@@ -112,7 +111,7 @@ total_efficacy_v1 <- total_efficacy %>%
   filter(visit == 'V1')
 
 # create a summary table of efficacy_status counts
-total_efficacy_status <- total_efficacy_v1 %>%
+total_efficacy_status_v1 <- total_efficacy_v1 %>%
   group_by(efficacy_status) %>%
   summarise('Number of people visited in V1 (target: 2,877)' = n()) %>%
   arrange(efficacy_status) %>%
@@ -122,83 +121,53 @@ total_efficacy_status <- total_efficacy_v1 %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%'))
 
-
-reactable(total_efficacy_status, columns = list(
-  `Percent complete` = colDef(align = "right")
-))
-
 ```
 
-### eos
 ```{r eos}
 ## this will create a table of how many people are eos and why they are eos
 # first let's determine the reason someone is eos in the safety repeat individual form 
-efficacy_eos <- efficacy %>%
+efficacy_eos_v1 <- efficacy %>%
   select(KEY, extid, visit, efficacy_status, safety_status, starting_efficacy_status, ltfu_eos, person_died, person_died_safety_eos, person_died_efficacy_eos, person_migrated_eos, second_consecutive_absence_eos, person_absent_v7_eos, not_continue_eos, person_absent_reason_eos, not_agree_efficacy_procedures_eos, non_resident_eos, other_trials_eos) %>%
   filter(efficacy_status == 'eos',
          visit == 'V1') 
 
 # write the reason that someone is out. This is determined from the google_url for efficacy.
 #efficacy_eos$reason[efficacy_eos$starting_efficacy_status == 'eos'] <- 'previously eos'
-efficacy_eos$reason[efficacy_eos$ltfu_eos == 1] <- 'lost to follow up' # this may need to include metadata version reasons too (see google doc)
-efficacy_eos$reason[efficacy_eos$person_died_safety_eos == 1] <- 'died and was in safety'
-efficacy_eos$reason[efficacy_eos$person_died_efficacy_eos == 1] <- 'died and was in efficacy'
-efficacy_eos$reason[efficacy_eos$person_migrated_eos == 1] <- 'migrated'
-efficacy_eos$reason[efficacy_eos$second_consecutive_absence_eos ==  1] <- 'absent twice'
+#efficacy_eos$reason[efficacy_eos$ltfu_eos == 1] <- 'lost to follow up' # this may need to include metadata version reasons too (see google doc)
+#efficacy_eos$reason[efficacy_eos$person_died_safety_eos == 1] <- 'died and was in safety'
+#efficacy_eos$reason[efficacy_eos$person_died_efficacy_eos == 1] <- 'died and was in efficacy'
+#efficacy_eos$reason[efficacy_eos$person_migrated_eos == 1] <- 'migrated'
+#efficacy_eos$reason[efficacy_eos$second_consecutive_absence_eos ==  1] <- 'absent twice'
 #efficacy_eos$reason[efficacy_eos$person_absent_v7_eos == 1] <- 'absent in V7' # only needed for v7
-efficacy_eos$reason[efficacy_eos$not_continue_eos == 1] <- 'decline participation'
-efficacy_eos$reason[efficacy_eos$not_agree_efficacy_procedures_eos == 1] <- 'not agree to efficacy procedures'
-efficacy_eos$reason[efficacy_eos$non_resident_eos == 1] <- 'not a resident'
-efficacy_eos$reason[efficacy_eos$other_trials_eos == 1] <- 'enrolled in other trials'
+efficacy_eos_v1$reason[efficacy_eos_v1$not_continue_eos == 1] <- 'decline participation'
+efficacy_eos_v1$reason[efficacy_eos_v1$not_agree_efficacy_procedures_eos == 1] <- 'not agree to efficacy procedures'
+efficacy_eos_v1$reason[efficacy_eos_v1$non_resident_eos == 1] <- 'not a resident'
+efficacy_eos_v1$reason[efficacy_eos_v1$other_trials_eos == 1] <- 'enrolled in other trials'
 
 # make a table of why people are eos
-eos_reasons <- efficacy_eos %>%
+eos_reasons_v1 <- efficacy_eos_v1 %>%
   group_by(reason) %>%
   summarise('Number of eos people' = n()) %>%
   arrange(reason) %>%
   rename('Reason for eos' = reason) %>%
   add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos)) * 100) %>%
+  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos_v1)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
-reactable(eos_reasons, columns = list(
-  `Percent complete` = colDef(align = 'right')
-), pagination = FALSE) #pagination makes the entire table show on one page
-
-# because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
-# Specify the names you want to check for
-names_to_check <- c('lost to follow up', 'died and was in safety', 'died and was in efficacy', 'migrated', 'absent twice', 'decline participation', 'not agree to efficacy procedures', 'not a resident', 'enrolled in other trials')
-
-# Initialize a vector to store names not found
-not_found_names <- character(0)
-
-# Check each name
-for (name in names_to_check) {
-  if (!name %in% efficacy_eos$reason) {
-    not_found_names <- c(not_found_names, name)
-  }
-}
-
-# Generate a message based on the results (only if names are not found)
-if (length(not_found_names) > 0) {
-  cat("Note: The reasons like", paste0(not_found_names, collapse = ", "), "are not shown because it is not a reason for anyone being missing.")
-}
 ```
 
-
-### out
 ```{r out}
 ## this will create a table of how many people are out and why they are out
 # first let's determine the reason someone is out in the safety repeat individual form 
-efficacy_out <- efficacy %>%
+efficacy_out_v1 <- efficacy %>%
   select(KEY, extid, visit, efficacy_status, safety_status, person_unenrolled_migrated, person_unenrolled_died, past_enrollment_visits, starting_efficacy_status, person_absent, eos) %>%
   filter(efficacy_status == 'out',
          visit == 'V1') 
 
 # write the reason that someone is out. This is determined from the google_url for efficacy.
-efficacy_out$reason[efficacy_out$person_absent == 1] <- 'absent'
-efficacy_out$reason[efficacy_out$person_unenrolled_migrated == 1] <- 'migrated'
-efficacy_out$reason[efficacy_out$person_unenrolled_died == 1] <- 'died'
+efficacy_out_v1$reason[efficacy_out_v1$person_absent == 1] <- 'absent'
+efficacy_out_v1$reason[efficacy_out_v1$person_unenrolled_migrated == 1] <- 'migrated'
+efficacy_out_v1$reason[efficacy_out_v1$person_unenrolled_died == 1] <- 'died'
 
 # these seem to be wrong
 #efficacy_out$reason[efficacy_out$past_unenrollment_visits == 1] <- 'not enrolled in V1, V2, or V3'
@@ -207,44 +176,21 @@ efficacy_out$reason[efficacy_out$person_unenrolled_died == 1] <- 'died'
 
 
 # make a table of why people are out
-out_reasons <- efficacy_out %>%
+out_reasons_v1 <- efficacy_out_v1 %>%
   group_by(reason) %>%
   summarise('Number of out people' = n()) %>%
   arrange(reason) %>%
   rename('Reason for out' = reason) %>%
   add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(efficacy_out)) * 100) %>%
+  mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(efficacy_out_v1)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
-reactable(out_reasons, columns = list(
-  `Percent complete` = colDef(align = 'right')
-), pagination = FALSE) #pagination makes the entire table show on one page
-
-# because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
-# Specify the names you want to check for
-names_to_check <- c('migrated', 'died', 'absent')
-
-# Initialize a vector to store names not found
-not_found_names <- character(0)
-
-# Check each name
-for (name in names_to_check) {
-  if (!name %in% efficacy_out$reason) {
-    not_found_names <- c(not_found_names, name)
-  }
-}
-
-# Generate a message based on the results (only if names are not found)
-if (length(not_found_names) > 0) {
-  cat("Note: The reasons like", paste0(not_found_names, collapse = ", "), "are not shown because it is not a reason for anyone being missing.")
-}
 ```
 
-### refusal
 ```{r refusal}
 ## this will create a table of how many people are refusal and why they are refusal
 # let us start with safety
-efficacy_refusal <- efficacy %>%
+efficacy_refusal_v1 <- efficacy %>%
   select(KEY,
          extid, visit, 
          starting_efficacy_status,
@@ -257,21 +203,84 @@ efficacy_refusal <- efficacy %>%
 
 # write the reason that someone is out. This is determined from the google_url for efficacy.
 #efficacy_refusal$reason[efficacy_refusal$starting_efficacy_status == 'refusal'] <- 'previously refusal'
-efficacy_refusal$reason[efficacy_refusal$thumbprint_status == 0] <- 'thumbprint status'
-                          efficacy_refusal$reason[efficacy_refusal$sign_icf_status == 0] <- 'sign icf status'
-                          efficacy_refusal$reason[efficacy_refusal$minor_assent_status == 0] <- 'minor assent status'
+efficacy_refusal_v1$reason[efficacy_refusal_v1$thumbprint_status == 0] <- 'thumbprint status'
+                          efficacy_refusal_v1$reason[efficacy_refusal_v1$sign_icf_status == 0] <- 'sign icf status'
+                          efficacy_refusal_v1$reason[efficacy_refusal_v1$minor_assent_status == 0] <- 'minor assent status'
 
 # make a table of why people are eos
-refusal_reasons <- efficacy_refusal %>%
+refusal_reasons_v1 <- efficacy_refusal_v1 %>%
   group_by(reason) %>%
   summarise('Number of refusal people' = n()) %>%
   arrange(reason) %>%
   rename('Reason for refusal' = reason) %>%
   add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(efficacy_refusal)) * 100) %>%
+  mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(efficacy_refusal_v1)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
-reactable(refusal_reasons, columns = list(
+```
+
+
+## V1 Numbers
+```{r v1_total_show}
+reactable(total_efficacy_status_v1, columns = list(
+  `Percent complete` = colDef(align = "right")
+))
+```
+### eos
+```{r v1_eos_show}
+reactable(eos_reasons_v1, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
+# Specify the names you want to check for
+names_to_check <- c('decline participation', 'not agree to efficacy procedures', 'not a resident', 'enrolled in other trials')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_eos_v1$reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("Note: The reasons like", paste0(not_found_names, collapse = "/ "), "are not shown because it is not a reason for anyone being missing.")
+}
+```
+
+### out
+```{r v1_out_show}
+reactable(out_reasons_v1, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
+# Specify the names you want to check for
+names_to_check <- c('migrated', 'died', 'absent')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_out_v1$reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("Note: The reasons like", paste0(not_found_names, collapse = ", "), "are not shown because it is not a reason for anyone being missing.")
+}
+```
+
+### refusal
+```{r v1_refusal_show}
+reactable(refusal_reasons_v1, columns = list(
   `Percent complete` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 
@@ -284,7 +293,7 @@ not_found_names <- character(0)
 
 # Check each name
 for (name in names_to_check) {
-  if (!name %in% efficacy_refusal$reason) {
+  if (!name %in% efficacy_refusal_v1$reason) {
     not_found_names <- c(not_found_names, name)
   }
 }

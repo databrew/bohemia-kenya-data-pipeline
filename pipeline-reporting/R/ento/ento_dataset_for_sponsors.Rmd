@@ -154,8 +154,9 @@ files = list(
 
 tube_ids <- lapply(files, function(x){
   
-  file = glue::glue('kwale/clean-form/entoltmorphid/',as.character(x))
-  
+  file = glue::glue(
+    'kwale/clean-form/entoltmorphid/',
+    as.character(x))
   cloudbrewr::aws_s3_get_table(
     bucket = bucket_source,
     key = file)
@@ -163,15 +164,20 @@ tube_ids <- lapply(files, function(x){
 
 
 dissect_tubes = do.call("rbind",lapply(tube_ids[1:2], function(x){
-  names(x)[2] = "qr_code"
-  x$num_stored = 1
-  x[,c(1,2,4,3)]
+  x <-  x %>% 
+    dplyr::select(PARENT_KEY, KEY, starts_with("tubes_dissected"), contains("num")) %>% 
+    dplyr::rename(qr_code = 3) %>% 
+    dplyr::mutate(num_stored = 1)
 }))
 
-storage_tubes = do.call("rbind",lapply(tube_ids[-c(1:2)], function(x){
-  names(x)[2:3] = c("qr_code","num_stored")
-  x
-}))
+# @atediarjo make fixes here
+storage_tubes = tube_ids[-c(1:2)] %>% 
+    purrr::map_dfr(function(x){
+        x %>% 
+            dplyr::select(PARENT_KEY, KEY, starts_with("tubes"), contains("num")) %>% 
+            dplyr::rename(qr_code = 3,
+                          num_stored = 4)
+    })
 
 lt_tubes_meta = rbind(dissect_tubes,storage_tubes)
 

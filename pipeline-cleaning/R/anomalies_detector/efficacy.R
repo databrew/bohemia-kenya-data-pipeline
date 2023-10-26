@@ -94,7 +94,7 @@ anomalies_list$sus_rdt_time_diff <- efficacy %>%
 
 # repeat visit number selected for individual
 anomalies_list$sus_individual_repeat_visit <- efficacy %>%
-  dplyr::group_by(hhid, extid, visit) %>%
+  dplyr::group_by(visit, extid) %>%
   dplyr::mutate(n = n(),
                 key_list = paste0(KEY, collapse = ',')) %>%
   dplyr::filter(n > 1) %>%

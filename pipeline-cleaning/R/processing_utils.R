@@ -1,3 +1,16 @@
+#' @description get user age based on available dob after fixes
+get_corrected_age <- function(data) {
+  if(('age' %in% names(data)) &
+      ('dob' %in% names(data)) &
+      (nrow(data) > 0)) {
+    output <- data %>%
+      dplyr::mutate(corrected_age = as.numeric((lubridate::today() - lubridate::date(dob))/365.25))
+  }else{
+    output <- data
+  }
+  return(output)
+}
+
 #' @description clean column names
 #' @param data dataset to clean
 clean_column_names <- function(data){
@@ -25,7 +38,7 @@ clean_pii_columns <- function(data){
 standardize_col_value_case <- function(data, col_names){
   tryCatch({
     data %>%
-      dplyr::mutate(!!sym(col_names) := stringr::str_squish(stringr::str_to_title(!!sym(col_names))))
+      dplyr::mutate(!!sym(col_names) := toupper(stringr::str_squish(stringr::str_to_title(!!sym(col_names)))))
   }, error = function(e){
     return(data)
   })
@@ -430,4 +443,30 @@ init_geo_objects <- function(){
   unzip(new_cluster_obj$file_path, exdir = temp_folder)
   unzip(new_core_obj$file_path, exdir = temp_folder)
   unzip(buffer_obj$file_path, exdir = temp_folder)
+}
+
+
+# function to expand resolution file with connected cols
+expand_resolution_file_with_connected_cols <- function(resolution_file) {
+
+  mapping <-   tribble(
+    ~source, ~cascade_to,
+    "dob",   "dob_select",
+    "dob",   "dob_pulled",
+    "dob",   "dob_string",
+    "extid", "extid_calculate",
+    "hhid",  "hhid_calculate",
+    "hhid",  "hh_qr"
+  )
+
+
+  expanded_resolution_file <- resolution_file %>%
+    dplyr::filter(`Operation` == 'SET') %>%
+    dplyr::inner_join(mapping, by = c(`Column` = 'source')) %>%
+    dplyr::mutate(`Column` = cascade_to) %>%
+    dplyr::select(all_of(names(resolution_file)))
+
+  output <- dplyr::bind_rows(resolution_file, expanded_resolution_file)
+  return(output)
+
 }
