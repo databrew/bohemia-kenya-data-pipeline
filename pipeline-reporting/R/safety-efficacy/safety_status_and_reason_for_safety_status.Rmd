@@ -34,7 +34,7 @@ library(cloudbrewr)
 library(fontawesome)
 library(shiny)
 library(ggplot2)
-library(tidyverse)
+library(tidyr)
 
 ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
 DATA_STAGING_BUCKET_NAME <- 'databrew.org'
@@ -686,55 +686,57 @@ ggplot(plot_sex, aes(x = sex, y = count, fill = sex)) +
 
 ### Reason to be out by cluster
 ```{r cluster}
-element_id <- 'safety-reason-by-cluster'
-
-## this will create a table of "Safety Status" and "Reason they are out" by cluster. So we want a column of the clusters and the reason for being out
-
-# need to get the cluster number which is in safety and safetynew or in the df created earlier extid_safety_status_df
-cluster <- bind_rows(safety_and_safetynew_eos, safety_and_safetynew_out, safety_and_safetynew_refusal) %>%
-  select(extid, safety_status, visit, reason)
-cluster <- left_join(cluster, total_safety_v1, by=c('extid')) %>%
-  select(extid, cluster, safety_status, reason)
-
-# make the table requested of out reason by cluster
-cluster_table <- cluster %>%
-  filter(safety_status == 'out') %>%
-  select(cluster, reason) %>%
-  group_by(cluster, reason) %>%
-  summarise(number = n()) %>%
-  group_by(cluster) %>%
-  mutate(percent = paste(round((number / sum(number) * 100), 1), "%")) %>%
-  pivot_wider(names_from = reason, 
-              values_from = c(number, percent),
-              names_sep = ' that are ',
-              values_fill = list(number = 0, percent = "0%")) %>%
-  select('cluster', 'number that are A baby that cannot walk yet', 'percent that are A baby that cannot walk yet', 'number that are absent', 'percent that are absent', 'number that are migrated', 'percent that are migrated', 'number that are no witness', 'percent that are no witness', 'number that are pregnant', 'percent that are pregnant', 'number that are A person so ill that they cannot leave the bed', 'percent that are A person so ill that they cannot leave the bed', 'number that are died', 'percent that are died') %>%
-  rename('Cluster' = cluster,
-         'A baby that cannot walk yet' = 'number that are A baby that cannot walk yet',
-         'Absent' = 'number that are absent',
-         'Migrated' = 'number that are migrated',
-         'No witness' = 'number that are no witness',
-         'Pregnant' = 'number that are pregnant',
-         'A person so ill they cannot leave bed' = 'number that are A person so ill that they cannot leave the bed',
-         'Died' = 'number that are died',
-         'Percent of babies that cannot walk' = 'percent that are A baby that cannot walk yet',
-         'Percent absent' = 'percent that are absent',
-         'Percent migrated' = 'percent that are migrated',
-         'Percent no witness' = 'percent that are no witness',
-         'Percent pregnant' = 'percent that are pregnant',
-         'Percent ill' = 'percent that are A person so ill that they cannot leave the bed',
-         'Percent died' = 'percent that are died')
-
-table <- reactable(cluster_table, columns = list(`Percent migrated` = colDef(align = 'right'),
-                                                 `Percent of babies that cannot walk` = colDef(align = 'right'),
-                                                 `Percent absent` = colDef(align = 'right'),
-                                                 `Percent no witness` = colDef(align = 'right'),
-                                                 `Percent pregnant` = colDef(align = 'right'),
-                                                 `Percent ill` = colDef(align = 'right')))
-
-wrap_download(
-  table, 
-  element_id,
-  'safety_status_reason_by_cluster.csv')
+# element_id <- 'safety-reason-by-cluster'
+# 
+# ## this will create a table of "Safety Status" and "Reason they are out" by cluster. So we want a column of the clusters and the reason for being out
+# 
+# # need to get the cluster number which is in safety and safetynew or in the df created earlier extid_safety_status_df
+# cluster <- bind_rows(safety_and_safetynew_eos_v1, 
+#                      safety_and_safetynew_out_v1, 
+#                      safety_and_safetynew_refusal_v1) %>%
+#   select(extid, safety_status, visit, reason)
+# cluster <- left_join(cluster, total_safety_v1, by=c('extid')) %>%
+#   select(extid, cluster, safety_status, reason)
+# 
+# # make the table requested of out reason by cluster
+# cluster_table <- cluster %>%
+#   filter(safety_status == 'out') %>%
+#   select(cluster, reason) %>%
+#   group_by(cluster, reason) %>%
+#   summarise(number = n()) %>%
+#   group_by(cluster) %>%
+#   mutate(percent = paste(round((number / sum(number) * 100), 1), "%")) %>%
+#   pivot_wider(names_from = reason, 
+#               values_from = c(number, percent),
+#               names_sep = ' that are ',
+#               values_fill = list(number = 0, percent = "0%")) %>%
+#   select('cluster', 'number that are A baby that cannot walk yet', 'percent that are A baby that cannot walk yet', 'number that are absent', 'percent that are absent', 'number that are migrated', 'percent that are migrated', 'number that are no witness', 'percent that are no witness', 'number that are pregnant', 'percent that are pregnant', 'number that are A person so ill that they cannot leave the bed', 'percent that are A person so ill that they cannot leave the bed', 'number that are died', 'percent that are died') %>%
+#   rename('Cluster' = cluster,
+#          'A baby that cannot walk yet' = 'number that are A baby that cannot walk yet',
+#          'Absent' = 'number that are absent',
+#          'Migrated' = 'number that are migrated',
+#          'No witness' = 'number that are no witness',
+#          'Pregnant' = 'number that are pregnant',
+#          'A person so ill they cannot leave bed' = 'number that are A person so ill that they cannot leave the bed',
+#          'Died' = 'number that are died',
+#          'Percent of babies that cannot walk' = 'percent that are A baby that cannot walk yet',
+#          'Percent absent' = 'percent that are absent',
+#          'Percent migrated' = 'percent that are migrated',
+#          'Percent no witness' = 'percent that are no witness',
+#          'Percent pregnant' = 'percent that are pregnant',
+#          'Percent ill' = 'percent that are A person so ill that they cannot leave the bed',
+#          'Percent died' = 'percent that are died')
+# 
+# table <- reactable(cluster_table, columns = list(`Percent migrated` = colDef(align = 'right'),
+#                                                  `Percent of babies that cannot walk` = colDef(align = 'right'),
+#                                                  `Percent absent` = colDef(align = 'right'),
+#                                                  `Percent no witness` = colDef(align = 'right'),
+#                                                  `Percent pregnant` = colDef(align = 'right'),
+#                                                  `Percent ill` = colDef(align = 'right')))
+# 
+# wrap_download(
+#   table, 
+#   element_id,
+#   'safety_status_reason_by_cluster.csv')
 
 ```

@@ -151,7 +151,7 @@ eos_reasons_v1 <- efficacy_eos_v1 %>%
   arrange(reason) %>%
   rename('Reason for eos' = reason) %>%
   add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos)) * 100) %>%
+  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos_v1)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 ```
@@ -182,7 +182,7 @@ out_reasons_v1 <- efficacy_out_v1 %>%
   arrange(reason) %>%
   rename('Reason for out' = reason) %>%
   add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(efficacy_out)) * 100) %>%
+  mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(efficacy_out_v1)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 ```
@@ -214,7 +214,7 @@ refusal_reasons_v1 <- efficacy_refusal_v1 %>%
   arrange(reason) %>%
   rename('Reason for refusal' = reason) %>%
   add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(efficacy_refusal)) * 100) %>%
+  mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(efficacy_refusal_v1)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 ```
