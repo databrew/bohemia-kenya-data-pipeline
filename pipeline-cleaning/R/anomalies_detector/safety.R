@@ -92,7 +92,7 @@ final_col_list <- c('KEY',
 
 # repeat visit number selected for household
 anomalies_list$visit_already_in_dataset <- safety %>%
-dplyr::group_by(hhid, visit) %>%
+dplyr::group_by(visit, hhid) %>%
   dplyr::mutate(n = n(),
                 key_list = paste0(KEY, collapse = ',')) %>%
   dplyr::filter(n > 1) %>%
@@ -102,6 +102,24 @@ dplyr::group_by(hhid, visit) %>%
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
   dplyr::ungroup() %>%
   dplyr::select(all_of(final_col_list))
+
+
+# repeat visit number selected for household
+anomalies_list$visit_already_in_dataset <- safety_merged_df %>%
+  dplyr::group_by(visit, extid) %>%
+  dplyr::mutate(
+    n = n(),
+    key_list = paste0(KEY, collapse = ',')) %>%
+  dplyr::filter(n > 1) %>%
+  dplyr::mutate(form_id = 'safety',
+                anomalies_id = glue::glue('ind_visit_already_in_dataset'),
+                anomalies_description = glue::glue('exitd:{extid} visit:{visit} already in dataset, please check these keys {key_list}'),
+                anomalies_reports_to_wid = glue::glue('{wid}')) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(all_of(final_col_list))
+
+
+
 # suspicious height based on age
 # anomalies_list$sus_height <- safety_merged_df %>%
 #   dplyr::filter((age >= 12 & height < 100) | (age < 12 & height > 150)) %>%
