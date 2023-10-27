@@ -53,9 +53,9 @@ standardize_village <- function(data) {
   tryCatch({
     data %>%
       dplyr::mutate(ward = toupper(ward)) %>%
-      dplyr::mutate(village_specify = toupper(stringr::str_replace_all(village_specify, 'Nguz0', 'Nguzo'))) %>%
-      dplyr::mutate(village = toupper(stringr::str_replace_all(village, 'Nguz0', 'Nguzo'))) %>%
-      dplyr::mutate(village_select = toupper(stringr::str_replace_all(village_select, 'Nguz0', 'Nguzo')))
+      dplyr::mutate(village_specify = toupper(stringr::str_replace_all(village_specify, 'NGUZ0', 'NGUZO'))) %>%
+      dplyr::mutate(village = toupper(stringr::str_replace_all(village, 'NGUZ0', 'NGUZO'))) %>%
+      dplyr::mutate(village_select = toupper(stringr::str_replace_all(village_select, 'NGUZ0', 'NGUZO')))
   }, error = function(e){
     return(data)
   })
