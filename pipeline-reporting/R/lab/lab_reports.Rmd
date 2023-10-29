@@ -16,7 +16,7 @@ Notes:
 
 Description:
 
-This report is used to monitor data collection for SE & PFU. Design specs are based on this [Reporting Document](https://docs.google.com/spreadsheets/d/1yzrP80EjjPtTan3Dl_rSoQOUu1sARKHj9hd1k4-nPc4/edit#gid=1969855170)
+This report is used to monitor data collection for Lab coming from Efficacy and PK. Design specs are based on this [Reporting Document](https://docs.google.com/document/d/1Q9t3Mkul3hmppxfgbhOXzkaDPAf_iuotiE5ruooY7AM/edit)
 
 ```{r, echo=FALSE, message=FALSE}
 knitr::opts_chunk$set(
