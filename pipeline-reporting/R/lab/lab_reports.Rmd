@@ -1,0 +1,316 @@
+---
+title: "Lab Reports"
+description: |
+  Reporting used to track Lab Monitoring
+output:
+  html_document:
+    toc: true
+    theme: cerulean
+date: '`r Sys.time()`'
+---
+
+Notes:
+
+- Report is refreshed hourly 9-5pm EAT, once 12AM EAT
+- Please reach out to atediarjo@gmail.com for bug reports
+
+Description:
+
+This report is used to monitor data collection for Lab coming from Efficacy and PK. Design specs are based on this [Reporting Document](https://docs.google.com/document/d/1Q9t3Mkul3hmppxfgbhOXzkaDPAf_iuotiE5ruooY7AM/edit)
+
+```{r, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  comment = '', 
+  echo = FALSE,
+  message = FALSE,
+  cache=FALSE,
+  warning=FALSE
+)
+```
+
+```{r, echo=FALSE, message=FALSE}
+library(reactable)
+library(data.table)
+library(dplyr)
+library(htmltools)
+library(glue)
+library(fontawesome)
+library(ggplot2)
+library(plotly)
+library(tidyr)
+```
+
+```{r}
+# STATIC VARIABLES FOR I/O
+ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
+DATA_STAGING_BUCKET_NAME <- 'databrew.org'
+DATA_LAKE_BUCKET_NAME <- 'bohemia-lake-db'
+PROJECT_SOURCE <- 'kwale'
+SE_FOLDER_TARGET <- glue::glue('{PROJECT_SOURCE}/clean-form')
+```
+
+```{r}
+tryCatch({
+  logger::log_info('Attempt AWS login')
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = 'cloudbrewr-aws-role',
+    profile_name =  'cloudbrewr-aws-role',
+    pipeline_stage = ENV_PIPELINE_STAGE)
+
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+```
+
+```{r}
+pad_hhid <- function(data){
+  if('hhid' %in% names(data)){
+    data %>%
+      dplyr::mutate(hhid = stringr::str_pad(hhid, 5, pad = "0"))
+  }else{
+    data
+  }
+}
+
+wrap_download <- function(reactable_obj, element_id, output_filename){
+  onclick_command <- glue::glue(
+    "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
+  htmltools::browsable(
+    tagList(
+      tags$button(
+        tagList(fontawesome::fa("download"), "Download as CSV"),
+        onclick = onclick_command),
+      reactable_obj
+    ))
+}
+```
+
+```{r}
+#################################
+# Fetch v0 demography
+#################################
+# pk <- cloudbrewr::aws_s3_get_table(
+#   bucket = 'databrew.org',
+#   key = 'kwale/clean-form/pk/pk.csv'
+# ) %>%
+#   pad_hhid()
+
+efficacy <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/efficacy/efficacy.csv'
+) %>%
+  pad_hhid()
+
+
+lab <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/lab/lab.csv'
+) %>%
+  pad_hhid()
+
+lab2 <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/lab2/lab2.csv'
+) %>%
+  pad_hhid()
+
+lab_metadata_zp <- cloudbrewr::aws_s3_get_object(
+  bucket = 'databrew.org',
+  key = 'metadata/lab_metadata.zip'
+) 
+
+
+lab_ovr <- 
+    bind_rows(
+        lab %>% 
+            mutate(sample = as.character(sample),
+                   sample_status = as.character(sample_status),
+                   start_time = lubridate::as_datetime(start_time),
+                   efficacy_reason = as.character(efficacy_reason),
+                   pk_reason = as.character(pk_reason),
+                   study = as.character(study),
+                   incidences = ifelse(!is.na(match_tracking_incidence_select),
+                                       match_tracking_incidence_select,
+                                       ifelse(!is.na(match_tracking_incidence_select2),
+                                              match_tracking_incidence_select2,
+                                              NA))) %>%
+            dplyr::select(sample, sample_status, start_time, efficacy_reason,
+                          pk_reason, incidences,study),
+        lab2 %>%
+            mutate(sample = as.character(sample),
+                   sample_status = as.character(sample_status),
+                   start_time = lubridate::as_datetime(start_time),
+                   efficacy_reason = as.character(efficacy_reason),
+                   pk_reason = as.character(pk_reason),
+                   study = as.character(study)) %>%      
+            dplyr::select(sample, sample_status, start_time, efficacy_reason,
+                          pk_reason, study)
+    ) %>%
+    mutate(quarantine_reasons = ifelse(!is.na(efficacy_reason),
+                                       efficacy_reason,
+                                       ifelse(!is.na(pk_reason),
+                                              pk_reason, NA))) %>%
+    dplyr::select(-efficacy_reason, -pk_reason) %>%
+    arrange(desc(start_time)) %>%
+    dplyr::distinct(sample, .keep_all = TRUE) %>%
+    dplyr::select(-start_time)
+
+unzip(lab_metadata_zp$file_path, exdir = '/tmp')
+
+lab_metadata <- fread('/tmp/lab_metadata/lab_data.csv')
+
+```
+
+### a. Lab Summary Table
+
+```{r}
+report_list <- list()
+report_list$eff <- lab_metadata %>% 
+    dplyr::filter(study == 'efficacy' | study == 'pk') %>% 
+    dplyr::group_by(study) %>% 
+    dplyr::summarise(val = n_distinct(sample)) %>% 
+    dplyr::mutate(metric = 'Samples collected to date (field)')
+
+report_list$smpl_all <- lab_ovr %>%
+    dplyr::group_by(study) %>% 
+    dplyr::summarise(val = n_distinct(sample)) %>% 
+    dplyr::ungroup() %>%
+    dplyr::mutate(metric = glue::glue('Samples logged in the laboratory'),
+                  study = 'efficacy') %>% 
+    dplyr::select(study, metric, val)
+
+
+report_list$smpl_by_status <- lab %>%
+    dplyr::group_by(study, sample_status) %>% 
+    dplyr::summarise(val = n_distinct(sample)) %>% 
+    dplyr::ungroup() %>%
+    dplyr::mutate(metric = glue::glue('Samples {sample_status}'),
+                  study = 'efficacy') %>% 
+    dplyr::select(study, metric, val)
+
+
+d <- report_list %>%
+    purrr::reduce(dplyr::bind_rows) %>% 
+    dplyr::select(study, metric, val) %>% 
+    tidyr::pivot_wider(id_cols = metric, names_from = study, values_from = val)
+
+reactable(d)
+```
+
+### b. Field Efficacy & PK Samples
+This section is queried from Lab Metadata
+
+```{r}
+d <- lab_metadata %>% 
+  dplyr::select(extid, 
+                `barcode` = sample, 
+                study, 
+                age, 
+                visit,
+                `date` = date_sample, 
+                `CL` = cl_sample, 
+                `PK ID` = pkid,
+                `PK Sample Number` = pk_sample_number,
+                `ICF Status Efficacy` = icf_status_efficacy,
+                `ICF Status Safety` = icf_status_safety,
+                `ICF Status PK` = icf_status_pk,
+                `Sample Status` = sample_status)
+
+
+element_id <- "field_interactive_tbl"
+tbl <- reactable(d, 
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE,
+    filterable = TRUE,
+    elementId = element_id
+)
+
+wrap_download(
+  tbl, 
+  element_id,
+  'field_interactive_tbl.csv')
+```
+
+### c. Lab Interactive Tables
+Taken from Lab 1 & Lab 2 Forms
+
+```{r}
+d <- 
+  dplyr::bind_rows(
+      lab %>% 
+    dplyr::select(extid, 
+                  `barcode` = sample_barcode, 
+                  study, 
+                  age, 
+                  visit,
+                  `date` = date_sample, 
+                  `CL` = cl_sample, 
+                  `PK ID` = pkid,
+                  `PK Sample Number` = pk_sample_number,
+                  `ICF Status Efficacy` = icf_status_efficacy,
+                  `ICF Status Safety` = icf_status_safety_adult,
+                  `ICF Status PK` = icf_status_pk,
+                  `Sample Status` = sample_status) %>%
+    dplyr::mutate(extid = as.character(extid),
+                  barcode = as.character(barcode),
+                  study = as.character(study),
+                  age = as.numeric(age),
+                  visit = as.character(visit),
+                  date = lubridate::date(date),
+                  `CL` = as.character(`CL`),
+                  `PK ID` = as.character(`PK ID`),
+                  `PK Sample Number` = as.character(`PK Sample Number`),
+                  `ICF Status Efficacy` = as.character(`ICF Status Efficacy`),
+                  `ICF Status Safety`  = as.character(`ICF Status Safety` ),
+                  `ICF Status PK` = as.character(`ICF Status PK`),
+                  `Sample Status` = as.character(`Sample Status`)),
+    lab2 %>% 
+      dplyr::select(extid, 
+                `barcode` = sample_barcode, 
+                study, 
+                age, 
+                visit,
+                `date` = date_sample, 
+                `CL` = cl_sample, 
+                `PK ID` = pkid,
+                `PK Sample Number` = pk_sample_number,
+                `ICF Status Efficacy` = icf_status_efficacy,
+                `ICF Status Safety` = icf_status_safety,
+                `ICF Status PK` = icf_status_pk,
+                `Sample Status` = sample_status) %>%
+      dplyr::mutate(
+        extid = as.character(extid),
+        barcode = as.character(barcode),
+        study = as.character(study),
+        age = as.numeric(age),
+        visit = as.character(visit),
+        date = lubridate::date(date),
+        `CL` = as.character(`CL`),
+        `PK ID` = as.character(`PK ID`),
+        `PK Sample Number` = as.character(`PK Sample Number`),
+        `ICF Status Efficacy` = as.character(`ICF Status Efficacy`),
+        `ICF Status Safety`  = as.character(`ICF Status Safety` ),
+        `ICF Status PK` = as.character(`ICF Status PK`),
+        `Sample Status` = as.character(`Sample Status`))
+  )
+
+element_id <- "lab_interactive_tbl"
+tbl <- reactable(d, 
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE,
+    filterable = TRUE,
+    elementId = element_id
+)
+
+wrap_download(
+  tbl, 
+  element_id,
+  'lab_interactive_tbl.csv')
+```
+
