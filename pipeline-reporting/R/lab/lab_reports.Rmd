@@ -159,7 +159,9 @@ lab_ovr <-
 
 unzip(lab_metadata_zp$file_path, exdir = '/tmp')
 
-lab_metadata <- fread('/tmp/lab_metadata/lab_data.csv')
+lab_metadata <- fread('/tmp/lab_metadata/lab_data.csv') %>%
+    dplyr::mutate(dob = stringr::str_remove(dob, ".")) %>% 
+    dplyr::mutate(age_new = as.numeric((lubridate::date(start_time) - lubridate::date(dob))/365.25)) 
 
 ```
 
@@ -173,16 +175,24 @@ report_list$eff <- lab_metadata %>%
     dplyr::summarise(val = n_distinct(sample)) %>% 
     dplyr::mutate(metric = 'Samples collected to date (field)')
 
-report_list$smpl_all <- lab_ovr %>%
-    dplyr::group_by(study) %>% 
+report_list$smpl_all <- lab_metadata %>%
+    dplyr::filter(!is.na(sample_status)) %>%
     dplyr::summarise(val = n_distinct(sample)) %>% 
     dplyr::ungroup() %>%
-    dplyr::mutate(metric = glue::glue('Samples logged in the laboratory'),
+    dplyr::mutate(metric = glue::glue('Samples logged in Lab'),
                   study = 'efficacy') %>% 
     dplyr::select(study, metric, val)
 
 
-report_list$smpl_by_status <- lab %>%
+report_list$smpl_need_logging <- report_list$eff %>% 
+    dplyr::inner_join(report_list$smpl_all, by = 'study') %>% 
+    dplyr::mutate(val = val.x - val.y,
+                  metric = 'Samples to be logged in Lab') %>% 
+    dplyr::select(study, metric, val)
+
+
+report_list$smpl_by_status <- lab_metadata %>%
+    dplyr::filter(!is.na(sample_status)) %>%
     dplyr::group_by(study, sample_status) %>% 
     dplyr::summarise(val = n_distinct(sample)) %>% 
     dplyr::ungroup() %>%
@@ -194,16 +204,18 @@ report_list$smpl_by_status <- lab %>%
 d <- report_list %>%
     purrr::reduce(dplyr::bind_rows) %>% 
     dplyr::select(study, metric, val) %>% 
-    tidyr::pivot_wider(id_cols = metric, names_from = study, values_from = val)
+    tidyr::pivot_wider(id_cols = metric,
+                       names_from = study, 
+                       values_from = val)
 
 reactable(d)
 ```
 
 ### b. Field Efficacy & PK Samples
-This section is queried from Lab Metadata
 
 ```{r}
 d <- lab_metadata %>% 
+  tibble::as_tibble() %>%
   dplyr::select(extid, 
                 `barcode` = sample, 
                 study, 
@@ -216,7 +228,9 @@ d <- lab_metadata %>%
                 `ICF Status Efficacy` = icf_status_efficacy,
                 `ICF Status Safety` = icf_status_safety,
                 `ICF Status PK` = icf_status_pk,
-                `Sample Status` = sample_status)
+                `Sample Status` = sample_status) %>% 
+  dplyr::filter(is.na(`Sample Status`))
+
 
 
 element_id <- "field_interactive_tbl"
@@ -235,42 +249,14 @@ wrap_download(
   'field_interactive_tbl.csv')
 ```
 
-### c. Lab Interactive Tables
-Taken from Lab 1 & Lab 2 Forms
+
+### c. Approved/Quarantined/Pending samples Efficacy & PK Interactive table 
 
 ```{r}
-d <- 
-  dplyr::bind_rows(
-      lab %>% 
-    dplyr::select(extid, 
-                  `barcode` = sample_barcode, 
-                  study, 
-                  age, 
-                  visit,
-                  `date` = date_sample, 
-                  `CL` = cl_sample, 
-                  `PK ID` = pkid,
-                  `PK Sample Number` = pk_sample_number,
-                  `ICF Status Efficacy` = icf_status_efficacy,
-                  `ICF Status Safety` = icf_status_safety_adult,
-                  `ICF Status PK` = icf_status_pk,
-                  `Sample Status` = sample_status) %>%
-    dplyr::mutate(extid = as.character(extid),
-                  barcode = as.character(barcode),
-                  study = as.character(study),
-                  age = as.numeric(age),
-                  visit = as.character(visit),
-                  date = lubridate::date(date),
-                  `CL` = as.character(`CL`),
-                  `PK ID` = as.character(`PK ID`),
-                  `PK Sample Number` = as.character(`PK Sample Number`),
-                  `ICF Status Efficacy` = as.character(`ICF Status Efficacy`),
-                  `ICF Status Safety`  = as.character(`ICF Status Safety` ),
-                  `ICF Status PK` = as.character(`ICF Status PK`),
-                  `Sample Status` = as.character(`Sample Status`)),
-    lab2 %>% 
-      dplyr::select(extid, 
-                `barcode` = sample_barcode, 
+d <- lab_metadata %>% 
+  tibble::as_tibble() %>%
+  dplyr::select(extid, 
+                `barcode` = sample, 
                 study, 
                 age, 
                 visit,
@@ -281,22 +267,9 @@ d <-
                 `ICF Status Efficacy` = icf_status_efficacy,
                 `ICF Status Safety` = icf_status_safety,
                 `ICF Status PK` = icf_status_pk,
-                `Sample Status` = sample_status) %>%
-      dplyr::mutate(
-        extid = as.character(extid),
-        barcode = as.character(barcode),
-        study = as.character(study),
-        age = as.numeric(age),
-        visit = as.character(visit),
-        date = lubridate::date(date),
-        `CL` = as.character(`CL`),
-        `PK ID` = as.character(`PK ID`),
-        `PK Sample Number` = as.character(`PK Sample Number`),
-        `ICF Status Efficacy` = as.character(`ICF Status Efficacy`),
-        `ICF Status Safety`  = as.character(`ICF Status Safety` ),
-        `ICF Status PK` = as.character(`ICF Status PK`),
-        `Sample Status` = as.character(`Sample Status`))
-  )
+                `Sample Status` = sample_status) %>% 
+  dplyr::filter(!is.na(`Sample Status`))
+
 
 element_id <- "lab_interactive_tbl"
 tbl <- reactable(d, 
@@ -313,4 +286,3 @@ wrap_download(
   element_id,
   'lab_interactive_tbl.csv')
 ```
-
