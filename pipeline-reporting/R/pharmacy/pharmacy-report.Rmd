@@ -1,7 +1,7 @@
 ---
 title: "Pharmacy Reports"
 description: |
-  Reporting used to track Pharmacy, Pharmacy SFA, Pharmacy FA and Field CL
+  Reporting used to track Pharmacy, Pharmacy SFA, Pharmacy FA and Field CLs
 date: "`r Sys.time()`"
 output:
   html_document:

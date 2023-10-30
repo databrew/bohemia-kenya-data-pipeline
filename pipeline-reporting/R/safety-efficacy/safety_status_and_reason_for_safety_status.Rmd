@@ -34,7 +34,7 @@ library(cloudbrewr)
 library(fontawesome)
 library(shiny)
 library(ggplot2)
-library(tidyverse)
+library(tidyr)
 
 ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
 DATA_STAGING_BUCKET_NAME <- 'databrew.org'
@@ -805,8 +805,6 @@ print(sex_plot)
 
 ### Reason to be out by cluster
 ```{r cluster}
-element_id <- 'safety-reason-by-cluster'
-
 ## this will create a table of "Safety Status" and "Reason they are out" by cluster. So we want a column of the clusters and the reason for being out
 
 # need to get the cluster number which is in safety and safetynew or in the df created earlier extid_safety_status_df

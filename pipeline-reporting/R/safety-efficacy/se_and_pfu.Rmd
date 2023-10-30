@@ -1,7 +1,7 @@
 ---
 title: "SE & PFU Reports"
 description: |
-  Reporting used to track SE and PFU
+  Reporting used to track Safety, Efficacy and PFU
 output:
   html_document:
     toc: true
@@ -182,14 +182,48 @@ get_safety_target_by_assignment <- function(visit_list){
       dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY')) %>%
       dplyr::inner_join(assignment, by = c('geo_cluster_num' = 'cluster_number')) %>% 
       dplyr::group_by(assignment) %>%
-      dplyr::summarise(hh_target = n_distinct(hhid),
-                       ind_target = n_distinct(extid))  
+      dplyr::summarise(
+        hh_target = n_distinct(hhid),
+        ind_target = n_distinct(extid))  
   
   safetynew_target <- safetynew %>% 
       dplyr::inner_join(safetynew_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
       dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>% 
       dplyr::group_by(assignment) %>%
       dplyr::summarise(ind_target = n_distinct(extid))  
+  
+  
+  # available safety ind members
+  avail_ind_members <- v0_merged_tbl %>% 
+    dplyr::select(extid, hhid) %>% 
+    dplyr::group_by(hhid) %>% 
+    dplyr::summarise(avail_ind_members = n_distinct(extid))
+  
+  # get safety eos
+  ind_eos <- safety_merged_tbl %>% 
+      dplyr::select(visit, hhid, extid, safety_status) %>%
+      dplyr::filter(safety_status == 'eos') %>% 
+      dplyr::inner_join(v0_merged_tbl %>% dplyr::select(extid), 
+                        by = 'extid') %>% 
+      dplyr::group_by(visit, hhid) %>%
+      dplyr::summarise(ind_eos = n_distinct(extid))
+  
+  # create targets
+  remove_from_next_target <- ind_eos %>% 
+    dplyr::inner_join(avail_ind_members) %>% 
+    dplyr::mutate(remaining_member = avail_ind_members - ind_eos) %>% 
+    dplyr::inner_join(v0_merged_tbl %>% 
+                          dplyr::select(hhid, assignment) %>% 
+                          dplyr::distinct(), 
+                      by = 'hhid') %>%
+    dplyr::group_by(visit, assignment) %>% 
+    dplyr::summarise(ind_rm = sum(ind_eos),
+                     hh_rm = n_distinct(hhid[remaining_member == 0])) %>%
+    dplyr::ungroup() %>% 
+    dplyr::mutate(
+        next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,
+        visit = glue::glue('V{next_visit_num}')
+    )
   
   target <- v0_target %>% 
     dplyr::left_join(safetynew_target, by = 'assignment') %>% 
@@ -201,8 +235,13 @@ get_safety_target_by_assignment <- function(visit_list){
   
     target <- purrr::map_dfr(visit_list, function(visit){
       target %>% 
-          dplyr::mutate(visit = visit)
-    })
+          dplyr::mutate(visit = visit) %>% 
+          dplyr::left_join(remove_from_next_target, 
+                           by = c('visit', 'assignment')) %>% 
+          dplyr::mutate(across(everything(), .fns = ~replace_na(.,0))) %>%
+          dplyr::mutate(hh_target = hh_target - hh_rm,
+                        ind_target = ind_target - ind_rm)
+    }) %>% dplyr::select(assignment, ends_with('target'), visit)
   
   return(target)
 }
@@ -227,6 +266,21 @@ get_safety_target_by_cluster_and_village <- function(visit_list){
       dplyr::group_by(cluster, village) %>%
       dplyr::summarise(ind_target = n_distinct(extid))  
   
+  # available safety ind members
+  avail_ind_members <- v0_merged_tbl %>% 
+    dplyr::select(extid, hhid) %>% 
+    dplyr::group_by(hhid) %>% 
+    dplyr::summarise(avail_ind_members = n_distinct(extid))
+  
+  # get safety eos
+  ind_eos <- safety_merged_tbl %>% 
+      dplyr::select(visit, hhid, extid, safety_status) %>%
+      dplyr::filter(safety_status == 'eos') %>% 
+      dplyr::inner_join(v0_merged_tbl %>% dplyr::select(extid), 
+                        by = 'extid') %>% 
+      dplyr::group_by(visit, hhid) %>%
+      dplyr::summarise(ind_eos = n_distinct(extid))
+  
   target <- v0_target %>% 
     dplyr::left_join(safetynew_target, by = c('cluster','village')) %>% 
     dplyr::mutate(across(everything(), .fns = ~replace_na(.,0))) %>%
@@ -236,27 +290,46 @@ get_safety_target_by_cluster_and_village <- function(visit_list){
                   hh_target,
                   ind_target)
   
+   # create targets
+  remove_from_next_target <- ind_eos %>% 
+    dplyr::inner_join(avail_ind_members) %>% 
+    dplyr::mutate(remaining_member = avail_ind_members - ind_eos) %>% 
+    dplyr::inner_join(v0_merged_tbl %>% 
+                          dplyr::select(hhid, cluster, village) %>% 
+                          dplyr::distinct(), 
+                      by = 'hhid') %>%
+    dplyr::group_by(visit, cluster, village) %>% 
+    dplyr::summarise(ind_rm = sum(ind_eos),
+                     hh_rm = n_distinct(hhid[remaining_member == 0])) %>%
+    dplyr::ungroup() %>% 
+    dplyr::mutate(
+        next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,
+        visit = glue::glue('V{next_visit_num}')
+    )
+  
     target <- purrr::map_dfr(visit_list, function(visit){
       target %>% 
-          dplyr::mutate(visit = visit)
-    })
+          dplyr::mutate(visit = visit) %>% 
+          dplyr::left_join(remove_from_next_target, 
+                           by = c('visit', 'cluster', 'village')) %>% 
+          dplyr::mutate(across(everything(), .fns = ~replace_na(.,0))) %>%
+          dplyr::mutate(hh_target = hh_target - hh_rm,
+                        ind_target = ind_target - ind_rm)
+    }) %>% dplyr::select(cluster, 
+                         village, 
+                         ends_with('target'), 
+                         visit)
   
   return(target)
 }
 
 
 get_efficacy_target_by_assignment <- function(visit_list){
-  # v0 merged_tbl
-  v0_merged_tbl <- v0 %>% 
-      dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY'))  %>%
-      dplyr::inner_join(
-        assignment, 
-        by = c('geo_cluster_num' = 'cluster_number'))
-  
   # create targets
   target <- v0_merged_tbl %>% 
       dplyr::inner_join(
-        efficacy_selection, 
+        efficacy_selection %>% 
+          dplyr::select(extid), 
         by = c('extid')) %>% 
       dplyr::group_by(assignment) %>%
       dplyr::summarise(hh_target = n_distinct(hhid),
@@ -312,17 +385,11 @@ get_efficacy_target_by_assignment <- function(visit_list){
 }
 
 get_efficacy_target_by_cluster_and_village <- function(visit_list){
-  # v0 merged_tbl
-  v0_merged_tbl <- v0 %>% 
-      dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY'))  %>%
-      dplyr::inner_join(
-        assignment, 
-        by = c('geo_cluster_num' = 'cluster_number'))
-  
   # create targets
   target <- v0_merged_tbl %>% 
       dplyr::inner_join(
-        efficacy_selection, 
+        efficacy_selection %>% 
+          dplyr::select(extid), 
         by = c('extid')) %>% 
       dplyr::group_by(geo_cluster_num, village) %>%
       dplyr::summarise(hh_target = n_distinct(hhid),
@@ -441,7 +508,8 @@ assignment <- cloudbrewr::aws_s3_get_table(
 efficacy_selection <- cloudbrewr::aws_s3_get_table(
   bucket = 'bohemia-lake-db',
   key = glue::glue('bohemia_ext/efficacy_selection.csv')) %>%
-  pad_hhid()
+  pad_hhid() %>%
+  dplyr::select(extid)
 ```
 
 
@@ -452,6 +520,13 @@ efficacy_selection <- cloudbrewr::aws_s3_get_table(
 village_mapping <- v0 %>% 
     dplyr::select(hhid, village) %>% 
     unique()
+
+# v0 merged_tbl
+v0_merged_tbl <- v0 %>% 
+      dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY'))  %>%
+      dplyr::inner_join(
+        assignment, 
+        by = c('geo_cluster_num' = 'cluster_number'))
 
 # prep safety table
 safety_merged_tbl <- safety %>% 
