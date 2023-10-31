@@ -175,12 +175,12 @@ report_list$eff <- lab_metadata %>%
     dplyr::summarise(val = n_distinct(sample)) %>% 
     dplyr::mutate(metric = 'Samples collected to date (field)')
 
-report_list$smpl_all <- lab_metadata %>%
+report_list$smpl_all <- lab_ovr %>%
     dplyr::filter(!is.na(sample_status)) %>%
+    dplyr::group_by(study) %>% 
     dplyr::summarise(val = n_distinct(sample)) %>% 
     dplyr::ungroup() %>%
-    dplyr::mutate(metric = glue::glue('Samples logged in Lab'),
-                  study = 'efficacy') %>% 
+    dplyr::mutate(metric = glue::glue('Samples logged in Lab')) %>% 
     dplyr::select(study, metric, val)
 
 
@@ -191,7 +191,7 @@ report_list$smpl_need_logging <- report_list$eff %>%
     dplyr::select(study, metric, val)
 
 
-report_list$smpl_by_status <- lab_metadata %>%
+report_list$smpl_by_status <- lab_ovr %>%
     dplyr::filter(!is.na(sample_status)) %>%
     dplyr::group_by(study, sample_status) %>% 
     dplyr::summarise(val = n_distinct(sample)) %>% 
