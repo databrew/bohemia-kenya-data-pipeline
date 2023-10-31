@@ -125,28 +125,86 @@ lab_metadata_zp <- cloudbrewr::aws_s3_get_object(
 lab_ovr <- 
     bind_rows(
         lab %>% 
-            mutate(sample = as.character(sample),
-                   sample_status = as.character(sample_status),
-                   start_time = lubridate::as_datetime(start_time),
-                   efficacy_reason = as.character(efficacy_reason),
-                   pk_reason = as.character(pk_reason),
-                   study = as.character(study),
-                   incidences = ifelse(!is.na(match_tracking_incidence_select),
+            mutate(
+              extid = as.character(extid),
+              dob = as.character(dob),
+              sample = as.character(sample),
+              visit = as.character(visit),
+              sample_status = as.character(sample_status),
+              start_time = lubridate::as_datetime(start_time),
+              efficacy_reason = as.character(efficacy_reason),
+              pk_reason = as.character(pk_reason),
+              study = as.character(study),
+              incidences = ifelse(!is.na(match_tracking_incidence_select),
                                        match_tracking_incidence_select,
                                        ifelse(!is.na(match_tracking_incidence_select2),
                                               match_tracking_incidence_select2,
-                                              NA))) %>%
-            dplyr::select(sample, sample_status, start_time, efficacy_reason,
-                          pk_reason, incidences,study),
+                                              NA)),
+               date_sample = lubridate::date(date_sample), 
+               cl_sample = as.character(cl_sample), 
+               pkid = as.character(pkid), 
+               pk_sample_number = as.character(pk_sample_number), 
+               icf_status_efficacy = as.character(icf_status_efficacy),
+               icf_status_safety_adult = as.character(icf_status_safety_adult),
+               icf_status_pk = as.character(icf_status_pk)
+              
+            ) %>%
+            dplyr::select(
+              extid,
+              sample, 
+              dob,
+              visit,
+                          sample_status, 
+                          start_time, 
+                          efficacy_reason,
+                          pk_reason, 
+                          incidences,
+                          study,
+                          date_sample, 
+                          cl_sample, 
+                          pkid, 
+                          pk_sample_number, 
+                          icf_status_efficacy,
+                          icf_status_safety = icf_status_safety_adult,
+                          icf_status_pk),
         lab2 %>%
-            mutate(sample = as.character(sample),
-                   sample_status = as.character(sample_status),
-                   start_time = lubridate::as_datetime(start_time),
-                   efficacy_reason = as.character(efficacy_reason),
-                   pk_reason = as.character(pk_reason),
-                   study = as.character(study)) %>%      
-            dplyr::select(sample, sample_status, start_time, efficacy_reason,
-                          pk_reason, study)
+            mutate(
+              extid = as.character(extid),
+              dob = as.character(dob),
+              sample = as.character(sample),
+              visit = as.character(visit),
+              sample_status = as.character(sample_status),
+              start_time = lubridate::as_datetime(start_time),
+              efficacy_reason = as.character(efficacy_reason),
+              pk_reason = as.character(pk_reason),
+              study = as.character(study),
+              incidences = as.character(incidences),
+              date_sample = lubridate::date(date_sample), 
+              cl_sample = as.character(cl_sample), 
+              pkid = as.character(pkid), 
+              pk_sample_number = as.character(pk_sample_number), 
+              icf_status_efficacy = as.character(icf_status_efficacy),
+              icf_status_safety = as.character(icf_status_safety),
+              icf_status_pk = as.character(icf_status_pk)
+            ) %>%
+            dplyr::select(
+              extid,
+              sample, 
+              dob,
+              visit,
+                          sample_status, 
+                          start_time, 
+                          efficacy_reason,
+                          pk_reason, 
+                          incidences,
+                          study,
+                          date_sample, 
+                          cl_sample, 
+                          pkid, 
+                          pk_sample_number, 
+                          icf_status_efficacy,
+                          icf_status_safety,
+                          icf_status_pk)
     ) %>%
     mutate(quarantine_reasons = ifelse(!is.na(efficacy_reason),
                                        efficacy_reason,
@@ -154,7 +212,9 @@ lab_ovr <-
                                               pk_reason, NA))) %>%
     dplyr::select(-efficacy_reason, -pk_reason) %>%
     arrange(desc(start_time)) %>%
-    dplyr::distinct(sample, .keep_all = TRUE) %>%
+    dplyr::distinct(sample, .keep_all = TRUE)  %>%
+    dplyr::mutate(dob = stringr::str_remove(dob, ".")) %>% 
+    dplyr::mutate(age = as.numeric((lubridate::date(start_time) - lubridate::date(dob))/365.25))%>%
     dplyr::select(-start_time)
 
 unzip(lab_metadata_zp$file_path, exdir = '/tmp')
@@ -215,6 +275,7 @@ reactable(d)
 
 ```{r}
 d <- lab_metadata %>% 
+    dplyr::filter(!sample %in% lab_ovr$sample) %>%
   tibble::as_tibble() %>%
   dplyr::select(extid, 
                 `barcode` = sample, 
@@ -253,7 +314,7 @@ wrap_download(
 ### c. Approved/Quarantined/Pending samples Efficacy & PK Interactive table 
 
 ```{r}
-d <- lab_metadata %>% 
+d <- lab_ovr %>% 
   tibble::as_tibble() %>%
   dplyr::select(extid, 
                 `barcode` = sample, 
@@ -273,6 +334,9 @@ d <- lab_metadata %>%
 
 element_id <- "lab_interactive_tbl"
 tbl <- reactable(d, 
+    columns = list(
+      age = colDef(format = colFormat(digits = 2))
+    ), 
     highlight = TRUE,
     resizable = TRUE,
     bordered = TRUE,
