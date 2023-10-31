@@ -1,6 +1,6 @@
 # This script is used for creating empty objects before running `generate_metadata.R` - this is
 # done to create temporary placeholder from testing projects and make that variable available for
-# deployed forms
+# deployed form
 # Author: atediarjo@gmail.com
 library(logger)
 library(purrr)
