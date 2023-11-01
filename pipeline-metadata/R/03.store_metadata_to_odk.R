@@ -1,8 +1,5 @@
 #' Description:
-#' This script is used for extracting data from
-#' ODK Postgres and save it to DataBrew S3 bucket
-#' This is script used as a temp format due to
-#' physical server set up
+#' This script is used to store metadata zip files into ODK
 #'
 #' Author:
 #' Aryton Tediarjo (atediarjo@gmail.com)
