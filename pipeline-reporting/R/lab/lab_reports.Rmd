@@ -328,7 +328,8 @@ d <- lab_ovr %>%
                 `ICF Status Efficacy` = icf_status_efficacy,
                 `ICF Status Safety` = icf_status_safety,
                 `ICF Status PK` = icf_status_pk,
-                `Sample Status` = sample_status) %>% 
+                `Sample Status` = sample_status,
+                `Incidences` = incidences) %>% 
   dplyr::filter(!is.na(`Sample Status`))
 
 
