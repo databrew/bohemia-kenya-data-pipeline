@@ -173,6 +173,61 @@ total_safety_status_v2 <- total_safety_v2 %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%'))
 ```
 
+```{r in}
+## this will create a table of how many people are in as enrolment and in as follow up in Safety V2
+# first create a dataset with the in safety status people from SafetyV2 and then joining Safety V1 and V2 (total_safety_v1 and total_safety_v2)
+safety_in_v2 <- total_safety_v2 %>%
+  filter(safetystatus == 'in') %>%
+  rename(v2_safetystatus = safetystatus) %>%
+  select(extid, v2_safetystatus) # get the v2 'in' people
+
+safety_in <- left_join(safety_in_v2, total_safety_v1, by=c('extid')) %>%
+  select(extid, safetystatus, v2_safetystatus) %>%
+  rename(v1_safetystatus = safetystatus) # join the v2 'in' people with their v1 statuses
+
+safe_in <- left_join(safety_in, safety_repeat_individual, by=c("extid")) 
+
+safe_in <- safe_in %>%
+  select(extid, v1_safetystatus, v2_safetystatus, continue_participation, obvious_screening) # add the continue_participation and obvious_screening columns for double checking purposes below
+  
+# create a column that says whether the safety people are follow up or enrolment. This will be determined in two ways:
+# A. classify as follow up if they were 'in' in V1 and 'in' in V2 AND classify as enrolment if they were 'out' in V1 and 'in' in V2
+safe_in$visit_type[safe_in$v1_safetystatus == 'in'] <- 'follow up'
+safe_in$visit_type[safe_in$v1_safetystatus == 'out'] <- 'enrolment'
+
+# B. classify as follow up if they answered continue_participation AND classify as enrolment if they answered obvious_screening
+# we are doing this two different ways to make sure we catch any errors
+safe_in$visit_type_b[safe_in$obvious_screening == 'NA'] <- "follow up"
+safe_in$visit_type_b[safe_in$continue_participation == 'NA'] <- "enrolment"
+
+# we need to account for the safetynew members people who are always enrolment
+safetynew_in <- joined_safetynew %>%
+  filter(visit == 'V2',
+         safetynew_status == 'in') %>%
+  mutate(visit_type = 'enrolment') %>%
+  select(extid, safetynew_status, visit_type) %>%
+  rename(v2_safetystatus = safetynew_status) # get the v2 'in' new members and define the visit type (all new members are enrolment visits)
+
+safe_in <- bind_rows(safety_in, safetynew_in) # join the safety people who were 'in' from V2 and join it with the safetynew V2 members
+
+# create a table to see if the two methods of calculating visit type are the same, if they are not the same then there is a problem.
+# true means identical; false means there is a discrepancy
+table(identical(safe_in$visit_type, safe_in$visit_type_b))
+
+# create a table that shows how many people are follow up and enrolment in V2
+# make a table of reasons people are eos
+in_type_v2 <- safe_in %>%
+  group_by(visit_type) %>%
+  summarise('Number of in people' = n()) %>%
+  arrange(visit_type) %>%
+  rename('Visit type' = visit_type) %>%
+  add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
+  mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(safe_in)) * 100) %>%
+  mutate('Percent' = round(`Percent`, 2)) %>%
+  mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+
+```
+
 ```{r v1_eos}
 ## this will create a table of how many people are eos and why they are eos
 # first let's determine the reason someone is eos in the safety repeat individual form 
@@ -421,7 +476,7 @@ out_reasons_v2 <- total_safe_out_v2 %>%
 
 ```
 
-```{r v1_refusal}
+```{r refusal}
 ## this will create a table of how many people are refusal and why they are refusal
 # let us start with safety
 safety_refusal <- safety_repeat_individual %>%
@@ -527,6 +582,56 @@ refusal_reasons_v2 <- total_safe_refusal_v2 %>%
 reactable(total_safety_status_v2, columns = list(
   `Percent complete` = colDef(align = "right")
 ))
+
+# make a note of the real total number of people visited without repeats
+if (any(duplicated(total_safety_v2$extid))) {
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(total_safety_v2$extid)), "\n")
+} else {
+  "Note: There are no duplicates based on extid in the data."
+}
+```
+
+### in
+```{r v2_in_show}
+reactable(in_type_v2, columns = list(
+  `Percent` = colDef(align = "right")
+))
+```
+
+### eos
+```{r v2_eos_show}
+reactable(eos_reasons_v2, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
+# Specify the names you want to check for
+names_to_check <- c('not agree to safety procedures', 'not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'other trials', 'visited loa loa', 'participant withdrew informed consent', 'pregnancy test refusal', 'spent night at the hospital')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% safety_eos_v2$reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("Note: The reasons (", paste0(not_found_names, collapse = ", "), ") are not shown because it is not a reason for anyone being missing.")
+}
+```
+
+### out
+``` {r v2_out_show}
+reactable(out_reasons_v2, columns = list(`Percent complete` = colDef(align = 'right')))
+```
+
+### refusal
+``` {r v2_refusal_show}
+reactable(refusal_reasons_v2, columns = list(`Percent complete` = colDef(align = 'right')))
 ```
 
 ## V1 Numbers
@@ -535,6 +640,13 @@ reactable(total_safety_status_v2, columns = list(
 reactable(total_safety_status_v1, columns = list(
   `Percent complete` = colDef(align = "right")
 ))
+
+# make a note of the real total number of people visited without repeats
+if (any(duplicated(total_safety_v1$extid))) {
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(total_safety_v1$extid)), "\n")
+} else {
+  "Note: There are no duplicates based on extid in the data."
+}
 ```
 
 ### Safety status by cluster
@@ -572,7 +684,7 @@ reactable(eos_reasons_v1, columns = list(
 
 # because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
 # Specify the names you want to check for
-names_to_check <- c('not agree to safety procedures', 'not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'other trials', 'visited loa loa', 'participant withdrew informed consent', 'pregnancy test refusal', 'spent night at the hospital')
+names_to_check <- c('not agree to safety procedures', 'not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'other trials', 'visited loa loa', 'participant withdrew informed consent', 'pregnancy test refusal', 'spent night at the hospital', 'migrated', 'died')
 
 # Initialize a vector to store names not found
 not_found_names <- character(0)
@@ -655,7 +767,7 @@ dist_age <- dist_table %>%
   summarise(count = n())
 
 # make the bar plot for age
-ggplot(dist_age, aes(x = age_category,
+age_plot <- ggplot(dist_age, aes(x = age_category,
                      y = count,
                      fill = 'black')) +
   geom_bar(stat = 'identity', 
@@ -673,7 +785,7 @@ plot_sex <- dist_table %>%
   summarise(count = n())
 
 # make a bar plot of sex
-ggplot(plot_sex, aes(x = sex, y = count, fill = sex)) +
+sex_plot <- ggplot(plot_sex, aes(x = sex, y = count, fill = sex)) +
   geom_bar(stat = 'identity', 
            position = 'dodge',
            show.legend = FALSE) +
@@ -682,61 +794,64 @@ ggplot(plot_sex, aes(x = sex, y = count, fill = sex)) +
   geom_text(aes(label = count), vjust = 1.5) +
   theme_minimal()
 
+# Set up the multi-panel layout
+par(mfrow = c(1, 2))
+
+# Print the plots side by side
+print(age_plot)
+print(sex_plot)
+
 ```
 
 ### Reason to be out by cluster
 ```{r cluster}
-# element_id <- 'safety-reason-by-cluster'
-# 
-# ## this will create a table of "Safety Status" and "Reason they are out" by cluster. So we want a column of the clusters and the reason for being out
-# 
-# # need to get the cluster number which is in safety and safetynew or in the df created earlier extid_safety_status_df
-# cluster <- bind_rows(safety_and_safetynew_eos_v1, 
-#                      safety_and_safetynew_out_v1, 
-#                      safety_and_safetynew_refusal_v1) %>%
-#   select(extid, safety_status, visit, reason)
-# cluster <- left_join(cluster, total_safety_v1, by=c('extid')) %>%
-#   select(extid, cluster, safety_status, reason)
-# 
-# # make the table requested of out reason by cluster
-# cluster_table <- cluster %>%
-#   filter(safety_status == 'out') %>%
-#   select(cluster, reason) %>%
-#   group_by(cluster, reason) %>%
-#   summarise(number = n()) %>%
-#   group_by(cluster) %>%
-#   mutate(percent = paste(round((number / sum(number) * 100), 1), "%")) %>%
-#   pivot_wider(names_from = reason, 
-#               values_from = c(number, percent),
-#               names_sep = ' that are ',
-#               values_fill = list(number = 0, percent = "0%")) %>%
-#   select('cluster', 'number that are A baby that cannot walk yet', 'percent that are A baby that cannot walk yet', 'number that are absent', 'percent that are absent', 'number that are migrated', 'percent that are migrated', 'number that are no witness', 'percent that are no witness', 'number that are pregnant', 'percent that are pregnant', 'number that are A person so ill that they cannot leave the bed', 'percent that are A person so ill that they cannot leave the bed', 'number that are died', 'percent that are died') %>%
-#   rename('Cluster' = cluster,
-#          'A baby that cannot walk yet' = 'number that are A baby that cannot walk yet',
-#          'Absent' = 'number that are absent',
-#          'Migrated' = 'number that are migrated',
-#          'No witness' = 'number that are no witness',
-#          'Pregnant' = 'number that are pregnant',
-#          'A person so ill they cannot leave bed' = 'number that are A person so ill that they cannot leave the bed',
-#          'Died' = 'number that are died',
-#          'Percent of babies that cannot walk' = 'percent that are A baby that cannot walk yet',
-#          'Percent absent' = 'percent that are absent',
-#          'Percent migrated' = 'percent that are migrated',
-#          'Percent no witness' = 'percent that are no witness',
-#          'Percent pregnant' = 'percent that are pregnant',
-#          'Percent ill' = 'percent that are A person so ill that they cannot leave the bed',
-#          'Percent died' = 'percent that are died')
-# 
-# table <- reactable(cluster_table, columns = list(`Percent migrated` = colDef(align = 'right'),
-#                                                  `Percent of babies that cannot walk` = colDef(align = 'right'),
-#                                                  `Percent absent` = colDef(align = 'right'),
-#                                                  `Percent no witness` = colDef(align = 'right'),
-#                                                  `Percent pregnant` = colDef(align = 'right'),
-#                                                  `Percent ill` = colDef(align = 'right')))
-# 
-# wrap_download(
-#   table, 
-#   element_id,
-#   'safety_status_reason_by_cluster.csv')
+## this will create a table of "Safety Status" and "Reason they are out" by cluster. So we want a column of the clusters and the reason for being out
+
+# need to get the cluster number which is in safety and safetynew or in the df created earlier extid_safety_status_df
+cluster <- bind_rows(total_safe_eos_v1, total_safe_out_v1, total_safe_refusal_v1) %>%
+  select(extid, safety_status, visit, reason)
+cluster <- left_join(cluster, total_safety_v1, by=c('extid')) %>%
+  select(extid, cluster, safety_status, reason)
+
+# make the table requested of out reason by cluster
+cluster_table <- cluster %>%
+  filter(safety_status == 'out') %>%
+  select(cluster, reason) %>%
+  group_by(cluster, reason) %>%
+  summarise(number = n()) %>%
+  group_by(cluster) %>%
+  mutate(percent = paste(round((number / sum(number) * 100), 1), "%")) %>%
+  pivot_wider(names_from = reason, 
+              values_from = c(number, percent),
+              names_sep = ' that are ',
+              values_fill = list(number = 0, percent = "0%")) %>%
+  select('cluster', 'number that are A baby that cannot walk yet', 'percent that are A baby that cannot walk yet', 'number that are absent', 'percent that are absent', 'number that are migrated', 'percent that are migrated', 'number that are no witness', 'percent that are no witness', 'number that are pregnant', 'percent that are pregnant', 'number that are A person so ill that they cannot leave the bed', 'percent that are A person so ill that they cannot leave the bed', 'number that are died', 'percent that are died') %>%
+  rename('Cluster' = cluster,
+         'A baby that cannot walk yet' = 'number that are A baby that cannot walk yet',
+         'Absent' = 'number that are absent',
+         'Migrated' = 'number that are migrated',
+         'No witness' = 'number that are no witness',
+         'Pregnant' = 'number that are pregnant',
+         'A person so ill they cannot leave bed' = 'number that are A person so ill that they cannot leave the bed',
+         'Died' = 'number that are died',
+         'Percent of babies that cannot walk' = 'percent that are A baby that cannot walk yet',
+         'Percent absent' = 'percent that are absent',
+         'Percent migrated' = 'percent that are migrated',
+         'Percent no witness' = 'percent that are no witness',
+         'Percent pregnant' = 'percent that are pregnant',
+         'Percent ill' = 'percent that are A person so ill that they cannot leave the bed',
+         'Percent died' = 'percent that are died')
+
+table <- reactable(cluster_table, columns = list(`Percent migrated` = colDef(align = 'right'),
+                                                 `Percent of babies that cannot walk` = colDef(align = 'right'),
+                                                 `Percent absent` = colDef(align = 'right'),
+                                                 `Percent no witness` = colDef(align = 'right'),
+                                                 `Percent pregnant` = colDef(align = 'right'),
+                                                 `Percent ill` = colDef(align = 'right')))
+
+wrap_download(
+  table, 
+  element_id,
+  'safety_status_reason_by_cluster.csv')
 
 ```

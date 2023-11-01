@@ -126,10 +126,12 @@ total_efficacy_status_v1 <- total_efficacy_v1 %>%
 ```{r eos}
 ## this will create a table of how many people are eos and why they are eos
 # first let's determine the reason someone is eos in the safety repeat individual form 
-efficacy_eos_v1 <- efficacy %>%
+efficacy_eos <- efficacy %>%
   select(KEY, extid, visit, efficacy_status, safety_status, starting_efficacy_status, ltfu_eos, person_died, person_died_safety_eos, person_died_efficacy_eos, person_migrated_eos, second_consecutive_absence_eos, person_absent_v7_eos, not_continue_eos, person_absent_reason_eos, not_agree_efficacy_procedures_eos, non_resident_eos, other_trials_eos) %>%
-  filter(efficacy_status == 'eos',
-         visit == 'V1') 
+  filter(efficacy_status == 'eos') 
+
+efficacy_eos_v1 <- efficacy_eos %>%
+  filter(visit == 'V1')
 
 # write the reason that someone is out. This is determined from the google_url for efficacy.
 #efficacy_eos$reason[efficacy_eos$starting_efficacy_status == 'eos'] <- 'previously eos'
@@ -159,10 +161,12 @@ eos_reasons_v1 <- efficacy_eos_v1 %>%
 ```{r out}
 ## this will create a table of how many people are out and why they are out
 # first let's determine the reason someone is out in the safety repeat individual form 
-efficacy_out_v1 <- efficacy %>%
+efficacy_out <- efficacy %>%
   select(KEY, extid, visit, efficacy_status, safety_status, person_unenrolled_migrated, person_unenrolled_died, past_enrollment_visits, starting_efficacy_status, person_absent, eos) %>%
-  filter(efficacy_status == 'out',
-         visit == 'V1') 
+  filter(efficacy_status == 'out') 
+
+efficacy_out_v1 <- efficacy_out %>%
+  filter(visit == 'V1')
 
 # write the reason that someone is out. This is determined from the google_url for efficacy.
 efficacy_out_v1$reason[efficacy_out_v1$person_absent == 1] <- 'absent'
@@ -190,7 +194,7 @@ out_reasons_v1 <- efficacy_out_v1 %>%
 ```{r refusal}
 ## this will create a table of how many people are refusal and why they are refusal
 # let us start with safety
-efficacy_refusal_v1 <- efficacy %>%
+efficacy_refusal <- efficacy %>%
   select(KEY,
          extid, visit, 
          starting_efficacy_status,
@@ -200,6 +204,9 @@ efficacy_refusal_v1 <- efficacy %>%
          person_absent) %>%
   filter(efficacy_status == 'refusal',
          visit == 'V1') 
+
+efficacy_refusal_v1 <- efficacy_refusal %>%
+  filter(visit == 'V1')
 
 # write the reason that someone is out. This is determined from the google_url for efficacy.
 #efficacy_refusal$reason[efficacy_refusal$starting_efficacy_status == 'refusal'] <- 'previously refusal'
@@ -225,6 +232,13 @@ refusal_reasons_v1 <- efficacy_refusal_v1 %>%
 reactable(total_efficacy_status_v1, columns = list(
   `Percent complete` = colDef(align = "right")
 ))
+
+# make a note of the real total number of people visited without repeats
+if (any(duplicated(total_efficacy_v1$extid))) {
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(total_efficacy_v1$extid)), "\n")
+} else {
+  "Note: There are no duplicates based on extid in the data."
+}
 ```
 ### eos
 ```{r v1_eos_show}
@@ -248,7 +262,7 @@ for (name in names_to_check) {
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("Note: The reasons like", paste0(not_found_names, collapse = "/ "), "are not shown because it is not a reason for anyone being missing.")
+  cat("Note: The reasons like", paste0(not_found_names, collapse = " / "), "are not shown because it is not a reason for anyone being missing.")
 }
 ```
 
