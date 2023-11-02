@@ -235,7 +235,7 @@ report_list$eff <- lab_metadata %>%
     dplyr::summarise(val = n_distinct(sample)) %>% 
     dplyr::mutate(metric = 'Samples collected to date (field)')
 
-report_list$smpl_all <- lab_ovr %>%
+report_list$smpl_all <- lab_metadata %>%
     dplyr::filter(!is.na(sample_status)) %>%
     dplyr::group_by(study) %>% 
     dplyr::summarise(val = n_distinct(sample)) %>% 
@@ -251,7 +251,7 @@ report_list$smpl_need_logging <- report_list$eff %>%
     dplyr::select(study, metric, val)
 
 
-report_list$smpl_by_status <- lab_ovr %>%
+report_list$smpl_by_status <- lab_metadata %>%
     dplyr::filter(!is.na(sample_status)) %>%
     dplyr::group_by(study, sample_status) %>% 
     dplyr::summarise(val = n_distinct(sample)) %>% 
@@ -314,7 +314,7 @@ wrap_download(
 ### c. Approved/Quarantined/Pending samples Efficacy & PK Interactive table 
 
 ```{r}
-d <- lab_ovr %>% 
+d <- lab_metadata %>% 
   tibble::as_tibble() %>%
   dplyr::select(extid, 
                 `barcode` = sample, 
