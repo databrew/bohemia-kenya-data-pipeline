@@ -75,7 +75,7 @@ cloudbrewr::aws_s3_bulk_store(
 unlink('parquet', recursive = TRUE, force = TRUE)
 dir.create('parquet')
 
-version <- as.character(lubridate::today()-1)
+version <- as.character(lubridate::today())
 
 # safety metadata household
 safety_metadata_hh <- fread('safety_metadata/household_data.csv') %>%
