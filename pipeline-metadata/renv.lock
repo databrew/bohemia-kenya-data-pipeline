@@ -93,6 +93,11 @@
       ],
       "Hash": "ae6cbbe1492f4de79c45fce06f967ce8"
     },
+    "arrow": {
+      "Package": "arrow",
+      "Version": "13.0.0.1",
+      "Source": "Repository"
+    },
     "askpass": {
       "Package": "askpass",
       "Version": "1.1",

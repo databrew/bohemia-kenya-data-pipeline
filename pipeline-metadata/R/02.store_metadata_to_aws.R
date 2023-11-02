@@ -14,6 +14,8 @@ library(config)
 library(cloudbrewr)
 library(logger)
 library(config)
+library(data.table)
+library(arrow)
 
 # create log message
 logger::log_info('Starting ODK Form Extraction')
@@ -23,6 +25,16 @@ env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 Sys.setenv(R_CONFIG_ACTIVE=env_pipeline_stage)
 env_server_endpoint <- config::get('server_name')
 bucket <- config::get('bucket')
+
+pad_hhid <- function(data){
+  if('hhid' %in% names(data)){
+    data %>%
+      dplyr::mutate(hhid = stringr::str_pad(hhid, 5, pad = "0"))
+  }else{
+    data
+  }
+}
+
 
 # create connection to AWS
 tryCatch({
@@ -37,9 +49,165 @@ tryCatch({
   stop(e$message)
 })
 
-# bulk store to AWS
+
+create_parquet <- function(data){
+  if('hhid' %in% names(data)){
+    data  %>%
+      arrow_table() %>%
+      mutate(hhid = cast(hhid, string()))
+  }else{
+    data
+  }
+
+}
+
+#### First, save metadata as zip files
+
+# bulk store zip file to AWS
 cloudbrewr::aws_s3_bulk_store(
   bucket = bucket,
   prefix = '/metadata',
   target_dir = 'metadata_zip_files'
+)
+
+
+#### Reshape metadata to parquet
+unlink('parquet', recursive = TRUE, force = TRUE)
+dir.create('parquet')
+
+version <- as.character(lubridate::today())
+
+# safety metadata household
+safety_metadata_hh <- fread('safety_metadata/household_data.csv') %>%
+  tidyr::drop_na(visits_done) %>%
+  dplyr::rowwise() %>%
+  mutate(
+    most_recent_visit = stringr::str_split(visits_done, ", ") %>% .[[1]] %>% purrr::reduce(max)
+  ) %>%
+  dplyr::select(
+    arm,
+    hhid,
+    num_members,
+    cluster,
+    household_head,
+    village,
+    ward,
+    most_recent_visit) %>%
+  tibble::tibble() %>%
+  pad_hhid() %>%
+  dplyr::mutate(across(where(is.numeric), ~tidyr::replace_na(., -1))) %>%
+  dplyr::mutate(across(where(is.character), ~tidyr::replace_na(., '')))
+
+# safety metadata individual
+safety_metadata_ind <- fread('safety_metadata/individual_data.csv') %>%
+  dplyr::select(hhid,
+                extid,
+                firstname,
+                lastname,
+                sex,
+                dob,
+                dead,
+                migrated,
+                village,
+                ward,
+                cluster,
+                starts_with('starting')) %>%
+  pad_hhid()
+
+# merge safety data
+safety_arrow <- safety_metadata_hh %>%
+  dplyr::select(hhid, household_head, most_recent_visit, num_members) %>%
+  dplyr::inner_join(safety_metadata_ind, by = c('hhid')) %>%
+  create_parquet()
+
+dir_target <- 'parquet/safety'
+dir_target_hist <- glue::glue('parquet/safety_hist/run_date={version}')
+
+dir.create(dir_target, recursive = TRUE)
+dir.create(dir_target_hist, recursive = TRUE)
+arrow::write_parquet(
+  safety_arrow,
+  glue::glue("{dir_target}/safety.parquet"))
+arrow::write_parquet(
+  safety_arrow,
+  glue::glue("{dir_target_hist}/safety.parquet"))
+
+
+# efficacy metadata individual
+efficacy_arrow <- fread('efficacy_metadata/individual_data.csv') %>%
+  dplyr::select(hhid,
+                extid,
+                firstname,
+                lastname,
+                sex,
+                dob,
+                dead,
+                migrated,
+                village,
+                ward,
+                cluster,
+                starts_with('starting'),
+                starts_with('efficacy')) %>%
+  pad_hhid() %>%
+  dplyr::mutate(efficacy_most_recent_present_date =
+                  stringr::str_remove(efficacy_most_recent_present_date, "."),
+                efficacy_most_recent_present_date = case_when(efficacy_most_recent_present_date == "" ~ NA),
+                efficacy_most_recent_present_date = lubridate::date(efficacy_most_recent_present_date)) %>%
+  create_parquet()
+
+dir_target <- 'parquet/efficacy'
+dir_target_hist <- glue::glue('parquet/efficacy_hist/run_date={version}')
+
+dir.create(dir_target, recursive = TRUE)
+dir.create(dir_target_hist, recursive = TRUE)
+arrow::write_parquet(
+  efficacy_arrow,
+  glue::glue("{dir_target}/efficacy.parquet"))
+arrow::write_parquet(
+  efficacy_arrow,
+  glue::glue("{dir_target_hist}/efficacy.parquet"))
+
+
+
+# efficacy metadata individual
+arrow_tbl <- fread('icf_metadata/individual_data.csv') %>%
+  pad_hhid() %>%
+  create_parquet()
+
+dir_target <- 'parquet/icf'
+dir_target_hist <- glue::glue('parquet/icf_hist/run_date={version}')
+
+dir.create(dir_target, recursive = TRUE)
+dir.create(dir_target_hist, recursive = TRUE)
+arrow::write_parquet(
+  arrow_tbl,
+  glue::glue("{dir_target}/icf.parquet"))
+arrow::write_parquet(
+  arrow_tbl,
+  glue::glue("{dir_target_hist}/icf.parquet"))
+
+
+
+# lab metadata individual
+arrow_tbl <- fread('lab_metadata/lab_data.csv') %>%
+  pad_hhid() %>%
+  create_parquet()
+
+dir_target <- 'parquet/lab'
+dir_target_hist <- glue::glue('parquet/lab_hist/run_date={version}')
+
+dir.create(dir_target, recursive = TRUE)
+dir.create(dir_target_hist, recursive = TRUE)
+arrow::write_parquet(
+  arrow_tbl,
+  glue::glue("{dir_target}/lab.parquet"))
+arrow::write_parquet(
+  arrow_tbl,
+  glue::glue("{dir_target_hist}/lab.parquet"))
+
+# bulk store zip file to AWS
+cloudbrewr::aws_s3_bulk_store(
+  bucket = 'bohemia-lake-db',
+  prefix = '/bohemia_prod/metadata',
+  target_dir = 'parquet'
 )
