@@ -374,7 +374,7 @@ eos_reasons_enrolment_v2 <- total_safe_eos_enrolment_v2 %>%
   arrange(reason) %>%
   rename('Reason for eos' = reason) %>%
   add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(eos_reasons_enrolment_v2)) * 100) %>%
+  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_enrolment_v2)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
