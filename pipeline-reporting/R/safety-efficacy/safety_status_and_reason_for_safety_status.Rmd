@@ -378,7 +378,7 @@ eos_reasons_enrolment_v2 <- total_safe_eos_enrolment_v2 %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
-# make a table of reasons follow up people are eos
+# make a table of reasons follow up people are eos #
 eos_reasons_followup_v2 <- total_safe_eos_followup_v2 %>%
   group_by(reason) %>%
   summarise('Number of eos people' = n()) %>%
