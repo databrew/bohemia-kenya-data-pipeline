@@ -176,59 +176,46 @@ total_safety_status_v2 <- total_safety_v2 %>%
 ```{r in}
 ## this will create a table of how many people are in as enrolment and in as follow up in Safety V2
 # first create a dataset with the in safety status people from SafetyV2 and then joining Safety V1 and V2 (total_safety_v1 and total_safety_v2)
-safety_in_v2 <- total_safety_v2 %>%
-  filter(safetystatus == 'in') %>%
+safety_v2 <- total_safety_v2 %>%
   rename(v2_safetystatus = safetystatus) %>%
   select(extid, v2_safetystatus) # get the v2 'in' people
 
-safety_in <- left_join(safety_in_v2, total_safety_v1, by=c('extid')) %>%
+safety_v2 <- left_join(safety_v2, total_safety_v1, by=c('extid')) %>%
   select(extid, safetystatus, v2_safetystatus) %>%
   rename(v1_safetystatus = safetystatus) # join the v2 'in' people with their v1 statuses
 
-safe_in <- left_join(safety_in, safety_repeat_individual, by=c("extid")) 
+#safe_in <- left_join(safety_in, safety_repeat_individual, by=c("extid")) 
 
-safe_in <- safe_in %>%
-  select(extid, v1_safetystatus, v2_safetystatus, continue_participation, obvious_screening) # add the continue_participation and obvious_screening columns for double checking purposes below
+#safe_in <- safe_in %>% select(extid, v1_safetystatus, v2_safetystatus, continue_participation, obvious_screening) # add the continue_participation and obvious_screening columns for double checking purposes below
   
 # create a column that says whether the safety people are follow up or enrolment. This will be determined in two ways:
 # A. classify as follow up if they were 'in' in V1 and 'in' in V2 AND classify as enrolment if they were 'out' in V1 and 'in' in V2
-safe_in$visit_type[safe_in$v1_safetystatus == 'in'] <- 'follow up'
-safe_in$visit_type[safe_in$v1_safetystatus == 'out'] <- 'enrolment'
+safety_v2$visit_type[safety_v2$v1_safetystatus == 'in'] <- 'follow up'
+safety_v2$visit_type[safety_v2$v1_safetystatus == 'out' | is.na(safety_v2$v1_safetystatus)] <- 'enrolment'
+
+safety_in <- safety_v2 %>%
+  filter(v2_safetystatus == 'in')
 
 # B. classify as follow up if they answered continue_participation AND classify as enrolment if they answered obvious_screening
 # we are doing this two different ways to make sure we catch any errors
-safe_in$visit_type_b[safe_in$obvious_screening == 'NA'] <- "follow up"
-safe_in$visit_type_b[safe_in$continue_participation == 'NA'] <- "enrolment"
-
-# we need to account for the safetynew members people who are always enrolment
-safetynew_in <- joined_safetynew %>%
-  filter(visit == 'V2',
-         safetynew_status == 'in') %>%
-  mutate(visit_type = 'enrolment') %>%
-  select(extid, safetynew_status, visit_type) %>%
-  rename(v2_safetystatus = safetynew_status) # get the v2 'in' new members and define the visit type (all new members are enrolment visits)
-
-safe_in <- bind_rows(safety_in, safetynew_in) # join the safety people who were 'in' from V2 and join it with the safetynew V2 members
-
-# create a table to see if the two methods of calculating visit type are the same, if they are not the same then there is a problem.
-# true means identical; false means there is a discrepancy
-table(identical(safe_in$visit_type, safe_in$visit_type_b))
+#safe_in$visit_type_b[safe_in$obvious_screening == 'NA'] <- "follow up"
+#safe_in$visit_type_b[safe_in$continue_participation == 'NA'] <- "enrolment"
 
 # create a table that shows how many people are follow up and enrolment in V2
 # make a table of reasons people are eos
-in_type_v2 <- safe_in %>%
+in_type_v2 <- safety_in %>%
   group_by(visit_type) %>%
   summarise('Number of in people' = n()) %>%
   arrange(visit_type) %>%
   rename('Visit type' = visit_type) %>%
   add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
-  mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(safe_in)) * 100) %>%
+  mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(safety_in)) * 100) %>%
   mutate('Percent' = round(`Percent`, 2)) %>%
   mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
 
 ```
 
-```{r v1_eos}
+```{r eos}
 ## this will create a table of how many people are eos and why they are eos
 # first let's determine the reason someone is eos in the safety repeat individual form 
 safety_eos <- safety_repeat_individual %>%
@@ -317,11 +304,12 @@ eos_reasons_v1 <- total_safe_eos_v1 %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
 
-## V2
+## V2######################################
 safety_eos_v2 <- left_join(safety_eos, clean_safety, by=c('PARENT_KEY'='KEY')) %>%
   filter(visit == 'V2')
 
 # create a reason column
+safety_eos_v2$reason[safety_eos_v2$not_continue_eos == '1'] <- 'not wish to continue'
 safety_eos_v2$reason[safety_eos_v2$not_agree_safety_procedures_eos == 1] <- 'not agree to safety procedures'
 safety_eos_v2$reason[safety_eos_v2$non_resident_eos == 1] <- 'not resident'
 safety_eos_v2$reason[safety_eos_v2$weight_eos == 1 |
@@ -346,6 +334,7 @@ safety_eos_v2$reason[safety_eos_v2$refuse_drug_eos == 1 |
 safety_eos_v2$reason[safety_eos_v2$person_died_eos == 1] <- 'died'
 safety_eos_v2$reason[safety_eos_v2$person_migrated == 1 &
                        safety_eos_v2$starting_safety_status == 'in'] <- 'migrated'
+safety_eos_v2$reason[safety_eos_v2$starting_safety_status == 'eos'] <- 'eos in V1'
 
 
 # do the same for safetynew V2
@@ -370,14 +359,33 @@ safetynew_eos_v2$reason[safetynew_eos_v2$refuse_drug_eos == 1 |
 # join safetynew_eos and safety_eos by extid, safety status, and reason
 total_safe_eos_v2 <- bind_rows(safety_eos_v2, safetynew_eos_v2)
 
-# make a table of reasons people are eos
-eos_reasons_v2 <- total_safe_eos_v2 %>%
+# need the visit_type variable from safety_v2 to make two different eos tables (enrolment vs. follow up)
+total_safe_eos_v2 <- left_join(total_safe_eos_v2, safety_v2, by=c('extid'))
+
+total_safe_eos_enrolment_v2 <- total_safe_eos_v2 %>%
+  filter(visit_type == 'enrolment')
+total_safe_eos_followup_v2 <- total_safe_eos_v2 %>%
+  filter(visit_type == 'follow up')
+
+# make a table of enrolment people who are eos
+eos_reasons_enrolment_v2 <- total_safe_eos_enrolment_v2 %>%
   group_by(reason) %>%
   summarise('Number of eos people' = n()) %>%
   arrange(reason) %>%
   rename('Reason for eos' = reason) %>%
   add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_v2)) * 100) %>%
+  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_enrolment_v2)) * 100) %>%
+  mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+  mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+
+# make a table of reasons follow up people are eos #
+eos_reasons_followup_v2 <- total_safe_eos_followup_v2 %>%
+  group_by(reason) %>%
+  summarise('Number of eos people' = n()) %>%
+  arrange(reason) %>%
+  rename('Reason for eos' = reason) %>%
+  add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_followup_v2)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 ```
@@ -480,7 +488,7 @@ out_reasons_v2 <- total_safe_out_v2 %>%
 ## this will create a table of how many people are refusal and why they are refusal
 # let us start with safety
 safety_refusal <- safety_repeat_individual %>%
-  select('PARENT_KEY', 'extid', 'safety_status', 'obvious_screening_status', 'obvious_screening', 'ind_thumbprint_status', 'ind_sign_icf_status', 'minor_assent_status') %>%
+  select('PARENT_KEY', 'extid', 'safety_status', 'obvious_screening_status', 'obvious_screening', 'ind_thumbprint_status', 'ind_sign_icf_status', 'minor_assent_status', starting_safety_status) %>%
   mutate(type = 'safety') %>%
   filter(safety_status == 'refusal')
 
@@ -538,6 +546,7 @@ refusal_reasons_v1 <- total_safe_refusal_v1 %>%
 safety_refusal_v2 <- left_join(safety_refusal, clean_safety, by=c('PARENT_KEY'='KEY')) %>%
   filter(visit == 'V2')
 
+safety_refusal_v2$reason[safety_refusal_v2$starting_safety_status == 'refusal'] <- 'V1 refusal'
 safety_refusal_v2$reason[safety_refusal_v2$obvious_screening == 'Refusal'] <- 'a person who does not want to participate'
 safety_refusal_v2$reason[safety_refusal_v2$obvious_screening == 'Pregnant'] <- 'pregnant'
 safety_refusal_v2$reason[safety_refusal_v2$obvious_screening == 'Baby'] <- 'A baby that cannot walk yet'
@@ -599,8 +608,13 @@ reactable(in_type_v2, columns = list(
 ```
 
 ### eos
+```{r}
+
+```
+
+#### follow up visit
 ```{r v2_eos_show}
-reactable(eos_reasons_v2, columns = list(
+reactable(eos_reasons_followup_v2, columns = list(
   `Percent complete` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 
@@ -613,7 +627,33 @@ not_found_names <- character(0)
 
 # Check each name
 for (name in names_to_check) {
-  if (!name %in% safety_eos_v2$reason) {
+  if (!name %in% eos_reasons_followup_v2$reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("Note: The reasons (", paste0(not_found_names, collapse = ", "), ") are not shown because it is not a reason for anyone being missing.")
+}
+```
+
+#### enrolment visit
+```{r eos_enrolment}
+reactable(eos_reasons_enrolment_v2, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
+# Specify the names you want to check for
+names_to_check <- c('not agree to safety procedures', 'not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'other trials', 'visited loa loa', 'participant withdrew informed consent', 'pregnancy test refusal', 'spent night at the hospital')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% eos_reasons_enrolment_v2$reason) {
     not_found_names <- c(not_found_names, name)
   }
 }
