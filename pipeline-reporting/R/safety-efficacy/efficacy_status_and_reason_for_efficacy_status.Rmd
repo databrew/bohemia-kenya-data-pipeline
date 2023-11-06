@@ -31,6 +31,8 @@ library(dplyr)
 library(reactable)
 library(data.table)
 library(cloudbrewr)
+library(fontawesome)
+library(shiny)
 
 ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
 DATA_STAGING_BUCKET_NAME <- 'databrew.org'
@@ -97,6 +99,23 @@ safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
   bucket =DATA_STAGING_BUCKET_NAME,
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safetynew/safetynew-repeat_individual.csv')) %>%
   pad_hhid()
+
+# this is a function to create a download csv button
+wrap_download <- function(reactable_obj, element_id, output_filename){
+  onclick_command <- glue::glue(
+    "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
+  htmltools::browsable(
+    tagList(
+      tags$button(
+        tagList(fontawesome::fa("download"), "Download as CSV"),
+        onclick = onclick_command),
+      reactable_obj
+    ))
+}
+```
+
+```{r targets}
+
 ```
 
 ```{r total}
@@ -111,13 +130,14 @@ total_efficacy_v1 <- total_efficacy %>%
   filter(visit == 'V1')
 
 # create a summary table of efficacy_status counts
+# P.S. the efficacy v1 target was determined based on a file received from Joe
 total_efficacy_status_v1 <- total_efficacy_v1 %>%
   group_by(efficacy_status) %>%
-  summarise('Number of people visited in V1 (target: 2,877)' = n()) %>%
+  summarise('Number of people visited in V1 (target: 2,878)' = n()) %>%
   arrange(efficacy_status) %>%
   rename('Efficacy status' = efficacy_status) %>%
-  add_row('Efficacy status' = 'total people visited', 'Number of people visited in V1 (target: 2,877)' = sum(.$'Number of people visited in V1 (target: 2,877)')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of people visited in V1 (target: 2,877)`)) / as.numeric(nrow(total_efficacy_v1)) * 100) %>%
+  add_row('Efficacy status' = 'total people visited', 'Number of people visited in V1 (target: 2,878)' = sum(.$'Number of people visited in V1 (target: 2,878)')) %>%
+  mutate('Percent complete' = (as.numeric(`Number of people visited in V1 (target: 2,878)`)) / as.numeric(nrow(total_efficacy_v1)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%'))
 
@@ -226,6 +246,37 @@ refusal_reasons_v1 <- efficacy_refusal_v1 %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 ```
 
+```{r rdt-results}
+eff_results <- efficacy %>%
+  select(extid, cluster, pan_result, pf_result, visit) %>%
+  mutate(combination = case_when(pan_result == 'Positive' & pf_result == 'Positive' ~ 'pan + ; pf +',
+                                 pan_result == 'Negative' & pf_result == 'Negative' ~ 'pan - ; pf -',
+                                 pan_result == 'Positive' & pf_result == 'Negative' ~ 'pan + ; pf -',
+                                 pan_result == 'Negative' & pf_result == 'Positive' ~ 'pan - ; pf +',
+                                 pan_result == '' & pf_result == '' ~ 'blank test responses'))
+
+eff_results_v1 <- eff_results %>%
+  filter(visit == 'V1')
+
+# Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
+eff_cluster_rdt_results <- eff_results %>%
+  select(cluster, combination) %>%
+  group_by(cluster, combination) %>%
+  summarise('Count' = n()) %>%
+  rename(Cluster = cluster,
+         `Combination type` = combination)
+
+# we want to see the rates of malaria. So create a table of totals (all clusters) of the proportions of the four ways using (pan+/-;pf+/-). Include percentages of each for the entire study.
+eff_rdt_prop_totals <- eff_results %>%
+  group_by(combination) %>%
+  summarise('Count' = n()) %>%
+  add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
+  mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results)) * 100) %>%
+  mutate(Percent = round(Percent, 2)) %>%
+  mutate(Percent = paste0(Percent, '%')) %>%
+  rename('Combination type' = combination)
+```
+
 
 ## V1 Numbers
 ```{r v1_total_show}
@@ -316,4 +367,26 @@ for (name in names_to_check) {
 if (length(not_found_names) > 0) {
   cat("Note: The reasons like", paste0(not_found_names, collapse = ", "), "are not shown because it is not a reason for anyone being missing.")
 }
+```
+
+###  rdt results
+#### total rdt results in v1
+```{r rdt-results-totals}
+reactable(eff_rdt_prop_totals, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+```
+
+#### rdt results by cluster in v1
+```{r rdt-results-by-cluster}
+element_id <- 'efficacy_rdt_results_by_cluster'
+
+eff_cluster_rdt_results_readable <- reactable(eff_cluster_rdt_results, columns = list(
+  `Combination type` = colDef(align = 'right')
+))
+
+wrap_download(
+  eff_cluster_rdt_results_readable, 
+  element_id,
+  'efficacy_rdt_results_by_cluster.csv')
 ```
