@@ -11,7 +11,7 @@ date: '`r Sys.time()`'
 
 Notes:
 
-- Report is refreshed hourly 9-5pm EAT, once 12AM EAT
+- Report is refreshed hourly 9-5pm EAT, once 12AM EAT Midnight
 - Please reach out to atediarjo@gmail.com for bug reports
 
 Description:
