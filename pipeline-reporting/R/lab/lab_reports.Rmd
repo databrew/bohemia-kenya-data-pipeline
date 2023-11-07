@@ -122,100 +122,26 @@ lab_metadata_zp <- cloudbrewr::aws_s3_get_object(
 ) 
 
 
-lab_ovr <- 
-    bind_rows(
-        lab %>% 
-            mutate(
-              extid = as.character(extid),
-              dob = as.character(dob),
-              sample = as.character(sample),
-              visit = as.character(visit),
-              sample_status = as.character(sample_status),
-              start_time = lubridate::as_datetime(start_time),
-              efficacy_reason = as.character(efficacy_reason),
-              pk_reason = as.character(pk_reason),
-              study = as.character(study),
-              incidences = ifelse(!is.na(match_tracking_incidence_select),
-                                       match_tracking_incidence_select,
-                                       ifelse(!is.na(match_tracking_incidence_select2),
-                                              match_tracking_incidence_select2,
-                                              NA)),
-               date_sample = lubridate::date(date_sample), 
-               cl_sample = as.character(cl_sample), 
-               pkid = as.character(pkid), 
-               pk_sample_number = as.character(pk_sample_number), 
-               icf_status_efficacy = as.character(icf_status_efficacy),
-               icf_status_safety_adult = as.character(icf_status_safety_adult),
-               icf_status_pk = as.character(icf_status_pk)
-              
-            ) %>%
-            dplyr::select(
-              extid,
-              sample, 
-              dob,
-              visit,
-                          sample_status, 
-                          start_time, 
-                          efficacy_reason,
-                          pk_reason, 
-                          incidences,
-                          study,
-                          date_sample, 
-                          cl_sample, 
-                          pkid, 
-                          pk_sample_number, 
-                          icf_status_efficacy,
-                          icf_status_safety = icf_status_safety_adult,
-                          icf_status_pk),
-        lab2 %>%
-            mutate(
-              extid = as.character(extid),
-              dob = as.character(dob),
-              sample = as.character(sample),
-              visit = as.character(visit),
-              sample_status = as.character(sample_status),
-              start_time = lubridate::as_datetime(start_time),
-              efficacy_reason = as.character(efficacy_reason),
-              pk_reason = as.character(pk_reason),
-              study = as.character(study),
-              incidences = as.character(incidences),
-              date_sample = lubridate::date(date_sample), 
-              cl_sample = as.character(cl_sample), 
-              pkid = as.character(pkid), 
-              pk_sample_number = as.character(pk_sample_number), 
-              icf_status_efficacy = as.character(icf_status_efficacy),
-              icf_status_safety = as.character(icf_status_safety),
-              icf_status_pk = as.character(icf_status_pk)
-            ) %>%
-            dplyr::select(
-              extid,
-              sample, 
-              dob,
-              visit,
-                          sample_status, 
-                          start_time, 
-                          efficacy_reason,
-                          pk_reason, 
-                          incidences,
-                          study,
-                          date_sample, 
-                          cl_sample, 
-                          pkid, 
-                          pk_sample_number, 
-                          icf_status_efficacy,
-                          icf_status_safety,
-                          icf_status_pk)
-    ) %>%
-    mutate(quarantine_reasons = ifelse(!is.na(efficacy_reason),
-                                       efficacy_reason,
-                                       ifelse(!is.na(pk_reason),
-                                              pk_reason, NA))) %>%
-    dplyr::select(-efficacy_reason, -pk_reason) %>%
-    arrange(desc(start_time)) %>%
-    dplyr::distinct(sample, .keep_all = TRUE)  %>%
-    dplyr::mutate(dob = stringr::str_remove(dob, ".")) %>% 
-    dplyr::mutate(age = as.numeric((lubridate::date(start_time) - lubridate::date(dob))/365.25))%>%
-    dplyr::select(-start_time)
+incidences_mapping <- lab %>% 
+    dplyr::select(sample, 
+                  sample_status,
+                  match_tracking_incidence_select, 
+                  match_tracking_incidence_select2,
+                  pending_incidence_select,
+                  quarantine_incidence_select) %>% 
+    dplyr::mutate(across(where(is.character), ~na_if(., ""))) %>% 
+    dplyr::mutate(across(where(is.character), ~na_if(., "none"))) %>%
+    dplyr::mutate(incidences = case_when(
+        sample_status == 'Approved' ~ 
+            coalesce(match_tracking_incidence_select2, match_tracking_incidence_select),
+        sample_status == 'Pending' ~ 
+            coalesce(pending_incidence_select, 
+                     coalesce(match_tracking_incidence_select2, match_tracking_incidence_select)),
+        sample_status == "Quarantine" ~ 
+            coalesce(quarantine_incidence_select, 
+                     coalesce(match_tracking_incidence_select2, match_tracking_incidence_select))
+    )) %>% 
+    dplyr::select(sample, sample_status, incidences, everything())
 
 unzip(lab_metadata_zp$file_path, exdir = '/tmp')
 
@@ -275,7 +201,7 @@ reactable(d)
 
 ```{r}
 d <- lab_metadata %>% 
-    dplyr::filter(!sample %in% lab_ovr$sample) %>%
+    dplyr::filter(!sample %in% incidences_mapping$sample) %>%
   tibble::as_tibble() %>%
   dplyr::select(extid, 
                 `barcode` = sample, 
@@ -315,6 +241,11 @@ wrap_download(
 
 ```{r}
 d <- lab_metadata %>% 
+  dplyr::select(-incidences) %>% 
+  dplyr::inner_join(incidences_mapping %>% 
+                      dplyr::select(sample, sample_status, incidences), 
+                    by = c('sample', 'sample_status')
+                    ) %>%
   tibble::as_tibble() %>%
   dplyr::select(extid, 
                 `barcode` = sample, 
