@@ -149,11 +149,11 @@ total_safety_v1 <- total_safety %>%
 # create a summary table of safety_status counts
 total_safety_status_v1 <- total_safety_v1 %>%
   group_by(safetystatus) %>%
-  summarise('Number of people visited in V1 (target: 30,727)' = n()) %>%
+  summarise('Number of people visited in V1 (target: 28,479)' = n()) %>%
   arrange(safetystatus) %>%
   rename('Safety status' = safetystatus) %>%
-  add_row('Safety status' = 'total people visited', 'Number of people visited in V1 (target: 30,727)' = sum(.$'Number of people visited in V1 (target: 30,727)')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of people visited in V1 (target: 30,727)`)) / as.numeric(nrow(total_safety_v1)) * 100) %>%
+  add_row('Safety status' = 'total people visited', 'Number of people visited in V1 (target: 28,479)' = sum(.$'Number of people visited in V1 (target: 28,479)')) %>%
+  mutate('Percent complete' = (as.numeric(`Number of people visited in V1 (target: 28,479)`)) / as.numeric(nrow(total_safety_v1)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%'))
 
@@ -164,11 +164,11 @@ total_safety_v2 <- total_safety %>%
 
 total_safety_status_v2 <- total_safety_v2 %>%
   group_by(safetystatus) %>%
-  summarise('Number of people visited in V2 (target: 30,727)' = n()) %>%
+  summarise('Number of people visited in V2 (target: 26,485)' = n()) %>%
   arrange(safetystatus) %>%
   rename('Safety status' = safetystatus) %>%
-  add_row('Safety status' = 'total people visited', 'Number of people visited in V2 (target: 30,727)' = sum(.$'Number of people visited in V2 (target: 30,727)')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of people visited in V2 (target: 30,727)`)) / as.numeric(nrow(total_safety_v2)) * 100) %>%
+  add_row('Safety status' = 'total people visited', 'Number of people visited in V2 (target: 26,485)' = sum(.$'Number of people visited in V2 (target: 26,485)')) %>%
+  mutate('Percent complete' = (as.numeric(`Number of people visited in V2 (target: 26,485)`)) / as.numeric(nrow(total_safety_v2)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%'))
 ```
