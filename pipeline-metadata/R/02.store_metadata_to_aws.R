@@ -35,6 +35,16 @@ pad_hhid <- function(data){
   }
 }
 
+create_parquet <- function(data){
+  if('hhid' %in% names(data)){
+    data  %>%
+      arrow_table() %>%
+      mutate(hhid = cast(hhid, string()))
+  }else{
+    data
+  }
+}
+
 
 # create connection to AWS
 tryCatch({
@@ -50,16 +60,6 @@ tryCatch({
 })
 
 
-create_parquet <- function(data){
-  if('hhid' %in% names(data)){
-    data  %>%
-      arrow_table() %>%
-      mutate(hhid = cast(hhid, string()))
-  }else{
-    data
-  }
-
-}
 
 #### First, save metadata as zip files
 
@@ -148,6 +148,12 @@ efficacy_arrow <- fread('efficacy_metadata/individual_data.csv') %>%
                 cluster,
                 starts_with('starting'),
                 starts_with('efficacy')) %>%
+  tidyr::drop_na(efficacy_visits_done) %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(
+    most_recent_visit = stringr::str_split(efficacy_visits_done, ", ") %>% .[[1]] %>% purrr::reduce(max)
+  ) %>%
+  dplyr::ungroup() %>%
   pad_hhid() %>%
   dplyr::mutate(efficacy_most_recent_present_date =
                   stringr::str_remove(efficacy_most_recent_present_date, "."),
