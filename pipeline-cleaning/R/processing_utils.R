@@ -1,3 +1,24 @@
+# function pad hhid with zeroes
+pad_hhid <- function(data){
+  if('hhid' %in% names(data)){
+    data %>%
+      dplyr::mutate(hhid = stringr::str_pad(hhid, 5, pad = "0"))
+  }else{
+    data
+  }
+}
+
+# function to create data into parquet
+create_parquet <- function(data){
+  if('hhid' %in% names(data)){
+    data  %>%
+      arrow_table() %>%
+      mutate(hhid = cast(hhid, string()))
+  }else{
+    data
+  }
+}
+
 #' @description get user age based on available dob after fixes
 get_corrected_age <- function(data) {
   tryCatch({
