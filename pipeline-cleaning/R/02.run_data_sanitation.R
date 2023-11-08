@@ -1,3 +1,8 @@
+# Author: atediarjo@gmail.com
+# This file is used to sanitize clean form from PII informaiton
+# 1. Data sanitation to `sanitized-form`
+
+# Load library
 library(dplyr)
 library(lubridate)
 library(magrittr)
@@ -8,22 +13,24 @@ library(logger)
 library(config)
 library(tictoc)
 library(data.table)
+library(arrow)
+library(tools)
 source('R/processing_utils.R')
 
 # start timer
 tic()
 
 # create log message
-logger::log_info('Starting Form Cleaning')
+logger::log_info('Run data sanitation')
 
 # variables / creds
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 Sys.setenv(R_CONFIG_ACTIVE=env_pipeline_stage)
-
 BUCKET_NAME <- 'databrew.org'
 ROLE_NAME <- 'cloudbrewr-aws-role'
 
-# create connection to AWS
+
+# Create connection to AWS
 tryCatch({
   # login to AWS - this will be bypassed if executed in CI/CD environment
   cloudbrewr::aws_login(
@@ -36,9 +43,9 @@ tryCatch({
   stop(e$message)
 })
 
-
-dir.create('projects/clean-form')
-dir.create('projects/sanitized-form')
+unlink('projects', recursive = TRUE, force = TRUE)
+dir.create('projects/clean-form',recursive = TRUE)
+dir.create('projects/sanitized-form', recursive = TRUE)
 
 # bulk retrieve all csv files
 tryCatch({
@@ -56,6 +63,9 @@ tryCatch({
 })
 
 
+#############################
+# 1. save sanitized forms
+##############################
 
 # Get Files mapping from AWS S3 sync
 files_orig <- tibble::tibble(file_path =
@@ -118,9 +128,6 @@ tryCatch({
   logger::log_error('Error storing to AWS S3')
   stop(e$message)
 })
-
-# remove directory once done
-unlink('projects', recursive = TRUE, force = TRUE)
 
 # stop timer
 toc()
