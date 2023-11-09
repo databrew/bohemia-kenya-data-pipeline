@@ -111,6 +111,23 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
 }
 ```
 
+```{r targets}
+# these numbers are determined from the efficacy target csvs sent by Joe
+target_table <- data.frame(
+  Visit = 'Safety V1',
+  `HH target` = '5,847',
+  `Child target` = '28,478'
+)
+
+add_row <- data.frame(
+  Visit = 'Safety V2',
+  `HH target` = '5,492',
+  `Child target` = '26,484'
+)
+
+target_table <- bind_rows(target_table, add_row)
+```
+
 ```{r totals}
 ## this will create the table of how many people are in, out, refusal, or eos
 ## it is broken up into each visit number
@@ -595,6 +612,11 @@ refusal_reasons_v2 <- total_safe_refusal_v2 %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%'))
 ```
+## Safety targets
+```{r target_show}
+reactable(target_table, columns = list(), pagination = FALSE)
+```
+
 ## V2 Numbers
 ### Overall safety statuses
 ```{r v2_total_show}

@@ -115,7 +115,12 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
 ```
 
 ```{r targets}
-
+# these numbers are determined from the efficacy target csvs sent by Joe
+target_table <- data.frame(
+  Visit = 'Efficacy V1',
+  `HH target` = '1,258',
+  `Child target` = '2,877'
+)
 ```
 
 ```{r total}
@@ -249,25 +254,34 @@ refusal_reasons_v1 <- efficacy_refusal_v1 %>%
 ```{r rdt-results}
 eff_results <- efficacy %>%
   select(extid, cluster, pan_result, pf_result, visit) %>%
-  mutate(combination = case_when(pan_result == 'Positive' & pf_result == 'Positive' ~ 'pan + ; pf +',
-                                 pan_result == 'Negative' & pf_result == 'Negative' ~ 'pan - ; pf -',
-                                 pan_result == 'Positive' & pf_result == 'Negative' ~ 'pan + ; pf -',
-                                 pan_result == 'Negative' & pf_result == 'Positive' ~ 'pan - ; pf +',
+  mutate(combination = case_when(pan_result == 'Positive' & pf_result == 'Positive' ~ 'pan + pf +',
+                                 pan_result == 'Negative' & pf_result == 'Negative' ~ 'pan - pf -',
+                                 pan_result == 'Positive' & pf_result == 'Negative' ~ 'pan + pf -',
+                                 pan_result == 'Negative' & pf_result == 'Positive' ~ 'pan - pf +',
                                  pan_result == '' & pf_result == '' ~ 'blank test responses'))
 
 eff_results_v1 <- eff_results %>%
   filter(visit == 'V1')
 
+# make combination into individual columns
+eff_results_v1_edited <- eff_results_v1 %>%
+  mutate(pos_pos = as.numeric(grepl("pan + pf +", combination)),
+         pos_neg = as.numeric(grepl("pan + pf -", combination)),
+         neg_pos = as.numeric(grepl("pan - pf +", combination)),
+         neg_neg = as.numeric(grepl("pan - pf -", combination))
+         )
+
 # Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
-eff_cluster_rdt_results <- eff_results %>%
-  select(cluster, combination) %>%
-  group_by(cluster, combination) %>%
-  summarise('Count' = n()) %>%
-  rename(Cluster = cluster,
-         `Combination type` = combination)
+eff_cluster_rdt_results_v1 <- eff_results_v1_edited %>%
+  group_by(cluster) %>%
+  summarise('pan+ pf+' = sum(pos_pos),
+            'pan+ pf-' = sum(pos_neg),
+            'pan- pf+' = sum(neg_pos),
+            'pan- pf-' = sum(neg_neg)) %>%
+  rename(Cluster = cluster)
 
 # we want to see the rates of malaria. So create a table of totals (all clusters) of the proportions of the four ways using (pan+/-;pf+/-). Include percentages of each for the entire study.
-eff_rdt_prop_totals <- eff_results %>%
+eff_rdt_prop_totals_v1 <- eff_results_v1 %>%
   group_by(combination) %>%
   summarise('Count' = n()) %>%
   add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
@@ -291,6 +305,11 @@ if (any(duplicated(total_efficacy_v1$extid))) {
   "Note: There are no duplicates based on extid in the data."
 }
 ```
+### Efficacy targets
+```{r target_show}
+reactable(target_table, columns = list(), pagination = FALSE)
+```
+
 ### eos
 ```{r v1_eos_show}
 reactable(eos_reasons_v1, columns = list(
@@ -372,7 +391,7 @@ if (length(not_found_names) > 0) {
 ###  rdt results
 #### total rdt results in v1
 ```{r rdt-results-totals}
-reactable(eff_rdt_prop_totals, columns = list(
+reactable(eff_rdt_prop_totals_v1, columns = list(
   `Percent` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 ```
@@ -381,9 +400,7 @@ reactable(eff_rdt_prop_totals, columns = list(
 ```{r rdt-results-by-cluster}
 element_id <- 'efficacy_rdt_results_by_cluster'
 
-eff_cluster_rdt_results_readable <- reactable(eff_cluster_rdt_results, columns = list(
-  `Combination type` = colDef(align = 'right')
-))
+eff_cluster_rdt_results_readable <- reactable(eff_cluster_rdt_results_v1, columns = list())
 
 wrap_download(
   eff_cluster_rdt_results_readable, 
