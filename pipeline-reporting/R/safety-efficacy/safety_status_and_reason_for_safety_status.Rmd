@@ -367,6 +367,16 @@ total_safe_eos_enrolment_v2 <- total_safe_eos_v2 %>%
 total_safe_eos_followup_v2 <- total_safe_eos_v2 %>%
   filter(visit_type == 'follow up')
 
+# make a table of both enrolment and followup together since they will be split up later
+eos_reasons_v2 <- total_safe_eos_v2 %>%
+  group_by(reason) %>%
+  filter(reason == 'eos in V1') %>%
+  summarise('Number of eos people' = n()) %>%
+  rename('Reason for eos' = reason) %>%
+  mutate('Percent of eos' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_v2)) * 100) %>%
+  mutate('Percent of eos' = round(`Percent of eos`, 2)) %>%
+  mutate('Percent of eos' = paste0(`Percent of eos`, '%')) # Replace zero values with NA
+
 # make a table of enrolment people who are eos
 eos_reasons_enrolment_v2 <- total_safe_eos_enrolment_v2 %>%
   group_by(reason) %>%
@@ -609,7 +619,9 @@ reactable(in_type_v2, columns = list(
 
 ### eos
 ```{r}
-
+reactable(eos_reasons_v2, columns = list(
+  `Percent of eos` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
 #### follow up visit
