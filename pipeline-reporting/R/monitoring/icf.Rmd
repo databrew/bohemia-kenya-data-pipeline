@@ -72,9 +72,16 @@ tryCatch({
 })
 
 
+if(Sys.getenv('PIPELINE_STAGE') != 'production'){
+  BUCKET_TARGET <- 's3://develop-athena-query-results/'
+}else{
+  BUCKET_TARGET <- 's3://bohemia-athena-query-results/'
+}
+
 con <- dbConnect(noctua::athena(),
-                 s3_staging_dir='s3://bohemia-athena-query-results/',
-                 region_name='us-east-1')
+               s3_staging_dir=BUCKET_TARGET,
+               region_name='us-east-1')
+
 ```
 
 ```{r}
@@ -218,9 +225,11 @@ Click on the legend to focus on a desired metric
 ```{r}
 w_data <- d %>% 
     dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
-    dplyr::filter(week_start == run_date)
+    dplyr::filter(week_start == run_date) %>% 
+    dplyr::mutate(age = as.numeric(age))
 c_data <- w_data %>%
-    dplyr::filter(run_date == max(.$run_date))
+    dplyr::filter(run_date == max(.$run_date)) %>% 
+    dplyr::mutate(age = as.numeric(age))
 ```
 
 ### Overall ICF Trends
