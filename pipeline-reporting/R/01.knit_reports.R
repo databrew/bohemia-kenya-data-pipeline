@@ -5,9 +5,21 @@ library(glue)
 library(lubridate)
 library(dplyr)
 library(tools)
+library(logger)
 source('R/utils.R')
 
+unlink('log',recursive=TRUE,force=TRUE)
+dir.create('log', recursive=TRUE)
+
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
+
+log_name <- as.character(lubridate::now() %>% as.integer())
+log_output_file = glue::glue("log/{log_name}.log")
+log_layout(layout_json())
+log_appender(appender_file(log_output_file))
+
+log_threshold(ERROR)
+
 tryCatch({
   logger::log_info('Attempt AWS login')
   # login to AWS - this will be bypassed if executed in CI/CD environment
@@ -21,12 +33,14 @@ tryCatch({
   stop(e$message)
 })
 
+# clean logs before proceeding
+unlink("logs",force=TRUE, recursive = TRUE)
+
 # parse through all report index
-purrr::map(config::get('report_index'), function(index){
+a <- purrr::map(config::get('report_index'), function(index){
   entry <- glue::glue('R/{index}')
   purrr::map(list.files(entry, pattern = '*.Rmd', full.names = TRUE), function(rmd){
     tryCatch({
-      print(entry)
       dir.create(
         glue::glue('{entry}/html_report'),
         recursive = TRUE,
@@ -34,13 +48,12 @@ purrr::map(config::get('report_index'), function(index){
       logger::log_info(glue::glue("Knitting {rmd}"))
       output_file <- glue::glue("html_report/{file_path_sans_ext(basename(rmd))}.html")
       markdown_loc <- glue::glue("{rmd}")
-      print(markdown_loc)
       rmarkdown::render(
         markdown_loc,
         output_file = output_file)
     }, error = function(e){
-      logger::log_error(e$message)
-      stop()
+      err_msg <- glue::glue('Report: {rmd} is throwing an error: {e$message}')
+      log_error(err_msg)
     })
   })
 })
@@ -61,8 +74,18 @@ purrr::map(list.files(entry, pattern = '*.Rmd'), function(rmd){
       output_file = output_file)
   }, error = function(e){
     logger::log_error(e$message)
-    stop()
+    stop("")
   })
 })
+
+
+
+if(length(list.files('log')) > 0){
+  cloudbrewr::aws_s3_bulk_store(
+    bucket = 'bohemia-lake-db',
+    prefix = '/bohemia_prod/log/knit_report_error/',
+    target_dir = 'log/'
+  )
+}
 
 

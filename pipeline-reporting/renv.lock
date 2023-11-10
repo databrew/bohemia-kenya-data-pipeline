@@ -16,6 +16,11 @@
       "Repository": "CRAN",
       "Hash": "85bf3bd8fa58da21a22d84fd4f4ef0a8"
     },
+    "DBI": {
+      "Package": "DBI",
+      "Version": "1.1.3",
+      "Source": "Repository"
+    },
     "MASS": {
       "Package": "MASS",
       "Version": "7.3-57",
@@ -159,32 +164,14 @@
     },
     "cloudbrewr": {
       "Package": "cloudbrewr",
-      "Version": "0.0.0.9000",
+      "Version": "1.0.0.0000",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteUsername": "databrew",
       "RemoteRepo": "cloudbrewr",
       "RemoteRef": "main",
-      "RemoteSha": "6b4e9f7d4505e7863b5d0afb629c1f5572d7bc91",
-      "Requirements": [
-        "cachem",
-        "data.table",
-        "dplyr",
-        "fs",
-        "glue",
-        "logger",
-        "lubridate",
-        "magrittr",
-        "paws",
-        "purrr",
-        "rlang",
-        "stringr",
-        "tibble",
-        "tidyr",
-        "tools"
-      ],
-      "Hash": "be728d0183067d50b857d289d41e8b68"
+      "RemoteSha": "524d6fb9efbfcf4fb916fad6e4cf476e43a59022"
     },
     "colorspace": {
       "Package": "colorspace",
@@ -711,6 +698,11 @@
         "utils"
       ],
       "Hash": "dbca60742be0c9eddc5205e5c7ca1f44"
+    },
+    "noctua": {
+      "Package": "noctua",
+      "Version": "2.6.2",
+      "Source": "Repository"
     },
     "openssl": {
       "Package": "openssl",

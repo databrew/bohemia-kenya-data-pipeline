@@ -111,6 +111,23 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
 }
 ```
 
+```{r targets}
+# these numbers are determined from the efficacy target csvs sent by Joe
+target_table <- data.frame(
+  Visit = 'Safety V1',
+  `HH target` = '5,847',
+  `Child target` = '28,478'
+)
+
+add_row <- data.frame(
+  Visit = 'Safety V2',
+  `HH target` = '5,492',
+  `Child target` = '26,484'
+)
+
+target_table <- bind_rows(target_table, add_row)
+```
+
 ```{r totals}
 ## this will create the table of how many people are in, out, refusal, or eos
 ## it is broken up into each visit number
@@ -367,6 +384,16 @@ total_safe_eos_enrolment_v2 <- total_safe_eos_v2 %>%
 total_safe_eos_followup_v2 <- total_safe_eos_v2 %>%
   filter(visit_type == 'follow up')
 
+# make a table of both enrolment and followup together since they will be split up later
+eos_reasons_v2 <- total_safe_eos_v2 %>%
+  group_by(reason) %>%
+  filter(reason == 'eos in V1') %>%
+  summarise('Number of eos people' = n()) %>%
+  rename('Reason for eos' = reason) %>%
+  mutate('Percent of eos' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_v2)) * 100) %>%
+  mutate('Percent of eos' = round(`Percent of eos`, 2)) %>%
+  mutate('Percent of eos' = paste0(`Percent of eos`, '%')) # Replace zero values with NA
+
 # make a table of enrolment people who are eos
 eos_reasons_enrolment_v2 <- total_safe_eos_enrolment_v2 %>%
   group_by(reason) %>%
@@ -585,6 +612,11 @@ refusal_reasons_v2 <- total_safe_refusal_v2 %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%'))
 ```
+## Safety targets
+```{r target_show}
+reactable(target_table, columns = list(), pagination = FALSE)
+```
+
 ## V2 Numbers
 ### Overall safety statuses
 ```{r v2_total_show}
@@ -609,7 +641,9 @@ reactable(in_type_v2, columns = list(
 
 ### eos
 ```{r}
-
+reactable(eos_reasons_v2, columns = list(
+  `Percent of eos` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
 #### follow up visit
@@ -708,7 +742,13 @@ cluster_status <- total_safety_v1 %>%
 table <- reactable(cluster_status, columns = list(`percent_refusal` = colDef(align = 'right'),
                                                  `percent_out` = colDef(align = 'right'),
                                                  `percent_in` = colDef(align = 'right'),
-                                                 `percent_eos` = colDef(align = 'right')))
+                                                 `percent_eos` = colDef(align = 'right')),
+                  highlight = TRUE,
+                  resizable = TRUE,
+                  bordered = TRUE,
+                  striped = TRUE,
+                  filterable=TRUE,
+                  elementId = element_id)
 
 wrap_download(
   table, 
@@ -848,6 +888,9 @@ print(sex_plot)
 ## this will create a table of "Safety Status" and "Reason they are out" by cluster. So we want a column of the clusters and the reason for being out
 
 # need to get the cluster number which is in safety and safetynew or in the df created earlier extid_safety_status_df
+
+element_id <- 'safety_status_reason_out_by_cluster'
+
 cluster <- bind_rows(total_safe_eos_v1, total_safe_out_v1, total_safe_refusal_v1) %>%
   select(extid, safety_status, visit, reason)
 cluster <- left_join(cluster, total_safety_v1, by=c('extid')) %>%
@@ -882,16 +925,25 @@ cluster_table <- cluster %>%
          'Percent ill' = 'percent that are A person so ill that they cannot leave the bed',
          'Percent died' = 'percent that are died')
 
-table <- reactable(cluster_table, columns = list(`Percent migrated` = colDef(align = 'right'),
-                                                 `Percent of babies that cannot walk` = colDef(align = 'right'),
-                                                 `Percent absent` = colDef(align = 'right'),
-                                                 `Percent no witness` = colDef(align = 'right'),
-                                                 `Percent pregnant` = colDef(align = 'right'),
-                                                 `Percent ill` = colDef(align = 'right')))
+table <- reactable(cluster_table, 
+                   columns = list(
+                     `Percent migrated` = colDef(align = 'right'),
+                     `Percent of babies that cannot walk` = colDef(align = 'right'),
+                     `Percent absent` = colDef(align = 'right'),
+                     `Percent no witness` = colDef(align = 'right'),
+                     `Percent pregnant` = colDef(align = 'right'),
+                     `Percent ill` = colDef(align = 'right')),
+                      highlight = TRUE,
+                      resizable = TRUE,
+                      bordered = TRUE,
+                      striped = TRUE,
+                      filterable=TRUE,
+                      elementId = element_id
+                   )
 
 wrap_download(
   table, 
   element_id,
-  'safety_status_reason_by_cluster.csv')
+  'safety_status_reason_out_by_cluster.csv')
 
 ```

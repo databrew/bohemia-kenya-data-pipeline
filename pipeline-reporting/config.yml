@@ -8,6 +8,7 @@ default:
     - pharmacy
     - anomalies
     - lab
+    - monitoring
 develop:
   report_index:
     - v0
@@ -18,3 +19,4 @@ develop:
     - pharmacy
     - anomalies
     - lab
+    - monitoring
