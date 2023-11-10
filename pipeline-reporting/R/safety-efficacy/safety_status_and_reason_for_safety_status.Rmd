@@ -111,6 +111,23 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
 }
 ```
 
+```{r targets}
+# these numbers are determined from the efficacy target csvs sent by Joe
+target_table <- data.frame(
+  Visit = 'Safety V1',
+  `HH target` = '5,847',
+  `Child target` = '28,478'
+)
+
+add_row <- data.frame(
+  Visit = 'Safety V2',
+  `HH target` = '5,492',
+  `Child target` = '26,484'
+)
+
+target_table <- bind_rows(target_table, add_row)
+```
+
 ```{r totals}
 ## this will create the table of how many people are in, out, refusal, or eos
 ## it is broken up into each visit number
@@ -367,6 +384,16 @@ total_safe_eos_enrolment_v2 <- total_safe_eos_v2 %>%
 total_safe_eos_followup_v2 <- total_safe_eos_v2 %>%
   filter(visit_type == 'follow up')
 
+# make a table of both enrolment and followup together since they will be split up later
+eos_reasons_v2 <- total_safe_eos_v2 %>%
+  group_by(reason) %>%
+  filter(reason == 'eos in V1') %>%
+  summarise('Number of eos people' = n()) %>%
+  rename('Reason for eos' = reason) %>%
+  mutate('Percent of eos' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_v2)) * 100) %>%
+  mutate('Percent of eos' = round(`Percent of eos`, 2)) %>%
+  mutate('Percent of eos' = paste0(`Percent of eos`, '%')) # Replace zero values with NA
+
 # make a table of enrolment people who are eos
 eos_reasons_enrolment_v2 <- total_safe_eos_enrolment_v2 %>%
   group_by(reason) %>%
@@ -585,6 +612,11 @@ refusal_reasons_v2 <- total_safe_refusal_v2 %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%'))
 ```
+## Safety targets
+```{r target_show}
+reactable(target_table, columns = list(), pagination = FALSE)
+```
+
 ## V2 Numbers
 ### Overall safety statuses
 ```{r v2_total_show}
@@ -609,7 +641,9 @@ reactable(in_type_v2, columns = list(
 
 ### eos
 ```{r}
-
+reactable(eos_reasons_v2, columns = list(
+  `Percent of eos` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
 #### follow up visit
