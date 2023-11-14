@@ -262,8 +262,7 @@ safetynew_merged_tbl <- safetynew %>%
   dplyr::inner_join(safetynew_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
   dplyr::left_join(assignment, by = c('geo_cluster_num' = 'cluster_number')) %>%
   dplyr::left_join(village_mapping, by = 'hhid') %>%
-  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE,
-                !hhid %in% c("14419171","14419171")) %>%
+  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE) %>%
   # get most recent submission
   dplyr::group_by(visit, extid) %>%
   dplyr::mutate(max_time = max(end_time)) %>%

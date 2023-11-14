@@ -47,6 +47,7 @@ DATA_STAGING_BUCKET_NAME <- 'databrew.org'
 DATA_LAKE_BUCKET_NAME <- 'bohemia-lake-db'
 PROJECT_SOURCE <- 'kwale'
 SE_FOLDER_TARGET <- glue::glue('{PROJECT_SOURCE}/clean-form')
+CLUSTER_TO_REMOVE <- c(1,4,6,3,35,47,52,66,71,76,86,89)
 ```
 
 ```{r}
@@ -283,29 +284,38 @@ v0_merged_tbl <- v0 %>%
       dplyr::inner_join(
         assignment, 
         by = c('cluster' = 'cluster_number')) %>% 
-  dplyr::filter(!cluster %in% c(1,4,6,3,35,47,52,66,71,76,86,89))
+  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)
 
 # prep safety table
 safety_merged_tbl <- safety %>% 
   dplyr::inner_join(safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>% 
   dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>% 
   dplyr::left_join(village_mapping, by = 'hhid')  %>% 
-  dplyr::filter(!cluster %in% c(1,4,6,3,35,47,52,66,71,76,86,89))
+  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)  %>%
+  # special categories for "refusal"
+  mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
+             ind_icf_thumbprint == 'no' |
+             ind_agree_sign_icf == 'no' |
+             minor_agree_sign_assent == 'no')
 
 # prep safety new
 safetynew_merged_tbl <- safetynew %>% 
   dplyr::inner_join(safetynew_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>% 
   dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>% 
   dplyr::left_join(village_mapping, by = 'hhid') %>% 
-  dplyr::filter(!cluster %in% c(1,4,6,3,35,47,52,66,71,76,86,89),
-                !hhid %in% c("14419171","14419171"))
+  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)  %>%
+  # special categories for "refusal"
+  dplyr::mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
+             ind_icf_thumbprint == 'no' |
+             ind_agree_sign_icf == 'no' |
+             minor_agree_sign_assent == 'no')
 
 # efficacy df
 efficacy_df <-  efficacy %>% 
     dplyr::inner_join(assignment %>% 
                           dplyr::select(cluster_number, assignment), 
                       by = c('cluster' = 'cluster_number')) %>% 
-  dplyr::filter(!cluster %in% c(1,4,6,3,35,47,52,66,71,76,86,89))
+  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)
 
 
 # goals after v1
@@ -381,9 +391,9 @@ data_list$safety_in_absent <- prep_safety_tbl(
 # prep safety refusal
 data_list$safety_refusal <- prep_safety_tbl(
   safety_df = safety_merged_tbl %>% 
-    dplyr::filter(safety_status == 'refusal'),
+    dplyr::filter(is_refusal),
   safetynew_df = safetynew_merged_tbl %>% 
-    dplyr::filter(safety_status == 'refusal'),
+    dplyr::filter(is_refusal),
   indicator = 'safety_refusal',
     target_df = target_safety_by_assignment,
     group_cols = group_cols,
