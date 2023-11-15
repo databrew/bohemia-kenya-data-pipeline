@@ -1,6 +1,14 @@
 default:
   report_index:
+    - v0
+    - icf
+    - ento
+    - anomalies-detection
     - safety-efficacy
+    - pharmacy
+    - anomalies
+    - lab
+    - monitoring
 develop:
   report_index:
     - v0
