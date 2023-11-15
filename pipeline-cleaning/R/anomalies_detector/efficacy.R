@@ -71,12 +71,12 @@ final_col_list <- c('KEY', 'form_id', 'anomalies_id', 'anomalies_description', '
 # 2 RDT tests invalid (alert the lab) in same visit-household
 anomalies_list$sus_rdt <- efficacy %>%
   dplyr::filter(control_validity == 'invalid') %>%
-  dplyr::group_by(hhid) %>%
+  dplyr::group_by(visit, hhid) %>%
   dplyr::mutate(n = n()) %>%
   dplyr::filter(n >= 2) %>%
   dplyr::mutate(form_id = 'efficacy',
                 anomalies_id = 'hh_2_rdt_invalid',
-                anomalies_description = glue::glue('hhid:{hhid} has {n} invalid test from control_validity'),
+                anomalies_description = glue::glue('hhid:{hhid} from visit:{visit} has {n} invalid test from control_validity'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
   dplyr::ungroup() %>%
   dplyr::select(all_of(final_col_list))
@@ -87,7 +87,7 @@ anomalies_list$sus_rdt_time_diff <- efficacy %>%
   dplyr::filter(rdt_time_diff < 10) %>%
   dplyr::mutate(form_id = 'efficacy',
                 anomalies_id = 'hh_rdt_time_diff_less_than_10_mins',
-                anomalies_description = glue::glue('hhid:{hhid} rdt was collected in {rdt_time_diff}'),
+                anomalies_description = glue::glue('hhid:{hhid} from visit:{visit} rdt was collected in {rdt_time_diff}'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
   dplyr::ungroup() %>%
   dplyr::select(all_of(final_col_list))
@@ -110,7 +110,7 @@ anomalies_list$sus_gps <-  efficacy %>%
   dplyr::filter(Accuracy > 15) %>%
   dplyr::mutate(form_id = 'efficacy',
                 anomalies_id = 'hh_gps_accuracy_too_high',
-                anomalies_description = glue::glue('hhid:{hhid} gps accuracy too high: {Accuracy}'),
+                anomalies_description = glue::glue('hhid:{hhid} from visit:{visit} gps accuracy too high: {Accuracy}'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
   dplyr::ungroup() %>%
   dplyr::select(all_of(final_col_list))

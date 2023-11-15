@@ -62,7 +62,8 @@ final <- list.files('output', full.names = TRUE) %>%
                 anomalies_id,
                 anomalies_description,
                 resolution_status,
-                anomalies_reports_to_wid)
+                anomalies_reports_to_wid) %>%
+  dplyr::filter(stringr::str_detect(form_id, 'v0'))
 
 #################################
 # 3. Consolidate current and historical
