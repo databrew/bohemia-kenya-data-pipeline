@@ -105,18 +105,18 @@ dplyr::group_by(visit, hhid) %>%
 
 
 # repeat visit number selected for household
-anomalies_list$visit_already_in_dataset <- safety_merged_df %>%
-  dplyr::group_by(visit, extid) %>%
-  dplyr::mutate(
-    n = n(),
-    key_list = paste0(KEY, collapse = ',')) %>%
-  dplyr::filter(n > 1) %>%
-  dplyr::mutate(form_id = 'safety',
-                anomalies_id = glue::glue('ind_visit_already_in_dataset'),
-                anomalies_description = glue::glue('exitd:{extid} visit:{visit} already in dataset, please check these keys {key_list}'),
-                anomalies_reports_to_wid = glue::glue('{wid}')) %>%
-  dplyr::ungroup() %>%
-  dplyr::select(all_of(final_col_list))
+# anomalies_list$visit_already_in_dataset <- safety_merged_df %>%
+#   dplyr::group_by(visit, extid) %>%
+#   dplyr::mutate(
+#     n = n(),
+#     key_list = paste0(KEY, collapse = ',')) %>%
+#   dplyr::filter(n > 1) %>%
+#   dplyr::mutate(form_id = 'safety',
+#                 anomalies_id = glue::glue('ind_visit_already_in_dataset'),
+#                 anomalies_description = glue::glue('exitd:{extid} visit:{visit} already in dataset, please check these keys {key_list}'),
+#                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
+#   dplyr::ungroup() %>%
+#   dplyr::select(all_of(final_col_list))
 
 
 
@@ -150,14 +150,17 @@ anomalies_list$visit_already_in_dataset <- safety_merged_df %>%
 
 # too many people leaving household
 anomalies_list$sus_died_or_migrated <- safety_merged_df %>%
-  dplyr::group_by(hhid) %>%
+  dplyr::group_by(hhid, visit) %>%
   dplyr::mutate(died = n_distinct(extid[person_absent_reason == 'Died']),
-                migrated = n_distinct(extid[person_absent_reason == 'Migrated']),
-                key_list = paste0(extid, collapse = ",")) %>%
+                migrated = n_distinct(extid[person_absent_reason == 'Migrated'])) %>%
+  dplyr::ungroup() %>%
   dplyr::filter(died > 3 | migrated > 3) %>%
-  dplyr::mutate(form_id = 'safety-repeat_individual',
+  dplyr::filter(person_absent_reason != "") %>%
+  dplyr::group_by(hhid, visit) %>%
+  dplyr::mutate(key_list = paste0(extid, collapse = ",")) %>%
+  dplyr::mutate(form_id = 'safety',
                 anomalies_id = 'hh_more_than_3_members_died_or_migrated',
-                anomalies_description = glue::glue('hhid:{hhid} members {died} died and {migrated} migrated, here are the extids: {key_list}'),
+                anomalies_description = glue::glue('hhid:{hhid} from visit:{visit} members {died} died and {migrated} migrated, here are the extids: {key_list}'),
                 anomalies_reports_to_wid = glue::glue('{wid}'),
                 KEY = PARENT_KEY) %>%
   dplyr::ungroup() %>%
@@ -166,13 +169,16 @@ anomalies_list$sus_died_or_migrated <- safety_merged_df %>%
 
 # too many absent members
 anomalies_list$sus_absent <- safety_merged_df %>%
-  dplyr::group_by(hhid) %>%
-  dplyr::mutate(absent = n_distinct(extid[person_absent_reason == 'Absent']),
-                key_list = paste0(extid, collapse = ",")) %>%
+  dplyr::group_by(hhid, visit) %>%
+  dplyr::mutate(absent = n_distinct(extid[person_absent_reason == 'Absent'])) %>%
+  dplyr::ungroup() %>%
   dplyr::filter(absent > 3) %>%
-  dplyr::mutate(form_id = 'safety-repeat_individual',
+  dplyr::filter(person_absent_reason != "") %>%
+  dplyr::group_by(hhid, visit) %>%
+  dplyr::mutate(key_list = paste0(extid, collapse = ",")) %>%
+  dplyr::mutate(form_id = 'safety',
                 anomalies_id = 'hh_more_than_3_members_absent',
-                anomalies_description = glue::glue('hhid:{hhid} members {absent} absent, here are the extids: {key_list}'),
+                anomalies_description = glue::glue('hhid:{hhid} from visit:{visit} members {absent} absent, here are the extids: {key_list}'),
                 anomalies_reports_to_wid = glue::glue('{wid}'),
                 KEY = PARENT_KEY) %>%
   dplyr::ungroup() %>%
