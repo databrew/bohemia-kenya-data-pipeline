@@ -92,7 +92,8 @@ safety_metadata_hh <- fread('safety_metadata/household_data.csv') %>%
     household_head,
     village,
     ward,
-    most_recent_visit) %>%
+    most_recent_visit,
+    visits_done) %>%
   tibble::tibble() %>%
   pad_hhid() %>%
   dplyr::mutate(across(where(is.numeric), ~tidyr::replace_na(., -1))) %>%
@@ -116,7 +117,7 @@ safety_metadata_ind <- fread('safety_metadata/individual_data.csv') %>%
 
 # merge safety data
 safety_arrow <- safety_metadata_hh %>%
-  dplyr::select(hhid, household_head, most_recent_visit, num_members) %>%
+  dplyr::select(hhid, household_head, most_recent_visit, num_members, visits_done) %>%
   dplyr::inner_join(safety_metadata_ind, by = c('hhid')) %>%
   create_parquet()
 
@@ -210,6 +211,89 @@ arrow::write_parquet(
 arrow::write_parquet(
   arrow_tbl,
   glue::glue("{dir_target_hist}/lab.parquet"))
+
+
+# pfu metadata individual
+arrow_tbl <- fread('pfu_metadata/individual_data.csv') %>%
+  pad_hhid() %>%
+  create_parquet()
+
+dir_target <- 'parquet/pfu'
+dir_target_hist <- glue::glue('parquet/pfu_hist/run_date={version}')
+
+dir.create(dir_target, recursive = TRUE)
+dir.create(dir_target_hist, recursive = TRUE)
+arrow::write_parquet(
+  arrow_tbl,
+  glue::glue("{dir_target}/pfu.parquet"))
+arrow::write_parquet(
+  arrow_tbl,
+  glue::glue("{dir_target_hist}/pfu.parquet"))
+
+
+
+# pk metadata individual
+hh <- fread('pk_metadata/household_data.csv') %>% pad_hhid()
+ind <- fread('pk_metadata/individual_data.csv') %>% pad_hhid()
+arrow_tbl <- ind %>% dplyr::left_join(hh, by = c("hhid"))
+
+dir_target <- 'parquet/pk'
+dir_target_hist <- glue::glue('parquet/pk_hist/run_date={version}')
+
+dir.create(dir_target, recursive = TRUE)
+dir.create(dir_target_hist, recursive = TRUE)
+arrow::write_parquet(
+  arrow_tbl,
+  glue::glue("{dir_target}/pk.parquet"))
+arrow::write_parquet(
+  arrow_tbl,
+  glue::glue("{dir_target_hist}/pk.parquet"))
+
+
+# healthecon baseline
+hh <- fread('health_economics_metadata/healtheconbaseline_metadata/household_data.csv') %>%
+  pad_hhid() %>%
+  dplyr::select(-start_time)
+ind <- fread('health_economics_metadata/healtheconbaseline_metadata/individual_data.csv') %>%
+  pad_hhid()
+
+arrow_tbl <- ind %>% dplyr::inner_join(hh, by = c("hhid"))
+
+dir_target <- 'parquet/healtheconbaseline'
+dir_target_hist <- glue::glue('parquet/healtheconbaseline_hist/run_date={version}')
+
+dir.create(dir_target, recursive = TRUE)
+dir.create(dir_target_hist, recursive = TRUE)
+arrow::write_parquet(
+  arrow_tbl,
+  glue::glue("{dir_target}/healtheconbaseline.parquet"))
+arrow::write_parquet(
+  arrow_tbl,
+  glue::glue("{dir_target_hist}/healtheconbaseline.parquet"))
+
+
+# healthecon monthly
+hh <- fread('health_economics_metadata/healtheconmonthly_metadata/household_data.csv') %>%
+  pad_hhid() %>%
+  dplyr::select(-start_time)
+ind <- fread('health_economics_metadata/healtheconmonthly_metadata/individual_data.csv') %>%
+  pad_hhid()
+
+arrow_tbl <- ind %>% dplyr::inner_join(hh, by = c("hhid"))
+
+dir_target <- 'parquet/healtheconmonthly'
+dir_target_hist <- glue::glue('parquet/healtheconmonthly_hist/run_date={version}')
+
+dir.create(dir_target, recursive = TRUE)
+dir.create(dir_target_hist, recursive = TRUE)
+arrow::write_parquet(
+  arrow_tbl,
+  glue::glue("{dir_target}/healtheconmonthly.parquet"))
+arrow::write_parquet(
+  arrow_tbl,
+  glue::glue("{dir_target_hist}/healtheconmonthly.parquet"))
+
+
 
 # bulk store zip file to AWS
 cloudbrewr::aws_s3_bulk_store(
