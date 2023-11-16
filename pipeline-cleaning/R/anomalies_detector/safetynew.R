@@ -87,7 +87,7 @@ anomalies_list$visit_already_in_dataset <- safetynew %>%
   dplyr::mutate(n = n(),
                 key_list = paste0(KEY, collapse = ',')) %>%
   dplyr::filter(n > 1) %>%
-  dplyr::mutate(form_id = 'safety',
+  dplyr::mutate(form_id = 'safetynew',
                 anomalies_id = glue::glue('hh_visit_already_in_dataset'),
                 anomalies_description = glue::glue('hhid:{hhid} visit:{visit} already in dataset, please check these keys {key_list}'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
@@ -179,7 +179,7 @@ anomalies_list$visit_already_in_dataset <- safetynew %>%
 # hh gps accuracy too high
 anomalies_list$sus_gps <-  safetynew %>%
   dplyr::filter(Accuracy > 15) %>%
-  dplyr::mutate(form_id = 'safety',
+  dplyr::mutate(form_id = 'safetynew',
                 anomalies_id = 'hh_gps_accuracy_too_high',
                 anomalies_description = glue::glue('hhid:{hhid} gps accuracy too high: {Accuracy}'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
@@ -190,7 +190,7 @@ anomalies_list$sus_gps <-  safetynew %>%
 anomalies_list$outside_cluster <- safetynew %>%
   dplyr::filter(is.na(geo_cluster_num) |
                   geo_cluster_num %in% c(1,4,6,32,35,47,52,66,71, 76, 86, 89)) %>%
-  dplyr::mutate(form_id = 'safety',
+  dplyr::mutate(form_id = 'safetynew',
                 anomalies_id = 'hh_outside_cluster',
                 anomalies_description = glue::glue('hhid:{hhid} is outside cluster by geo but entered as cluster:{cluster}'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
