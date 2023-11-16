@@ -92,6 +92,7 @@ purrr::map(config::get('odk_projects'), function(project_name){
     bucket = BUCKET_NAME,
     key = S3_RESOLUTION_OBJECT_KEY) %>%
     dplyr::filter(!Form %in% EXCLUDED_FORM_ID) %>%
+    dplyr::filter(!(`Column` == "" & `Operation` =='SET')) %>%
     expand_resolution_file_with_connected_cols()
 
   # Read local file mapping and create tibble-list inside the dataframe for
