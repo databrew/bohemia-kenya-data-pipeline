@@ -251,10 +251,10 @@ arrow::write_parquet(
 
 
 # healthecon baseline
-hh <- fread('health_economics_metadata/healtheconbaseline_metadata/household_data.csv') %>%
+hh <- fread('healtheconbaseline_metadata/household_data.csv') %>%
   pad_hhid() %>%
   dplyr::select(-start_time)
-ind <- fread('health_economics_metadata/healtheconbaseline_metadata/individual_data.csv') %>%
+ind <- fread('healtheconbaseline_metadata/individual_data.csv') %>%
   pad_hhid()
 
 arrow_tbl <- ind %>% dplyr::inner_join(hh, by = c("hhid"))
@@ -273,10 +273,10 @@ arrow::write_parquet(
 
 
 # healthecon monthly
-hh <- fread('health_economics_metadata/healtheconmonthly_metadata/household_data.csv') %>%
+hh <- fread('healtheconmonthly_metadata/household_data.csv') %>%
   pad_hhid() %>%
   dplyr::select(-start_time)
-ind <- fread('health_economics_metadata/healtheconmonthly_metadata/individual_data.csv') %>%
+ind <- fread('healtheconmonthly_metadata/individual_data.csv') %>%
   pad_hhid()
 
 arrow_tbl <- ind %>% dplyr::inner_join(hh, by = c("hhid"))

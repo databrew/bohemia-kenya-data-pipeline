@@ -202,7 +202,7 @@ batch_set <- function(data, form_id, repeat_name, resolution){
     }
   }, error = function(e){
     logger::log_error(e$message)
-    stop()
+    stop(e$message)
   })
 }
 
@@ -475,6 +475,7 @@ init_geo_objects <- function(){
 # function to expand resolution file with connected cols
 expand_resolution_file_with_connected_cols <- function(resolution_file) {
 
+  # connected cols based on the same field
   mapping <-   tribble(
     ~source, ~cascade_to,
     "dob",   "dob_select",
@@ -482,7 +483,12 @@ expand_resolution_file_with_connected_cols <- function(resolution_file) {
     "dob",   "dob_string",
     "extid", "extid_calculate",
     "hhid",  "hhid_calculate",
-    "hhid",  "hh_qr"
+    "hhid",  "hh_qr",
+    "person_absent_reason", "person_absent",
+    "person_absent_reason", "person_unenrolled_migrated",
+    "person_absent_reason", "person_out_absent",
+    "person_absent_reason", "out",
+    "person_absent_reason", "migrated_status"
   )
 
 
@@ -492,7 +498,20 @@ expand_resolution_file_with_connected_cols <- function(resolution_file) {
     dplyr::mutate(`Column` = cascade_to) %>%
     dplyr::select(all_of(names(resolution_file)))
 
+
+  # Expand based on mapping mentioned in this thread for efficacy absences
+  expanded_resolution_file <- expanded_resolution_file %>%
+    dplyr::mutate(`Set To` = case_when(`Set To` == 'Absent' & `Column` == 'person_absent' & `Form` == 'efficacy' ~ "1",
+                                       `Set To` == 'Absent' & `Column` == 'person_unenrolled_migrated' & `Form` == 'efficacy' ~ "0",
+                                       `Set To` == 'Absent' & `Column` == 'person_out_absent' & `Form` == 'efficacy' ~ "1",
+                                       `Set To` == 'Absent' & `Column` == 'out' & `Form` == 'efficacy' ~ "1",
+                                       `Set To` == 'Absent' & `Column` == 'migrated_status' & `Form` == 'efficacy' ~ "0",
+                                       TRUE ~ `Set To`
+                                       ))
+
   output <- dplyr::bind_rows(resolution_file, expanded_resolution_file)
+
+
   return(output)
 
 }
