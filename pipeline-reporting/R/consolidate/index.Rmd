@@ -46,7 +46,8 @@ env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 bucket_source <- 'databrew.org'
 bucket_lake_db <- 'bohemia-reporting'
 prod_cloudfront_url <- 'https://d27fg4iv55pk9u.cloudfront.net'
-odk_url_access <- 'https://databrew.org/-/single/CLd8IzvVNB5pfAm8QZ6aIftTt5r2IO9?st=D9fnhK7iSUaYIhf5$sTRmQS8xmAjnZr2ouvz!45FgU4OjrXLiC4sSyidRjaXjwry'
+cra_url_access <- 'https://databrew.org/-/single/CLd8IzvVNB5pfAm8QZ6aIftTt5r2IO9?st=D9fnhK7iSUaYIhf5$sTRmQS8xmAjnZr2ouvz!45FgU4OjrXLiC4sSyidRjaXjwry'
+site_url_access <- 'https://databrew.org/-/single/wERhS1e7pcpTeqnEpicAWuj3INuKQuC?st=xE5KvLpmFFtQ8dgK6sk3jggvnYaXyF5xn7WL7oxTcWoLH5$n6Z10!pLzORGQuNBU'
 ```
 
 
@@ -141,9 +142,16 @@ data <- cloudbrewr::aws_s3_get_catalog(bucket = bucket_lake_db) %>%
                   url_key, 
                   topic = folder) %>%
     dplyr::ungroup() %>% 
-    dplyr::mutate(odk_url_key = glue::glue('{odk_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}',
-                                                   url_access = url_access,
-                                                   report_id = file_path_sans_ext(basename(report_name))))
+    dplyr::mutate(
+      cra_url_key = glue::glue(
+        '{cra_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}',
+        url_access = url_access,
+        report_id = file_path_sans_ext(basename(report_name))),
+      site_url_key = glue::glue(
+        '{site_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}',
+        url_access = url_access,
+        report_id = file_path_sans_ext(basename(report_name)))
+  )
 ```
 
 ```{r}
@@ -160,10 +168,16 @@ reactable(
                                           data[index, "url_key"], value)
                            htmltools::tags$a(href = url, target = "_blank", 'URL')
                         }),
-        odk_url_key = colDef(name = 'ODK Review URL',
+        cra_url_key = colDef(name = 'CRA Review URL',
                          cell = function(value, index) {
                            url <- sprintf("%s", 
-                                          data[index, "odk_url_key"], value)
+                                          data[index, "cra_url_key"], value)
+                           htmltools::tags$a(href = url, target = "_blank", 'URL')
+                        }),
+        site_url_key = colDef(name = 'Site Review URL',
+                         cell = function(value, index) {
+                           url <- sprintf("%s", 
+                                          data[index, "site_url_key"], value)
                            htmltools::tags$a(href = url, target = "_blank", 'URL')
                         })
     ),
