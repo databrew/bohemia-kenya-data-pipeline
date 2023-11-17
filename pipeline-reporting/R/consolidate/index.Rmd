@@ -6,13 +6,11 @@ date: "`r Sys.time()`"
 output:
   html_document:
     theme: cerulean
+    toc: yes
 ---
 
-### What is this?
-This is the Catalog of all Bohemia BI Reports and how to get there
-
-### Bug Report
-Please report to atediarjo@gmail.com
+### Overview
+This is the Catalog of all Bohemia BI Reports and their respective URLs. Reports are categorized into different topics, to drill down to a certain topic, please expand the `topic` column. Each topic will contain different reports with corresponding report URL and ODK URL (Monitoring)
 
 ```{r, echo=FALSE, message=FALSE}
 knitr::opts_chunk$set(
@@ -33,6 +31,7 @@ library(glue)
 library(fontawesome)
 library(ggplot2)
 library(plotly)
+library(tools)
 ```
 
 ```{r, echo=FALSE}
@@ -42,34 +41,16 @@ htmltools::img(src = knitr::image_uri('../../asset/bohemia.jpg'),
 ```
 
 ```{r}
-create_reactable <- function(data) {
-  reactable(
-    data,
-    columns = list(
-        report_name = colDef(name = 'Report Name', minWidth = 200),
-        size = colDef(name = "Size (kb)"),
-        last_modified = colDef(name = 'Last Modified'),
-        url_key = colDef(name = 'url',
-                         cell = function(value, index) {
-                           url <- sprintf("%s", 
-                                          data[index, "url_key"], value)
-                           htmltools::tags$a(href = url, target = "_blank", 'url')
-                        })
-    ),
-    highlight = TRUE,
-    resizable = TRUE,
-    bordered = TRUE,
-    striped = TRUE)
-}
-```
-
-```{r}
 # variables / creds for ento
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 bucket_source <- 'databrew.org'
 bucket_lake_db <- 'bohemia-reporting'
 prod_cloudfront_url <- 'https://d27fg4iv55pk9u.cloudfront.net'
+odk_url_access <- 'https://databrew.org/-/single/CLd8IzvVNB5pfAm8QZ6aIftTt5r2IO9?st=D9fnhK7iSUaYIhf5$sTRmQS8xmAjnZr2ouvz!45FgU4OjrXLiC4sSyidRjaXjwry'
+```
 
+
+```{r}
 tryCatch({
   logger::log_info('Attempt AWS login')
   # login to AWS - this will be bypassed if executed in CI/CD environment
@@ -101,6 +82,90 @@ data <- cloudbrewr::aws_s3_get_catalog(bucket = bucket_lake_db) %>%
                   folder)
 ```
 
+### Bohemia Data-Ops Reports
+
+This is all reports used in Bohemia Data-Ops team, all reports are updated **hourly 9-5PM EAT and once at 12AM EAT**
+
 ```{r}
-create_reactable(data)
+reactable(
+    data %>% dplyr::filter(topic != 'monitoring'),
+    columns = list(
+        topic = colDef(name = 'Topic', minWidth = 200, filterable = TRUE),
+        report_name = colDef(name = 'Report Name', minWidth = 300, filterable =TRUE),
+        size = colDef(name = "Size (kb)"),
+        last_modified = colDef(name = 'Last Modified', minWidth = 200),
+        url_key = colDef(name = 'Report URL',
+                         cell = function(value, index) {
+                           url <- sprintf("%s", 
+                                          data[index, "url_key"], value)
+                           htmltools::tags$a(href = url, target = "_blank", 'URL')
+                        })
+    ),
+    groupBy = "topic",
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE)
 ```
+
+### Bohemia CRA Weekly Monitoring Reports
+
+This catalog covers all reports for CRA monitoring. **Reports are refreshed every Sunday 12.00AM EAT**, each report will be snapshotted into a corresponding report ID where user will be able to point to a specific ID for review. Please drill-down to check all the report snapshots
+
+```{r}
+data <- cloudbrewr::aws_s3_get_catalog(bucket = bucket_lake_db) %>% 
+    dplyr::filter(stringr::str_detect(key, 'monitoring/')) %>% 
+    dplyr::filter(stringr::str_detect(key, 'icf|lab|pharmacy|sae')) %>% 
+    dplyr::filter(stringr::str_detect(key, 'html')) %>% 
+    dplyr::mutate(grp = dirname(key)) %>% 
+    dplyr::filter(stringr::str_detect(grp, 'icf|lab|pharmacy|sae')) %>%
+  dplyr::mutate(url_key = glue::glue('{prod_cloudfront_url}/{key}')) %>%
+  dplyr::select(-etag) %>%
+  dplyr::mutate(report_name = basename(key)) %>%
+    dplyr::mutate(key_split = stringr::str_split(key, "/")) %>% 
+    dplyr::rowwise() %>% 
+    dplyr::mutate(folder = key_split[2]) %>% 
+    dplyr::filter(key != 'index.html',
+                  size > 0) %>%
+    dplyr::select(report_name, 
+                  size, 
+                  last_modified, 
+                  url_key, 
+                  topic = folder) %>%
+    dplyr::ungroup() %>% 
+    dplyr::mutate(odk_url_key = glue::glue('{odk_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}',
+                                                   url_access = url_access,
+                                                   report_id = file_path_sans_ext(basename(report_name))))
+```
+
+```{r}
+reactable(
+    data,
+    columns = list(
+        topic = colDef(name = 'Topic', minWidth = 200, filterable = TRUE),
+        report_name = colDef(name = 'Report Name', minWidth = 200, filterable =TRUE),
+        size = colDef(name = "Size (kb)"),
+        last_modified = colDef(name = 'Last Modified', minWidth = 200),
+        url_key = colDef(name = 'Report URL',
+                         cell = function(value, index) {
+                           url <- sprintf("%s", 
+                                          data[index, "url_key"], value)
+                           htmltools::tags$a(href = url, target = "_blank", 'URL')
+                        }),
+        odk_url_key = colDef(name = 'ODK Review URL',
+                         cell = function(value, index) {
+                           url <- sprintf("%s", 
+                                          data[index, "odk_url_key"], value)
+                           htmltools::tags$a(href = url, target = "_blank", 'URL')
+                        })
+    ),
+    groupBy = "topic",
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE)
+```
+
+### Bug Reports
+
+Please report bug to `e.elobolobo@gmail.com` / `atediarjo@gmail.com` or to #data-ops Slack channel
