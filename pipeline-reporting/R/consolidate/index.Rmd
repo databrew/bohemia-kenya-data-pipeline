@@ -119,7 +119,7 @@ This catalog covers all reports for CRA monitoring. **Reports are refreshed ever
 
 2. To check on the reports, click the URL under `Report URL`
 
-3. To provide monitoring review, click the URL under `ODK Review URL` where it will pre-fill ODK Forms with the report ID you need
+3. To provide monitoring review, click the URL under `CRA Review URL` and `Site Review URL` depending on user. Clicking the URL will pre-fill forms with corresponding `Report ID` to report findings
 
 ```{r}
 data <- cloudbrewr::aws_s3_get_catalog(bucket = bucket_lake_db) %>% 
