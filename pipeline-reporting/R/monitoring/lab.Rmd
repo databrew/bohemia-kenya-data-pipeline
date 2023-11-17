@@ -265,11 +265,11 @@ eff_hist <- purrr::map_dfr(date_list, function(d){
 samples_in_eff_by_run <- eff_hist %>%
     dplyr::anti_join(lab_hist, 
                      by = c('run_date', 'sample')) %>% 
-  dplyr::filter(run_date == MIN_DATE)
+  dplyr::filter(run_date >= MIN_DATE)
 samples_in_lab_by_run <- lab_hist %>%
     dplyr::anti_join(samples_in_eff_by_run,
                      by = c('run_date', 'sample')) %>% 
-  dplyr::filter(run_date == MIN_DATE)
+  dplyr::filter(run_date >= MIN_DATE)
 ```
 
 ### a). Pending – samples pending for >10 days
