@@ -1,0 +1,235 @@
+---
+title: "PFU Report"
+output: 
+  html_document:
+    toc: true
+    theme: cerulean
+date: '`r Sys.time()`'
+---
+
+Notes:
+
+- Report is refreshed hourly 9-5pm EAT, once 12AM EAT
+- Please reach out to nikamgorski@gmail.com for bug reports
+
+
+```{r, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  comment = '', 
+  echo = FALSE,
+  message = FALSE,
+  cache=FALSE,
+  warning=FALSE
+)
+```
+
+```{r setup, include=FALSE}
+### PURPOSE:
+# determine how many woman had submissions for PFU; enter only as in and only thing that can happen is become EOS. So interesting to know how many submissions and out of this how many are in and EOS and of EOS why EOS (miscarriage, abortion, etc.) ~ look at Paula's dm about this below.
+# 1. Dead, migrated 2. Does not confirm 3. Absent 4 times on a row: LTFU (lost to follow up) 4. No longer pregnant; If not: What happened? □ Baby was born alive □ Miscarriage/loss of baby (no visible baby or less than 5 months since last menstrual period) □ Abortion (self-induced) □ Baby was born dead □ Prefer not to answer
+
+# load required libraries
+library(dplyr)
+library(reactable)
+library(data.table)
+library(cloudbrewr)
+library(fontawesome)
+library(shiny)
+library(ggplot2)
+library(tidyr)
+
+ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
+DATA_STAGING_BUCKET_NAME <- 'databrew.org'
+DATA_LAKE_BUCKET_NAME <- 'bohemia-lake-db'
+PROJECT_SOURCE <- 'kwale'
+SE_FOLDER_TARGET <- glue::glue('{PROJECT_SOURCE}/clean-form')
+
+pad_hhid <- function(data){
+  if('hhid' %in% names(data)){
+    data %>%
+      dplyr::mutate(hhid = stringr::str_pad(hhid, 5, pad = "0"))
+  }else{
+    data
+  }
+}
+
+
+tryCatch({
+  logger::log_info('Attempt AWS login')
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = 'cloudbrewr-aws-role',
+    profile_name =  'cloudbrewr-aws-role',
+    pipeline_stage = ENV_PIPELINE_STAGE)
+
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+
+
+# load in the data
+pfu <- cloudbrewr::aws_s3_get_table(
+  bucket = DATA_STAGING_BUCKET_NAME,
+  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/pfu/pfu.csv')) %>%
+  pad_hhid()
+
+pfu_repeat <- cloudbrewr::aws_s3_get_table(
+  bucket = DATA_STAGING_BUCKET_NAME,
+  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/pfu/pfu-repeat_preg_symptom.csv')) %>%
+  pad_hhid()
+
+# this is a function to create a download csv button
+wrap_download <- function(reactable_obj, element_id, output_filename){
+  onclick_command <- glue::glue(
+    "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
+  htmltools::browsable(
+    tagList(
+      tags$button(
+        tagList(fontawesome::fa("download"), "Download as CSV"),
+        onclick = onclick_command),
+      reactable_obj
+    ))
+}
+```
+
+```{r targets}
+# make a table of people visited, households visited, and targets
+
+# these numbers are determined from the efficacy target csvs sent by Joe
+target_table <- rbind(data.frame(
+  Visit = c('PFU V2', 'PFU V3'),
+  'Child target' = c('TBD', 'TBD'),
+  'HH target' = c('TBD', 'TBD')))
+
+# identify how many households were visited in V1 and V2
+pfu_v2 <- pfu %>%
+  filter(visit == 'V2') %>%
+  group_by(hhid) %>%
+  summarise(count = n()) %>%
+  mutate(
+    Visit = 'PFU V2',
+    `HH visited` = n() # Replace nrow(hhid) with n() to count the households visited
+  ) %>%
+  select(Visit, `HH visited`) %>% # Selecting only the required columns %>%
+  distinct(Visit, .keep_all = TRUE)
+
+pfu_v3 <- pfu %>%
+  filter(visit == 'V3') %>%
+  group_by(hhid) %>%
+  summarise(count = n()) %>%
+  mutate(
+    Visit = 'PFU V3',
+    `HH visited` = n() # Replace nrow(hhid) with n() to count the households visited
+  ) %>%
+  select(Visit, `HH visited`) %>% # Selecting only the required columns %>%
+  distinct(Visit, .keep_all = TRUE)
+
+total_pfu <- rbind(pfu_v2, pfu_v3)
+
+# join the number of households visited and targets
+target_table <- left_join(target_table, total_pfu, by=('Visit'))
+```
+
+```{r status}
+# make a table of the number of women in, eos, and total visited for each visit
+
+# V2
+pfu_v2 <- pfu %>%
+  filter(visit == 'V2') 
+
+  # change Status from logical to character
+  pfu_v2$Status <- as.character(pfu_v2$Status)
+
+  pfu_totals_v2 <- pfu_v2 %>%
+      group_by(Status) %>%
+      summarise('Number of people visited in V2 (target: ?)' = n()) %>%
+      arrange(Status) %>%
+      rename('PFU status' = Status) %>%
+      add_row('PFU status' = 'total people visited', 
+              'Number of people visited in V2 (target: ?)' = sum(.$'Number of people visited in V2 (target: ?)')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V2 (target: ?)`)) / as.numeric(nrow(pfu_v2)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%'))
+```
+
+```{r eos_reason}
+# create a table of the reasons a woman is eos
+
+pfu_eos_v2 <- pfu_v2 %>%
+  select(extid, hhid, cluster, ltfu_eos, person_died_eos, person_migrated_eos, fourth_absence_eos, not_continue_eos, still_preg_no_eos, still_preg_no_reason) %>%
+  mutate(reason = case_when(ltfu_eos == '1' |
+                              fourth_absence_eos == '1' ~ 'absent 4 times in a row: ltfu',
+                            person_died_eos == '1' ~ 'died',
+                            person_migrated_eos == '1' ~ 'migrated',
+                            not_continue_eos == '1' ~ 'not wish to continue',
+                            still_preg_no_eos == '1' ~ 'no longer pregnant',
+                            still_preg_no_reason == 'Baby was born alive' ~ 'no longer pregnant - baby born alive',
+                            still_preg_no_reason == 'Miscarriage' ~ 'no longer pregnant - miscarriage',
+                            still_preg_no_reason == 'Abortion (self-induced)' ~ 'no longer pregnant - abortion (self-induced)',
+                            still_preg_no_reason == 'Baby was born dead' ~ 'no longer pregnant - baby was born dead',
+                            still_preg_no_reason == 'pna' ~ 'no longer pregnant - prefer not to answer'))
+
+  eos_reasons_v2 <- pfu_eos_v2 %>%
+      group_by(reason) %>%
+      summarise('Number of refusal people' = n()) %>%
+      arrange(reason) %>%
+      rename('Reason for refusal' = reason) %>%
+      add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(pfu_eos_v2)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+```
+
+## PFU targets
+```{r target_show}
+reactable(target_table, columns = list(), pagination = FALSE)
+```
+
+## V2 Numbers
+```{r table_status}
+reactable(pfu_totals_v2, columns = list(
+  `Percent complete` = colDef(align = "right")
+))
+
+# make a note of the real total number of people visited without repeats
+if (any(duplicated(pfu_totals_v2$extid))) {
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(pfu_totals_v2$extid)), "\n")
+} else {
+  "Note: There are no duplicates based on extid in the data."
+}
+```
+
+### eos
+```{r table_eos_reason}
+reactable(eos_reasons_v2, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# write which reasons do not appear in the table
+# Specify the names you want to check for
+names_to_check <- c('absent 4 times in a row: ltfu',
+                    'died',
+                    'migrated',
+                    'not wish to continue',
+                    'no longer pregnant - baby born alive',
+                    'no longer pregnant - miscarriage',
+                    'no longer pregnant - abortion (self-induced)',
+                    'no longer pregnant - baby was born dead',
+                    'no longer pregnant - prefer not to answer')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% eos_reasons_v2$reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("Note: The reasons like (", paste0(not_found_names, collapse = " / "), ") are not shown because it is not a reason for anyone being eos.")
+}
+```

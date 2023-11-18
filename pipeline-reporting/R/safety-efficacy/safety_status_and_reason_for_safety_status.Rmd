@@ -112,27 +112,12 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
 ```
 
 ```{r targets}
-# these numbers are determined from the efficacy target csvs sent by Joe
-target_table <- data.frame(
-  Visit = 'Safety V1',
-  `HH target` = '5,847',
-  `Child target` = '28,478'
-)
+# these numbers are determined from the safety target csvs sent by Joe
+target_table <- rbind(data.frame(
+  Visit = c('Safety V1', 'Safety V2'),
+  'Person target' = c('28478', '26484'),
+  'HH target' = c('5847', '5492')))
 
-add_row <- data.frame(
-  Visit = 'Safety V2',
-  `HH target` = '5,492',
-  `Child target` = '26,484'
-)
-
-target_table <- bind_rows(target_table, add_row)
-```
-
-```{r totals}
-## this will create the table of how many people are in, out, refusal, or eos
-## it is broken up into each visit number
-
-### V1
 # only take the necessary columns (extid and safety_status) from the datasets
 clean_safety_repeat <- safety_repeat_individual %>%
   select(PARENT_KEY, extid, safety_status, sex)
@@ -141,9 +126,9 @@ clean_safetynew_repeat <- safetynew_repeat_individual %>%
   rename(safetynew_status = safety_status,
          sex_safetynew = sex)
 clean_safety <- safety %>%
-  select(KEY, visit, cluster, todays_date)
+  select(KEY, visit, cluster, hhid, todays_date)
 clean_safetynew <- safetynew %>%
-  select(KEY, visit, cluster, todays_date)
+  select(KEY, visit, cluster, hhid, todays_date)
 
 # join safety and safety repeat and do the same for safetynew
 joined_safety <- left_join(clean_safety_repeat, clean_safety, by=c('PARENT_KEY' = 'KEY'))
@@ -152,14 +137,49 @@ joined_safetynew <- left_join(clean_safetynew_repeat, clean_safetynew, by=c('PAR
 # join these two new dataframes
 total_safety <- bind_rows(joined_safety, joined_safetynew)
 
-# and make the safetynew_status and safety_status into one column and the sexes
+# identify how many households were visited in V1 and V2
+total_safety_v1 <- total_safety %>%
+  filter(visit == 'V1') %>%
+  group_by(hhid) %>%
+  summarise(count = n()) %>%
+  mutate(
+    Visit = 'Safety V1',
+    `HH visited` = n() # Replace nrow(hhid) with n() to count the households visited
+  ) %>%
+  select(Visit, `HH visited`) %>% # Selecting only the required columns %>%
+  distinct(Visit, .keep_all = TRUE)
+
+total_safety_v2 <- total_safety %>%
+  filter(visit == 'V2') %>%
+  group_by(hhid) %>%
+  summarise(count = n()) %>%
+  mutate(
+    Visit = 'Safety V2',
+    `HH visited` = n() # Replace nrow(hhid) with n() to count the households visited
+  ) %>%
+  select(Visit, `HH visited`) %>% # Selecting only the required columns %>%
+  distinct(Visit, .keep_all = TRUE)
+
+total_safety_v1_2 <- rbind(total_safety_v1, total_safety_v2)
+
+# join the number of households visited and targets
+target_table <- left_join(target_table, total_safety_v1_2, by=('Visit'))
+```
+
+```{r totals}
+## this will create the table of how many people are in, out, refusal, or eos
+## it is broken up into each visit number
+
+### V1
+
+# make the safetynew_status and safety_status into one column and the sexes
 total_safety <- total_safety %>%
   mutate(safetystatus = coalesce(safety_status, safetynew_status),
                                  sex = coalesce(sex, sex_safetynew)) %>% 
   select(extid, safetystatus, cluster, sex, todays_date, visit) %>%
   filter(safetystatus != 'UNDEFINED') # we find an UNDEFINED from someone most likely submitting a form without filling it out so we will remove NA from extid 
 
-# since this is only a table for V1 we will only keep V1 people
+# since this is only a table for V1 we will only keep V1 people from total_safety
 total_safety_v1 <- total_safety %>%
   filter(visit == 'V1')
 
@@ -264,8 +284,8 @@ safety_eos_v1$reason[safety_eos_v1$sum_night_hospital_eos >= 1] <- 'spent night 
 
 # conditions for pregnancy_section_eos_short
 safety_eos_v1$reason[safety_eos_v1$preg_test_refuse_eos_short == 1] <- 'pregnancy test refusal'
-safety_eos_v1$reason[safety_eos_v1$preg_test_pos_eos_short == 1] <- 'pregnant'
-safety_eos_v1$reason[safety_eos_v1$preg_test_2_eos_short == 1] <- 'pregnant'
+safety_eos_v1$reason[safety_eos_v1$preg_test_pos_eos_short == 1 |
+                       safety_eos_v1$preg_test_2_eos_short == 1] <- 'pregnant'
 
 # conditions for short_safety_inclusion_eos
 safety_eos_v1$reason[safety_eos_v1$pregnancy_section_eos_short == 1] <- 'pregnant'
@@ -274,8 +294,8 @@ safety_eos_v1$reason[safety_eos_v1$concom_meds_eos_short == 1] <- 'concom meds'
 safety_eos_v1$reason[safety_eos_v1$severe_illness_eos_short == 1] <- 'severe illness'
 
 # conditions for refuse_drug_eos
-safety_eos_v1$reason[safety_eos_v1$refuse_drug_eos == 1] <- 'participant withdrew informed consent'
-safety_eos_v1$reason[safety_eos_v1$refuse_drug_eos_2 == 1] <- 'participant withdrew informed consent'
+safety_eos_v1$reason[safety_eos_v1$refuse_drug_eos == 1 |
+                       safety_eos_v1$refuse_drug_eos_2 == 1] <- 'participant withdrew informed consent'
 
 # next let's determine the reason someone is eos in the safetynew repeat individual data
 safetynew_eos <- safetynew_repeat_individual %>%
@@ -297,14 +317,14 @@ safetynew_eos_v1$reason[safetynew_eos_v1$study_drug_eos == 1] <- 'study drug'
 safetynew_eos_v1$reason[safetynew_eos_v1$concom_meds_eos == 1] <- 'concom meds'
 safetynew_eos_v1$reason[safetynew_eos_v1$severe_illness_eos == 1] <- 'severe illness'
 safetynew_eos_v1$reason[safetynew_eos_v1$baby_not_week_old_eos == 1] <- 'baby under 1 week'
-safetynew_eos_v1$reason[safetynew_eos_v1$pregnant_eos == 1] <- 'pregnant'
-safetynew_eos_v1$reason[safetynew_eos_v1$pregnancy_section_eos == 1] <- 'pregnant'
+safetynew_eos_v1$reason[safetynew_eos_v1$pregnant_eos == 1 | 
+                          safetynew_eos_v1$pregnancy_section_eos == 1] <- 'pregnant'
 safetynew_eos_v1$reason[safetynew_eos_v1$other_trials_eos == 1] <- 'other trials'
 safetynew_eos_v1$reason[safetynew_eos_v1$loa_loa_eos == 1] <- 'visited loa loa'
 
 # conditions for refuse_drug_eos
-safetynew_eos_v1$reason[safetynew_eos_v1$refuse_drug_eos == 1] <- 'participant withdrew informed consent'
-safetynew_eos_v1$reason[safetynew_eos_v1$refuse_drug_eos_2 == 1] <- 'participant withdrew informed consent'
+safetynew_eos_v1$reason[safetynew_eos_v1$refuse_drug_eos == 1 |
+                          safetynew_eos_v1$refuse_drug_eos_2 == 1] <- 'participant withdrew informed consent'
 
 # join safetynew_eos and safety_eos by extid, safety status, and reason
 total_safe_eos_v1 <- bind_rows(safety_eos_v1, safetynew_eos_v1)
@@ -654,21 +674,21 @@ reactable(eos_reasons_followup_v2, columns = list(
 
 # because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
 # Specify the names you want to check for
-names_to_check <- c('not agree to safety procedures', 'not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'other trials', 'visited loa loa', 'participant withdrew informed consent', 'pregnancy test refusal', 'spent night at the hospital')
+names_to_check <- c('not wish to continue', 'not agree to safety procedures', 'not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'other trials', 'visited loa loa', 'spent night at the hospital', 'pregnancy test refusal', 'participant withdrew informed consent', 'died', 'migrated', 'eos in V1')
 
 # Initialize a vector to store names not found
 not_found_names <- character(0)
 
 # Check each name
 for (name in names_to_check) {
-  if (!name %in% eos_reasons_followup_v2$reason) {
+  if (!name %in% eos_reasons_followup_v2$'Reason for eos') {
     not_found_names <- c(not_found_names, name)
   }
 }
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("Note: The reasons (", paste0(not_found_names, collapse = ", "), ") are not shown because it is not a reason for anyone being missing.")
+  cat("Note: The reasons (", paste0(not_found_names, collapse = "/ "), ") are not shown because it is not a reason for anyone being missing.")
 }
 ```
 
@@ -680,14 +700,14 @@ reactable(eos_reasons_enrolment_v2, columns = list(
 
 # because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
 # Specify the names you want to check for
-names_to_check <- c('not agree to safety procedures', 'not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'other trials', 'visited loa loa', 'participant withdrew informed consent', 'pregnancy test refusal', 'spent night at the hospital')
+names_to_check <- c('not agree to safety procedures', 'not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant, other trials', 'visited loa loa', 'participant withdrew informed consent')
 
 # Initialize a vector to store names not found
 not_found_names <- character(0)
 
 # Check each name
 for (name in names_to_check) {
-  if (!name %in% eos_reasons_enrolment_v2$reason) {
+  if (!name %in% eos_reasons_enrolment_v2$'Reason for eos') {
     not_found_names <- c(not_found_names, name)
   }
 }
@@ -764,14 +784,14 @@ reactable(eos_reasons_v1, columns = list(
 
 # because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
 # Specify the names you want to check for
-names_to_check <- c('not agree to safety procedures', 'not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'other trials', 'visited loa loa', 'participant withdrew informed consent', 'pregnancy test refusal', 'spent night at the hospital', 'migrated', 'died')
+names_to_check <- c('not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'other trials', 'visited loa loa', 'spent night at the hospital', 'pregnancy test refusal', 'pregnant', 'participant withdrew informed consent', 'not agree to safety procedures')
 
 # Initialize a vector to store names not found
 not_found_names <- character(0)
 
 # Check each name
 for (name in names_to_check) {
-  if (!name %in% safety_eos_v1$reason) {
+  if (!name %in% eos_reasons_v1$'Reason for eos') {
     not_found_names <- c(not_found_names, name)
   }
 }
