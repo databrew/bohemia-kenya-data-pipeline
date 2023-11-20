@@ -88,8 +88,9 @@ data <- cloudbrewr::aws_s3_get_catalog(bucket = bucket_lake_db) %>%
 This is all reports used in Bohemia Data-Ops team, all reports are updated **hourly 9-5PM EAT and once at 12AM EAT**
 
 ```{r}
+d <- data %>% dplyr::filter(topic != 'monitoring')
 reactable(
-    data %>% dplyr::filter(topic != 'monitoring'),
+    d,
     columns = list(
         topic = colDef(name = 'Topic', minWidth = 200, filterable = TRUE),
         report_name = colDef(name = 'Report Name', minWidth = 300, filterable =TRUE),
@@ -98,7 +99,7 @@ reactable(
         url_key = colDef(name = 'Report URL',
                          cell = function(value, index) {
                            url <- sprintf("%s", 
-                                          data[index, "url_key"], value)
+                                          d[index, "url_key"], value)
                            htmltools::tags$a(href = url, target = "_blank", 'URL')
                         })
     ),

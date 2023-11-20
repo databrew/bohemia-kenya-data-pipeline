@@ -400,7 +400,7 @@ efficacy_refusal_v2 <- efficacy_refusal %>%
 
 ```{r rdt-results}
 eff_results <- efficacy %>%
-  select(extid, cluster, pan_result, pf_result, visit) %>%
+  select(extid, cluster, pan_result, pf_result, visit, efficacy_status) %>%
   mutate(combination = case_when(pan_result == 'Positive' & pf_result == 'Positive' ~ 'pan + pf +',
                                  pan_result == 'Negative' & pf_result == 'Negative' ~ 'pan - pf -',
                                  pan_result == 'Positive' & pf_result == 'Negative' ~ 'pan + pf -',
@@ -408,15 +408,17 @@ eff_results <- efficacy %>%
                                  pan_result == '' & pf_result == '' ~ 'blank test responses'))
 
 eff_results_v1 <- eff_results %>%
-  filter(visit == 'V1')
+  filter(visit == 'V1', 
+         efficacy_status == 'in')
 
 # make combination into individual columns
 eff_results_v1_edited <- eff_results_v1 %>%
-  mutate(pos_pos = as.numeric(grepl("pan + pf +", combination)),
-         pos_neg = as.numeric(grepl("pan + pf -", combination)),
-         neg_pos = as.numeric(grepl("pan - pf +", combination)),
-         neg_neg = as.numeric(grepl("pan - pf -", combination))
-         )
+  mutate(
+    neg_pos = ifelse(pan_result == 'Negative' & pf_result == 'Positive', 1, 0),
+    pos_neg = ifelse(pan_result == 'Positive' & pf_result == 'Negative', 1, 0),
+    pos_pos = ifelse(pan_result == 'Positive' & pf_result == 'Positive', 1, 0),
+    neg_neg = ifelse(pan_result == 'Negative' & pf_result == 'Negative', 1, 0)
+  )
 
 # Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
 eff_cluster_rdt_results_v1 <- eff_results_v1_edited %>%
@@ -645,6 +647,7 @@ reactable(eff_rdt_prop_totals_v1, columns = list(
   `Percent` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 ```
+######    Note: the rdt test results only look at children with an efficacy status of 'in'
 
 #### rdt results by cluster in v1
 ```{r rdt-results-by-cluster}
