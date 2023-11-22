@@ -127,6 +127,10 @@ purrr::map(config::get('odk_projects'), function(project_name){
                                          tryCatch({
                                            if(project_name == 'kwale' &
                                               nrow(raw) > 0){
+
+                                             raw <- raw %>%
+                                               standardize_col_dobs('dob') %>%
+                                               standardize_col_dobs('dob_string')
                                              clean <- google_sheets_fix(
                                                 data = raw,
                                                 form_id = form_id,
