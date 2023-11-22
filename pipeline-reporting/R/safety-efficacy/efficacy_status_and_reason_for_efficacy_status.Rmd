@@ -100,6 +100,11 @@ safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safetynew/safetynew-repeat_individual.csv')) %>%
   pad_hhid()
 
+efficacy_targets <- cloudbrewr::aws_s3_get_table(
+  bucket ='bohemia-lake-db',
+  key = glue::glue('bohemia_prod/dwh/goal_efficacy_targets/goal_efficacy_targets.csv')) %>%
+  pad_hhid()
+
 # this is a function to create a download csv button
 wrap_download <- function(reactable_obj, element_id, output_filename){
   onclick_command <- glue::glue(
@@ -115,39 +120,28 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
 ```
 
 ```{r targets}
-# these numbers are determined from the efficacy target csvs sent by Joe
-target_table <- rbind(data.frame(
-  Visit = c('Efficacy V1', 'Efficacy V2'),
-  'Child target' = c('2877', 'TBD'),
-  'HH target' = c('1258', 'TBD')))
+# these numbers are determined by Aryton based on Joe's logic and are stored in AWS
+target_table <- efficacy_targets %>%
+  group_by(visit) %>%
+  summarise(hh_target = sum(hh_target),
+            ind_target = sum(ind_target))
 
 # identify how many households were visited in V1 and V2
-total_efficacy_v1 <- efficacy %>%
-  filter(visit == 'V1') %>%
-  group_by(hhid) %>%
-  summarise(count = n()) %>%
-  mutate(
-    Visit = 'Efficacy V1',
-    `HH visited` = n() # Replace nrow(hhid) with n() to count the households visited
-  ) %>%
-  select(Visit, `HH visited`) %>% # Selecting only the required columns %>%
-  distinct(Visit, .keep_all = TRUE)
-
-total_efficacy_v2 <- efficacy %>%
-  filter(visit == 'V2') %>%
-  group_by(hhid) %>%
-  summarise(count = n()) %>%
-  mutate(
-    Visit = 'Efficacy V2',
-    `HH visited` = n() # Replace nrow(hhid) with n() to count the households visited
-  ) %>%
-  select(Visit, `HH visited`) %>% # Selecting only the required columns %>%
-  distinct(Visit, .keep_all = TRUE)
-
-total_efficacy_v1_2 <- rbind(total_efficacy_v1, total_efficacy_v2)
+total_efficacy <- efficacy %>%
+  group_by(visit) %>%
+  summarise(hh_visited = n_distinct(hhid),
+            ind_visited = n_distinct(extid))
 
 # join the number of households visited and targets
-target_table <- left_join(target_table, total_efficacy_v1_2, by=('Visit'))
+target_table <- left_join(target_table, total_efficacy, by = c('visit'))
+
+target_table <- target_table %>%
+  select(visit, ind_target, ind_visited, hh_target, hh_visited) %>%
+  rename(Visit = visit,
+         'Individual target' = ind_target,
+         'Individual visited' = ind_visited,
+         'HH target' = hh_target,
+         'HH visited' = hh_visited)
 ```
 
 ```{r total}
