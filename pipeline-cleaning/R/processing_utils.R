@@ -70,6 +70,15 @@ standardize_col_value_case <- function(data, col_names){
   })
 }
 
+standardize_col_dobs <- function(data, col_names){
+  tryCatch({
+    data %>%
+      dplyr::mutate(!!sym(col_names) := lubridate::date(!!sym(col_names)))
+  }, error = function(e){
+    return(data)
+  })
+}
+
 standardize_village <- function(data) {
   tryCatch({
     data %>%
@@ -479,7 +488,6 @@ expand_resolution_file_with_connected_cols <- function(resolution_file) {
   mapping <-   tribble(
     ~source, ~cascade_to,
     "dob",   "dob_select",
-    "dob",   "dob_pulled",
     "dob",   "dob_string",
     "extid", "extid_calculate",
     "hhid",  "hhid_calculate",
