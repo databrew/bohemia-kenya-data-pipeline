@@ -174,13 +174,17 @@ lab_metadata_zp <- cloudbrewr::aws_s3_get_object(
 ) 
 
 
-incidences_mapping <- lab %>% 
+lab1_incidences_mapping <- lab %>% 
     dplyr::select(sample, 
+                  study,
+                  instanceID,
+                  SubmissionDate,
                   sample_status,
                   match_tracking_incidence_select, 
                   match_tracking_incidence_select2,
                   pending_incidence_select,
-                  quarantine_incidence_select) %>% 
+                  quarantine_incidence_select,
+                  extid) %>% 
     dplyr::mutate(across(where(is.character), ~na_if(., ""))) %>% 
     dplyr::mutate(across(where(is.character), ~na_if(., "none"))) %>%
     dplyr::mutate(incidences = case_when(
@@ -193,17 +197,32 @@ incidences_mapping <- lab %>%
             coalesce(quarantine_incidence_select, 
                      coalesce(match_tracking_incidence_select2, match_tracking_incidence_select))
     )) %>% 
-    dplyr::select(sample, sample_status, incidences, everything())
+    dplyr::select(extid, instanceID, SubmissionDate, sample, sample_status, incidences, study) %>% 
+    dplyr::mutate(source = 'lab')
 
-unzip(lab_metadata_zp$file_path, exdir = '/tmp')
 
-lab_metadata <- fread('/tmp/lab_metadata/lab_data.csv') %>%
-    dplyr::mutate(dob = stringr::str_remove(dob, ".")) %>% 
-    dplyr::mutate(age_new = as.numeric((lubridate::date(start_time) - lubridate::date(dob))/365.25)) 
+lab2_incidences_mapping <- lab2 %>% 
+    dplyr::select(
+      sample, 
+      study,
+      instanceID,
+      SubmissionDate,
+      sample_status,
+      quarantine_incidence_select,
+      extid) %>% 
+    dplyr::mutate(across(where(is.character), ~na_if(., ""))) %>% 
+    dplyr::mutate(across(where(is.character), ~na_if(., "none"))) %>%
+    dplyr::mutate(incidences = case_when(
+      sample_status == "Quarantine" ~ quarantine_incidence_select, TRUE ~ NA_character_
+    )) %>% 
+    dplyr::select(extid, instanceID, SubmissionDate, sample, sample_status, incidences, study) %>% 
+    dplyr::mutate(source = 'lab2')
 
 ```
 
 ```{r}
+version <- format(floor_date(lubridate::today(), 'week'), "%Y%m%d")
+
 mapping <- dplyr::tribble(
   ~incidences, ~incidences_long,
   'date_unavailable',	'Data not available',
@@ -216,15 +235,14 @@ mapping <- dplyr::tribble(
   'other',	'Other'
 )
 
-version <- format(floor_date(lubridate::today(), 'week'), "%Y%m%d")
-lab <- lab %>% 
+incidences_mapping <- dplyr::bind_rows(lab1_incidences_mapping,lab2_incidences_mapping) %>% 
     dplyr::ungroup() %>% 
     dplyr::rowwise() %>%
     dplyr::mutate(incidences = stringr::str_split(incidences, pattern=" ")) %>% 
     tidyr::unnest(incidences) %>% 
     dplyr::ungroup() %>% 
     dplyr::left_join(mapping) %>% 
-    dplyr::mutate(incidences =incidences_long)
+    dplyr::mutate(incidences = incidences_long) 
 ```
 
 ---
@@ -238,7 +256,7 @@ max_date <- lubridate::today()
 date_list <- seq.Date(min_date, max_date, "days")
 
 lab_hist <- purrr::map_dfr(date_list, function(d){
-  lab %>% 
+  incidences_mapping %>% 
     dplyr::mutate(run_date = d) %>% 
     dplyr::filter(SubmissionDate <= d)
 })
@@ -291,12 +309,12 @@ reactable(tbl)
 
 ```{r}
 from_lab <- samples_in_lab_by_run %>% 
+    dplyr::filter(run_date == floor_date(lubridate::today(), 'week')) %>%
     dplyr::ungroup() %>% 
     dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
     dplyr::filter(run_date == week_start) %>%
     dplyr::mutate(age = as.numeric(difftime(lubridate::date(run_date), 
-                                            lubridate::date(SubmissionDate), units = "days")),
-                  source = "Lab") %>% 
+                                            lubridate::date(SubmissionDate), units = "days"))) %>% 
     dplyr::select(-week_start) %>% 
     dplyr::filter(sample_status == 'Pending') %>% 
     dplyr::select(run_date, source, 
@@ -349,10 +367,10 @@ reactable(tbl)
 from_lab <- samples_in_lab_by_run %>% 
     dplyr::ungroup() %>% 
     dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
+    dplyr::filter(run_date == floor_date(lubridate::today(), 'week')) %>%
     dplyr::filter(run_date == week_start) %>%
     dplyr::mutate(age = as.numeric(difftime(lubridate::date(run_date), 
-                                            lubridate::date(SubmissionDate), units = "days")),
-                  source = "Lab") %>% 
+                                            lubridate::date(SubmissionDate), units = "days"))) %>% 
     dplyr::select(-week_start) %>% 
     dplyr::select(instanceID, source, sample_status, run_date, sample, SubmissionDate, extid, age, incidences) %>% 
     dplyr::filter(sample_status == 'Quarantine')  %>% 
@@ -410,6 +428,7 @@ reactable(tbl)
 ```{r}
 from_field <- samples_in_eff_by_run %>% 
     dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
+    dplyr::filter(run_date == floor_date(lubridate::today(), 'week')) %>%
     dplyr::filter(run_date == week_start) %>%
     dplyr::mutate(age = as.numeric(difftime(lubridate::date(run_date), 
                                             lubridate::date(SubmissionDate), units = "days")),

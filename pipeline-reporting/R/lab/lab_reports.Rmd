@@ -195,7 +195,7 @@ incidences_mapping_all <- dplyr::bind_rows(lab1_incidences_mapping,lab2_incidenc
     tidyr::unnest(incidences) %>% 
     dplyr::ungroup() %>% 
     dplyr::left_join(mapping) %>% 
-    dplyr::mutate(incidences = incidences_long) 
+    dplyr::mutate(incidences = incidences_long)
 
 
 incidences_mapping <- incidences_mapping_all %>% 
@@ -212,11 +212,13 @@ incidences_mapping <- incidences_mapping_all %>%
 report_list <- list()
 
 report_list$eff <-  lab_metadata %>% 
+    dplyr::filter(study == 'efficacy') %>%
     dplyr::summarise(val = n_distinct(sample)) %>% 
     dplyr::mutate(metric = 'Samples collected to date (field)',
                   study = 'efficacy')
 
 report_list$pk <-  lab_metadata %>% 
+    dplyr::filter(study == 'pk') %>%
     dplyr::summarise(val = n_distinct(sample)) %>% 
     dplyr::mutate(metric = 'Samples collected to date (field)',
                   study = 'pk')
