@@ -121,9 +121,11 @@ lab_metadata_zp <- cloudbrewr::aws_s3_get_object(
   key = 'metadata/lab_metadata.zip'
 ) 
 
-
-incidences_mapping <- lab %>% 
+lab1_incidences_mapping <- lab %>% 
     dplyr::select(sample, 
+                  study,
+                  instanceID,
+                  SubmissionDate,
                   sample_status,
                   match_tracking_incidence_select, 
                   match_tracking_incidence_select2,
@@ -141,27 +143,85 @@ incidences_mapping <- lab %>%
             coalesce(quarantine_incidence_select, 
                      coalesce(match_tracking_incidence_select2, match_tracking_incidence_select))
     )) %>% 
-    dplyr::select(sample, sample_status, incidences, everything())
+    dplyr::select(instanceID, SubmissionDate, sample, sample_status, incidences, study) %>% 
+    dplyr::mutate(source = 'lab')
+
+
+lab2_incidences_mapping <- lab2 %>% 
+    dplyr::select(
+      sample, 
+      study,
+      instanceID,
+      SubmissionDate,
+      sample_status,
+      quarantine_incidence_select) %>% 
+    dplyr::mutate(across(where(is.character), ~na_if(., ""))) %>% 
+    dplyr::mutate(across(where(is.character), ~na_if(., "none"))) %>%
+    dplyr::mutate(incidences = case_when(
+      sample_status == "Quarantine" ~ quarantine_incidence_select, TRUE ~ NA_character_
+    )) %>% 
+    dplyr::select(instanceID, SubmissionDate, sample, sample_status, incidences, study) %>% 
+    dplyr::mutate(source = 'lab2')
+
+
+
+
 
 unzip(lab_metadata_zp$file_path, exdir = '/tmp')
 
 lab_metadata <- fread('/tmp/lab_metadata/lab_data.csv') %>%
-    dplyr::mutate(dob = stringr::str_remove(dob, ".")) %>% 
-    dplyr::mutate(age_new = as.numeric((lubridate::date(start_time) - lubridate::date(dob))/365.25)) 
+    dplyr::mutate(dob = stringr::str_remove(dob, ".")) %>%
+    dplyr::mutate(age_new = as.numeric((lubridate::date(start_time) - lubridate::date(dob))/365.25))
 
 ```
+
+```{r}
+mapping <- dplyr::tribble(
+  ~incidences, ~incidences_long,
+  'date_unavailable',	'Data not available',
+  'samples_not_dry',	'Samples not dry',
+  'dbs_incomplete',	'DBS incomplete',
+  'participant_issue',	'Participant not preselected or wrong age',
+  'tracking_issue',	'Sample not in the tracking form',
+  'data_mismatch',	'Data don’t match',
+  'icf_status',	'ICF Status: Unresolved/Lost Not-Found',
+  'other',	'Other'
+)
+
+incidences_mapping_all <- dplyr::bind_rows(lab1_incidences_mapping,lab2_incidences_mapping) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::rowwise() %>%
+    dplyr::mutate(incidences = stringr::str_split(incidences, pattern=" ")) %>% 
+    tidyr::unnest(incidences) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::left_join(mapping) %>% 
+    dplyr::mutate(incidences = incidences_long) 
+
+
+incidences_mapping <- incidences_mapping_all %>% 
+    dplyr::group_by(sample) %>% 
+    dplyr::mutate(max_submission = max(SubmissionDate)) %>% 
+    dplyr::filter(SubmissionDate == max_submission) %>% 
+    dplyr::ungroup()
+```
+
 
 ### a. Lab Summary Table
 
 ```{r}
 report_list <- list()
-report_list$eff <- lab_metadata %>% 
-    dplyr::filter(study == 'efficacy' | study == 'pk') %>% 
-    dplyr::group_by(study) %>% 
-    dplyr::summarise(val = n_distinct(sample)) %>% 
-    dplyr::mutate(metric = 'Samples collected to date (field)')
 
-report_list$smpl_all <- lab_metadata %>%
+report_list$eff <-  lab_metadata %>% 
+    dplyr::summarise(val = n_distinct(sample)) %>% 
+    dplyr::mutate(metric = 'Samples collected to date (field)',
+                  study = 'efficacy')
+
+report_list$pk <-  lab_metadata %>% 
+    dplyr::summarise(val = n_distinct(sample)) %>% 
+    dplyr::mutate(metric = 'Samples collected to date (field)',
+                  study = 'pk')
+
+report_list$smpl_all <- incidences_mapping %>%
     dplyr::filter(!is.na(sample_status)) %>%
     dplyr::group_by(study) %>% 
     dplyr::summarise(val = n_distinct(sample)) %>% 
@@ -177,7 +237,7 @@ report_list$smpl_need_logging <- report_list$eff %>%
     dplyr::select(study, metric, val)
 
 
-report_list$smpl_by_status <- lab_metadata %>%
+report_list$smpl_by_status <- incidences_mapping %>%
     dplyr::filter(!is.na(sample_status)) %>%
     dplyr::group_by(study, sample_status) %>% 
     dplyr::summarise(val = n_distinct(sample)) %>% 
@@ -242,13 +302,25 @@ wrap_download(
 ```{r}
 d <- lab_metadata %>% 
   dplyr::select(-incidences) %>% 
+  dplyr::select(sample,
+                study,
+                age,
+                visit,
+                extid,
+                pk_sample_number, 
+                icf_status_efficacy, 
+                icf_status_safety, 
+                icf_status_pk, 
+                pkid, 
+                cl_sample, 
+                date_sample) %>%
   dplyr::inner_join(incidences_mapping %>% 
-                      dplyr::select(sample, sample_status, incidences), 
-                    by = c('sample', 'sample_status')
+                      dplyr::select(SubmissionDate, instanceID, sample, sample_status, incidences), 
+                    by = c('sample')
                     ) %>%
   tibble::as_tibble() %>%
   dplyr::select(extid, 
-                `barcode` = sample, 
+                sample, 
                 study, 
                 age, 
                 visit,
