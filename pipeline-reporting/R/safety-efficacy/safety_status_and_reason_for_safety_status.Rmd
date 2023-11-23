@@ -97,6 +97,11 @@ safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safetynew/safetynew-repeat_individual.csv')) %>%
   pad_hhid()
 
+safety_targets <- cloudbrewr::aws_s3_get_table(
+  bucket ='bohemia-lake-db',
+  key = glue::glue('bohemia_prod/dwh/goal_safety_targets/goal_safety_targets.csv')) %>%
+  pad_hhid()
+
 # this is a function to create a download csv button
 wrap_download <- function(reactable_obj, element_id, output_filename){
   onclick_command <- glue::glue(
@@ -112,58 +117,47 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
 ```
 
 ```{r targets}
-# these numbers are determined from the safety target csvs sent by Joe
-target_table <- rbind(data.frame(
-  Visit = c('Safety V1', 'Safety V2'),
-  'Person target' = c('28478', '26484'),
-  'HH target' = c('5847', '5492')))
-
 # only take the necessary columns (extid and safety_status) from the datasets
-clean_safety_repeat <- safety_repeat_individual %>%
-  select(PARENT_KEY, extid, safety_status, sex)
-clean_safetynew_repeat <- safetynew_repeat_individual %>%
-  select(PARENT_KEY, extid, safety_status, sex) %>%
-  rename(safetynew_status = safety_status,
-         sex_safetynew = sex)
-clean_safety <- safety %>%
-  select(KEY, visit, cluster, hhid, todays_date)
-clean_safetynew <- safetynew %>%
-  select(KEY, visit, cluster, hhid, todays_date)
+  clean_safety_repeat <- safety_repeat_individual %>%
+    select(PARENT_KEY, extid, safety_status, sex)
+  clean_safetynew_repeat <- safetynew_repeat_individual %>%
+    select(PARENT_KEY, extid, safety_status, sex) %>%
+    rename(safetynew_status = safety_status,
+           sex_safetynew = sex)
+  clean_safety <- safety %>%
+    select(KEY, visit, cluster, hhid, todays_date)
+  clean_safetynew <- safetynew %>%
+    select(KEY, visit, cluster, hhid, todays_date)
+  
+  # join safety and safety repeat and do the same for safetynew
+  joined_safety <- left_join(clean_safety_repeat, clean_safety, by=c('PARENT_KEY' = 'KEY'))
+  joined_safetynew <- left_join(clean_safetynew_repeat, clean_safetynew, by=c('PARENT_KEY' = 'KEY'))
+  
+  # join these two new dataframes
+  total_safety <- bind_rows(joined_safety, joined_safetynew)
 
-# join safety and safety repeat and do the same for safetynew
-joined_safety <- left_join(clean_safety_repeat, clean_safety, by=c('PARENT_KEY' = 'KEY'))
-joined_safetynew <- left_join(clean_safetynew_repeat, clean_safetynew, by=c('PARENT_KEY' = 'KEY'))
-
-# join these two new dataframes
-total_safety <- bind_rows(joined_safety, joined_safetynew)
+# these numbers are determined by Aryton based on Joe's logic and are stored in AWS
+  target_table <- safety_targets %>%
+    group_by(visit) %>%
+    summarise(hh_target = sum(hh_target),
+              ind_target = sum(ind_target))
 
 # identify how many households were visited in V1 and V2
-total_safety_v1 <- total_safety %>%
-  filter(visit == 'V1') %>%
-  group_by(hhid) %>%
-  summarise(count = n()) %>%
-  mutate(
-    Visit = 'Safety V1',
-    `HH visited` = n() # Replace nrow(hhid) with n() to count the households visited
-  ) %>%
-  select(Visit, `HH visited`) %>% # Selecting only the required columns %>%
-  distinct(Visit, .keep_all = TRUE)
-
-total_safety_v2 <- total_safety %>%
-  filter(visit == 'V2') %>%
-  group_by(hhid) %>%
-  summarise(count = n()) %>%
-  mutate(
-    Visit = 'Safety V2',
-    `HH visited` = n() # Replace nrow(hhid) with n() to count the households visited
-  ) %>%
-  select(Visit, `HH visited`) %>% # Selecting only the required columns %>%
-  distinct(Visit, .keep_all = TRUE)
-
-total_safety_v1_2 <- rbind(total_safety_v1, total_safety_v2)
+visited <- total_safety %>%
+  group_by(visit) %>%
+  summarise(hh_visited = n_distinct(hhid),
+            ind_visited = n_distinct(extid))
 
 # join the number of households visited and targets
-target_table <- left_join(target_table, total_safety_v1_2, by=('Visit'))
+target_table <- left_join(target_table, visited, by = c('visit'))
+
+target_table <- target_table %>%
+  select(visit, ind_target, ind_visited, hh_target, hh_visited) %>%
+  rename(Visit = visit,
+         'Individual target' = ind_target,
+         'Individual visited' = ind_visited,
+         'HH target' = hh_target,
+         'HH visited' = hh_visited)
 ```
 
 ```{r totals}
@@ -405,11 +399,13 @@ total_safe_eos_followup_v2 <- total_safe_eos_v2 %>%
   filter(visit_type == 'follow up')
 
 # make a table of both enrolment and followup together since they will be split up later
+total_safe_eos_v2$visit_type[total_safe_eos_v2$reason == 'eos in V1'] <- 'eos in V1'
+
 eos_reasons_v2 <- total_safe_eos_v2 %>%
-  group_by(reason) %>%
-  filter(reason == 'eos in V1') %>%
+  group_by(visit_type) %>%
   summarise('Number of eos people' = n()) %>%
-  rename('Reason for eos' = reason) %>%
+  rename('Reason for eos' = visit_type) %>%
+  add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
   mutate('Percent of eos' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_v2)) * 100) %>%
   mutate('Percent of eos' = round(`Percent of eos`, 2)) %>%
   mutate('Percent of eos' = paste0(`Percent of eos`, '%')) # Replace zero values with NA
