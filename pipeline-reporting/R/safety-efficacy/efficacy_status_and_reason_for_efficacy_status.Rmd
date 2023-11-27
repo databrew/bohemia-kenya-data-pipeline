@@ -264,6 +264,7 @@ efficacy_eos_v2 <- efficacy_eos %>%
   efficacy_eos_v2$reason[efficacy_eos_v2$not_agree_efficacy_procedures_eos == 1] <- 'not agree to efficacy procedures'
   efficacy_eos_v2$reason[efficacy_eos_v2$non_resident_eos == 1] <- 'not a resident'
   efficacy_eos_v2$reason[efficacy_eos_v2$other_trials_eos == 1] <- 'enrolled in other trials'
+  efficacy_eos_v2$reason[efficacy_eos_v2$person_absent_reason_eos == 1] <- 'absent'
   
   # make a table of why people are eos
   eos_reasons_v2 <- efficacy_eos_v2 %>%
@@ -346,8 +347,7 @@ efficacy_refusal <- efficacy %>%
          sign_icf_status, minor_assent_status,
          efficacy_status, 
          person_absent) %>%
-  filter(efficacy_status == 'refusal',
-         visit == 'V1') 
+  filter(efficacy_status == 'refusal') 
 
 efficacy_refusal_v1 <- efficacy_refusal %>%
   filter(visit == 'V1')
@@ -480,7 +480,7 @@ for (name in names_to_check) {
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("Note: The reasons like", paste0(not_found_names, collapse = " / "), "are not shown because it is not a reason for anyone being missing.")
+  cat("The following are not reasons for eos:", paste0(not_found_names, collapse = " / "))
 }
 ```
 
@@ -509,7 +509,7 @@ for (name in names_to_check) {
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("Note: The reasons like", paste0(not_found_names, collapse = ", "), "are not shown because it is not a reason for anyone being missing.")
+  cat("The following are not reasons for out status:", paste0(not_found_names, collapse = "/ "))
 }
 ```
 
@@ -537,7 +537,7 @@ for (name in names_to_check) {
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("Note: The reasons like", paste0(not_found_names, collapse = ", "), "are not shown because it is not a reason for anyone being missing.")
+  cat("The following are not reasons for refusals:", paste0(not_found_names, collapse = "/ "))
 }
 ```
 
@@ -578,7 +578,7 @@ for (name in names_to_check) {
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("Note: The reasons like", paste0(not_found_names, collapse = " / "), "are not shown because it is not a reason for anyone being missing.")
+  cat("The following reasons are not reasons for eos status:", paste0(not_found_names, collapse = " / "))
 }
 ```
 
@@ -604,7 +604,7 @@ for (name in names_to_check) {
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("Note: The reasons like", paste0(not_found_names, collapse = ", "), "are not shown because it is not a reason for anyone being missing.")
+  cat("The following reasons are not reasons for out status:", paste0(not_found_names, collapse = ", "))
 }
 ```
 
@@ -630,7 +630,7 @@ for (name in names_to_check) {
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("Note: The reasons like", paste0(not_found_names, collapse = ", "), "are not shown because it is not a reason for anyone being missing.")
+  cat("The following are not reasons for refusals:", paste0(not_found_names, collapse = ", "))
 }
 ```
 

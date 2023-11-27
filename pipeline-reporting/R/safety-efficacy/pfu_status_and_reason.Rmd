@@ -142,10 +142,10 @@ pfu_v2 <- pfu %>%
   pfu_v2$Status <- as.character(pfu_v2$Status)
 
   pfu_totals_v2 <- pfu_v2 %>%
-      group_by(Status) %>%
+      group_by(pregnancy_status) %>%
       summarise('Number of people visited in V2 (target: ?)' = n()) %>%
-      arrange(Status) %>%
-      rename('PFU status' = Status) %>%
+      arrange(pregnancy_status) %>%
+      rename('PFU status' = pregnancy_status) %>%
       add_row('PFU status' = 'total people visited', 
               'Number of people visited in V2 (target: ?)' = sum(.$'Number of people visited in V2 (target: ?)')) %>%
       mutate('Percent complete' = (as.numeric(`Number of people visited in V2 (target: ?)`)) / as.numeric(nrow(pfu_v2)) * 100) %>%
@@ -157,7 +157,8 @@ pfu_v2 <- pfu %>%
 # create a table of the reasons a woman is eos
 
 pfu_eos_v2 <- pfu_v2 %>%
-  select(extid, hhid, cluster, ltfu_eos, person_died_eos, person_migrated_eos, fourth_absence_eos, not_continue_eos, still_preg_no_eos, still_preg_no_reason) %>%
+  select(extid, hhid, cluster, pregnancy_status, ltfu_eos, person_died_eos, person_migrated_eos, fourth_absence_eos, not_continue_eos, still_preg_no_eos, still_preg_no_reason) %>%
+  filter(pregnancy_status == 'eos') %>%
   mutate(reason = case_when(ltfu_eos == '1' |
                               fourth_absence_eos == '1' ~ 'absent 4 times in a row: ltfu',
                             person_died_eos == '1' ~ 'died',
@@ -230,6 +231,6 @@ for (name in names_to_check) {
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("Note: The reasons like (", paste0(not_found_names, collapse = " / "), ") are not shown because it is not a reason for anyone being eos.")
+  cat("The following reasons are not shown: ", paste0(not_found_names, collapse = " / "))
 }
 ```
