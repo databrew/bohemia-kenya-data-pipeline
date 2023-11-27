@@ -432,6 +432,40 @@ eff_rdt_prop_totals_v1 <- eff_results_v1 %>%
   mutate(Percent = round(Percent, 2)) %>%
   mutate(Percent = paste0(Percent, '%')) %>%
   rename('Combination type' = combination)
+
+# V2
+
+eff_results_v2 <- eff_results %>%
+  filter(visit == 'V2', 
+         efficacy_status == 'in')
+
+# make combination into individual columns
+eff_results_v2_edited <- eff_results_v2 %>%
+  mutate(
+    neg_pos = ifelse(pan_result == 'Negative' & pf_result == 'Positive', 1, 0),
+    pos_neg = ifelse(pan_result == 'Positive' & pf_result == 'Negative', 1, 0),
+    pos_pos = ifelse(pan_result == 'Positive' & pf_result == 'Positive', 1, 0),
+    neg_neg = ifelse(pan_result == 'Negative' & pf_result == 'Negative', 1, 0)
+  )
+
+# Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
+eff_cluster_rdt_results_v2 <- eff_results_v2_edited %>%
+  group_by(cluster) %>%
+  summarise('pan+ pf+' = sum(pos_pos),
+            'pan+ pf-' = sum(pos_neg),
+            'pan- pf+' = sum(neg_pos),
+            'pan- pf-' = sum(neg_neg)) %>%
+  rename(Cluster = cluster)
+
+# we want to see the rates of malaria. So create a table of totals (all clusters) of the proportions of the four ways using (pan+/-;pf+/-). Include percentages of each for the entire study.
+eff_rdt_prop_totals_v2 <- eff_results_v2 %>%
+  group_by(combination) %>%
+  summarise('Count' = n()) %>%
+  add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
+  mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results)) * 100) %>%
+  mutate(Percent = round(Percent, 2)) %>%
+  mutate(Percent = paste0(Percent, '%')) %>%
+  rename('Combination type' = combination)
 ```
 
 ## Efficacy targets
@@ -541,6 +575,34 @@ if (length(not_found_names) > 0) {
 }
 ```
 
+###  rdt results
+#### total rdt results in v2
+```{r rdt-results-totals-v2}
+reactable(eff_rdt_prop_totals_v2, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+```
+######    Note: the rdt test results only look at children with an efficacy status of 'in'
+
+#### rdt results by cluster in v2
+```{r rdt-results-by-cluster-v2}
+element_id <- 'efficacy-rdt-results-by-cluster-v2'
+
+eff_cluster_rdt_results_readable <- reactable(eff_cluster_rdt_results_v2, columns = list(), 
+                                              highlight = TRUE,
+                                              resizable = TRUE,
+                                              bordered = TRUE,
+                                              striped = TRUE,
+                                              filterable=TRUE,
+                                              elementId = element_id
+                                              )
+
+wrap_download(
+  eff_cluster_rdt_results_readable, 
+  element_id,
+  'efficacy_rdt_results_by_cluster.csv')
+```
+
 
 ## V1 Numbers
 ```{r v1_total_show}
@@ -636,7 +698,7 @@ if (length(not_found_names) > 0) {
 
 ###  rdt results
 #### total rdt results in v1
-```{r rdt-results-totals}
+```{r rdt-results-totals-v1}
 reactable(eff_rdt_prop_totals_v1, columns = list(
   `Percent` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
@@ -644,8 +706,8 @@ reactable(eff_rdt_prop_totals_v1, columns = list(
 ######    Note: the rdt test results only look at children with an efficacy status of 'in'
 
 #### rdt results by cluster in v1
-```{r rdt-results-by-cluster}
-element_id <- 'efficacy-rdt-results-by-cluster'
+```{r rdt-results-by-cluster-v1}
+element_id <- 'efficacy-rdt-results-by-cluster-v1'
 
 eff_cluster_rdt_results_readable <- reactable(eff_cluster_rdt_results_v1, columns = list(), 
                                               highlight = TRUE,
