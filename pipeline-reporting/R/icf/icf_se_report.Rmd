@@ -1,23 +1,42 @@
 ---
-title: "ICF SE & PK Reports"
+title: "ICF Safety & Efficacy / PK Reports"
 description: |
-  Reporting used to track ICF in SE & PK
+  Reporting used to track ICF in Safety/Efficacy & PK
+date: "`r Sys.time()`"
 output:
   html_document:
-    toc: true
+    toc: yes
     theme: cerulean
-date: '`r Sys.time()`'
+  pdf_document:
+    toc: yes
 ---
 
-Notes:
+## Getting Started
 
-- Report is refreshed hourly 9-5pm EAT, once 12AM EAT
-- Please reach out to atediarjo@gmail.com for bug reports
+This report is used for ICF monitoring based on this [Reporting Document](https://docs.google.com/document/d/1WvrQ7EDnFFL87iL5reFgKC6dGWA5EEzgma-gLuSZWKQ/edit#heading=h.qmggsikczir8)
 
-Description:
+#### Refresh Rate
 
-This report is used for ICF monitoring based on this [Reporting Document](https://docs.google.com/document/d/1Qha3RdCARpoeKPJOEP8mdRMJVVlwiEuEur_kp8oxIk0/edit)
+**This report will be updated every 9-5PM EAT and once 12AM EAT**
 
+#### Bug Reports
+
+Please report bug to `e.elobolobo@gmail.com` / `atediarjo@gmail.com`
+
+
+#### ICF Statuses Intro
+
+1. Unverified: These are individuals with copy of ICF forms given in a visit, but not available in ICF verification
+
+2. Unverified (> 20 days): These are individuals with copy of ICF forms given in a visit, but not available in ICF verification for more than 20 days
+
+3. Missing / Unverified (> 30 days): These are individuals with copy of ICF forms given in a visit, but not available in ICF verification for more than 30 days - which we consider as missing now
+
+4. Unresolved: These are individuals that have been verified, but has an `ICF stat = Rectification` and will require resolution
+
+5. Unresolved (>20 days): These are individuals that have been verified, but has an `ICF stat = Rectification` for more than 20 days
+
+6. Resolved: These are individuals that have been verified, but has an `ICF stat = Rectification` and has been resolved by Fieldworkers
 
 ```{r, echo=FALSE, message=FALSE}
 knitr::opts_chunk$set(
@@ -39,6 +58,9 @@ library(fontawesome)
 library(ggplot2)
 library(plotly)
 library(formattable)
+library(DBI)
+library(noctua)
+library(lubridate)
 ```
 
 ```{r}
@@ -80,15 +102,6 @@ tryCatch({
 ```
 
 ```{r}
-pad_hhid <- function(data){
-  if('hhid' %in% names(data)){
-    data %>%
-      dplyr::mutate(hhid = stringr::str_pad(hhid, 5, pad = "0"))
-  }else{
-    data
-  }
-}
-
 wrap_download <- function(reactable_obj, element_id, output_filename){
   onclick_command <- glue::glue(
     "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
@@ -100,320 +113,526 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
       reactable_obj
     ))
 }
+
+create_snapshot_tbl <- function(data){
+  min_date <- lubridate::floor_date(
+    (data$SubmissionDate %>% lubridate::date() %>% min()),
+    unit = 'weeks'
+  )
+  max_date <- lubridate::today()
+  date_list <- seq.Date(min_date, max_date, "weeks")
+  data_hist <- purrr::map_dfr(date_list, function(d){
+    data %>% 
+      dplyr::mutate(run_date = d) %>% 
+      dplyr::filter(SubmissionDate <= d)
+  })
+  
+  return(data_hist)
+}
+
+pad_hhid <- function(data){
+  if('hhid' %in% names(data)){
+    data %>%
+      dplyr::mutate(hhid = stringr::str_pad(hhid, 5, pad = "0"))
+  }else{
+    data
+  }
+}
 ```
 
 
 ```{r}
-data_list <- purrr::map(INPUT_KEY, function(key){
-  cloudbrewr::aws_s3_get_table(
-    bucket = DATA_STAGING_BUCKET_NAME,
-    key = key) %>% pad_hhid()
-})
+# get data from AWS
+sepk_icf_verification <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/sepk_icf_verification/sepk_icf_verification.csv'
+) %>%
+  pad_hhid() %>% 
+  dplyr::group_by(extid, icf_stat) %>% 
+  dplyr::mutate(max_submission_date = max(SubmissionDate)) %>% 
+  dplyr::filter(SubmissionDate == max_submission_date) %>% 
+  dplyr::ungroup()
 
-# THIS FILE IS SENSITIVE PLEASE DONT PUSH IT TO PUBLIC SPACE
-assignment <- cloudbrewr::aws_s3_get_table(
-    bucket = DATA_LAKE_BUCKET_NAME,
-    key = 'bohemia_ext/assignments.csv')
+sepk_icf_resolution <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/sepk_icf_resolution/sepk_icf_resolution.csv'
+) %>%
+  pad_hhid() %>% 
+  dplyr::group_by(extid, icf_stat) %>% 
+  dplyr::mutate(max_submission_date = max(SubmissionDate)) %>% 
+  dplyr::filter(SubmissionDate == max_submission_date) %>% 
+  dplyr::ungroup()
+
+v0demography <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/v0demography/v0demography.csv'
+) %>%
+  pad_hhid()
+
+v0demography_repeat_individual <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/v0demography/v0demography-repeat_individual.csv'
+) %>%
+  pad_hhid()
+
+v0_roster <- v0demography %>% 
+    dplyr::inner_join(v0demography_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>% 
+    dplyr::select(extid, hhid, wid, fa_id, dob) %>% 
+    dplyr::mutate(age = as.integer(lubridate::date('2023-10-01') - lubridate::date(dob)) / 365.25)
+
+
+safety <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/safety/safety.csv') %>%
+  pad_hhid() 
+
+safety_repeat_individual <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/safety/safety-repeat_individual.csv') %>%
+  pad_hhid() 
+
+safetynew <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/safetynew/safetynew.csv') %>%
+  pad_hhid() 
+
+safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/safetynew/safetynew-repeat_individual.csv') %>%
+  pad_hhid() 
+
+efficacy <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/efficacy/efficacy.csv') %>%
+  pad_hhid() 
+```
+
+```{r}
+# create initial roster
+safety_roster <- safety %>% 
+    dplyr::inner_join(safety_repeat_individual, 
+                      by = c('KEY'='PARENT_KEY')) %>% 
+    dplyr::filter(ind_icf_completed == 1) %>%
+    dplyr::filter(!is.na(ind_read_sign_name)) %>%
+    dplyr::mutate(study_select = 'safety',
+                  wid = as.character(wid)) %>% 
+    dplyr::group_by(extid, study_select) %>% 
+    dplyr::mutate(min_visit = min(visit)) %>% 
+    dplyr::filter(visit == min_visit) %>%
+    dplyr::select(SubmissionDate, 
+                  instanceID,
+                  wid,
+                  hhid, 
+                  extid,
+                  status = safety_status,
+                  icf_completed = ind_icf_completed) %>% 
+    dplyr::left_join(v0_roster %>% dplyr::select(extid, age, fa_id), by = c('extid'))
+
+safetynew_roster <- safetynew %>%
+    dplyr::inner_join(safetynew_repeat_individual,
+                      by = c('KEY'='PARENT_KEY')) %>%
+    dplyr::filter(ind_icf_completed == 1) %>% 
+    dplyr::filter(!is.na(ind_read_sign_name)) %>%
+    dplyr::mutate(study_select = 'safety',
+                  wid = as.character(wid)) %>% 
+    dplyr::group_by(extid, study_select) %>% 
+    dplyr::mutate(min_visit = min(visit)) %>% 
+    dplyr::filter(visit == min_visit) %>%
+    dplyr::select(SubmissionDate, 
+                  instanceID,
+                  wid,
+                  age,
+                  hhid, 
+                  extid,
+                  status = safety_status,
+                  icf_completed = ind_icf_completed) %>% 
+    dplyr::left_join(v0_roster %>% dplyr::distinct(hhid, fa_id), by = c('hhid'))
+
+efficacy_roster <- efficacy %>%
+    # dplyr::filter(efficacy_status != 'refusal') %>% 
+    dplyr::filter(icf_completed == 1) %>%
+    dplyr::mutate(study_select = 'efficacy',
+                  wid = as.character(wid)) %>% 
+    dplyr::group_by(extid, study_select) %>% 
+    dplyr::mutate(min_visit = min(visit)) %>% 
+    dplyr::filter(visit == min_visit) %>%
+    dplyr::select(SubmissionDate, 
+                  instanceID,
+                  wid,
+                  hhid, 
+                  extid,
+                  status = efficacy_status,
+                  icf_completed) %>% 
+    dplyr::left_join(v0_roster %>% dplyr::distinct(extid, age, fa_id), by = c('extid'))
+
+
+roster <- dplyr::bind_rows(
+  safety_roster,
+  safetynew_roster,
+  efficacy_roster) %>% 
+  dplyr::ungroup() %>%
+  dplyr::filter(extid != "")
+```
+
+
+```{r}
+# merge ICF data
+# get most recent submission only
+verification <- sepk_icf_verification %>% 
+    dplyr::group_by(extid, study_select) %>% 
+    dplyr::filter(SubmissionDate == max(SubmissionDate)) %>% 
+    dplyr::ungroup() %>%
+    dplyr::select(extid, 
+                  study_select,
+                  instanceID,
+                  SubmissionDate, 
+                  icf_stat,
+                  resolution_needed, 
+                  fa_id, 
+                  cl_id, 
+                  archivist_select,
+                  safety_status,
+                  efficacy_status,
+                  pk_status)
+
 
 # get most recent submission only
-data_list$sepk_icf_verification <- data_list$sepk_icf_verification %>% 
-    dplyr::group_by(extid) %>% 
+resolution <- sepk_icf_resolution %>% 
+    dplyr::group_by(extid, study_select) %>% 
     dplyr::filter(SubmissionDate == max(SubmissionDate)) %>% 
-    dplyr::ungroup()
-```
-
-
-## ICF Summary Table
-```{r}
-df <- list(
-    list(
-      safetynew = data_list$safetynew_repeat_individual %>% 
-        summarise(value= sum(ind_sign_icf_status, na.rm = TRUE)) %>% 
-        dplyr::mutate(key = 'safety'),
-      safety = data_list$safety_repeat_individual %>% 
-        summarise(value = sum(ind_sign_icf_status, na.rm = TRUE)) %>% 
-        dplyr::mutate(key = 'safety'),
-      efficacy = data_list$efficacy %>% 
-        summarise(value = sum(sign_icf_status, na.rm = TRUE)) %>% 
-        dplyr::mutate(key = 'efficacy')
-      ) %>% 
-      purrr::reduce(bind_rows) %>% 
-      dplyr::mutate(metric = 'Total Participants who signed ICFs')
-  
-  , data_list$sepk_icf_verification %>% 
-      dplyr::select(instanceID, key = study_select) %>% 
-      dplyr::group_by(key) %>% 
-      dplyr::summarise(value = n_distinct(instanceID)) %>% 
-      dplyr::mutate(metric = 'Number of ICFs Verified')
-  
-  , data_list$sepk_icf_verification %>% 
-      dplyr::filter(icf_stat == 'Archived') %>%
-      dplyr::select(instanceID, key = study_select) %>% 
-      dplyr::group_by(key) %>% 
-      dplyr::summarise(value = n_distinct(instanceID)) %>% 
-      dplyr::mutate(metric = 'Number of ICFs Archived (Archived)')
-  
-  , data_list$sepk_icf_verification %>% 
-      dplyr::filter(icf_stat == 'Lost-Not Found') %>%
-      dplyr::select(instanceID, key = study_select) %>% 
-      dplyr::group_by(key) %>% 
-      dplyr::summarise(value = n_distinct(instanceID)) %>% 
-      dplyr::mutate(metric = 'Number of ICFs Lost/Not found')
-  
-  , data_list$sepk_icf_verification %>% 
-      dplyr::filter(resolution_needed == 1) %>%
-      dplyr::select(instanceID, key = study_select) %>% 
-      dplyr::group_by(key) %>% 
-      dplyr::summarise(value = n_distinct(instanceID)) %>% 
-      dplyr::mutate(metric = 'Number of ICFs with queries to be resolved')) %>% 
-  purrr::reduce(dplyr::bind_rows) %>%
-  tidyr::pivot_wider(names_from = key, values_from = value, id_cols = metric, values_fn = sum)
-
-placeholder <- tibble(metric = df$metric) %>% 
-    dplyr::mutate(safety = 0,
-                  efficacy = 0,
-                  pk = 0)
-
-
-df <- df %>% 
-    dplyr::left_join(placeholder) %>% mutate(across(everything(), .fns = ~tidyr::replace_na(.,0))) 
-
-reactable(df)
-```
-
-```{r}
-merged_tbl <- list(
-  data_list$safety %>% 
-    dplyr::inner_join(data_list$safety_repeat_individual %>% 
-                        dplyr::select(extid, PARENT_KEY, ind_sign_icf_status), by = c('KEY' = 'PARENT_KEY')) %>% 
-    dplyr::select(hhid, 
-                  wid, 
-                  extid,
-                  cluster,
-                  todays_date,
-                  start_time,
-                  ind_sign_icf_status) %>% 
-    dplyr::mutate(source = 'safety') %>% 
-    dplyr::mutate(wid = as.character(wid))
-  
-  , data_list$safetynew %>% 
-    dplyr::inner_join(data_list$safetynew_repeat_individual %>% 
-                        dplyr::select(extid, PARENT_KEY, ind_sign_icf_status), by = c('KEY' = 'PARENT_KEY')) %>% 
-    dplyr::select(hhid, 
-                  wid, 
-                  extid,
-                  cluster,
-                  todays_date,
-                  start_time,
-                  ind_sign_icf_status) %>% 
-    dplyr::mutate(source = 'safetynew') %>% 
-    dplyr::mutate(wid = as.character(wid))
-  
-  , data_list$efficacy %>% 
-    dplyr::select(hhid, 
-                  wid, 
-                  extid,
-                  cluster,
-                  todays_date,
-                  start_time,
-                  ind_sign_icf_status = sign_icf_status) %>% 
-    dplyr::mutate(source = 'efficacy')
-  
-  # add other tables once available
-) %>% 
-  purrr::reduce(dplyr::bind_rows) %>% 
-  dplyr::left_join(
-    data_list$sepk_icf_verification %>% 
-      dplyr::mutate(verification_status = 1) %>%
-      dplyr::select(extid, 
-                    icf_stat, 
-                    fa_id, 
-                    cl_id, 
-                    icf_stat,
-                    archivist_select),
-    by = 'extid'
-  ) %>% 
-  dplyr::inner_join(assignment, by = c('cluster'='cluster_number'))
-
-```
-
-## ICF Detail Tables
-
-### 1. All ICFs 
-
-```{r}
-element_id <- 'tbl1'
-tbl <- reactable(
-    merged_tbl %>% 
-    dplyr::select(cluster,
-                  assignment,
-                  todays_date,
-                  extid, 
-                  hhid, 
-                  cl_id, 
-                  fa_id, 
-                  ind_sign_icf_status, 
-                  icf_stat),
-    columns = list(
-        cluster = colDef(name = 'Cluster', filterable = TRUE),
-        assignment = colDef(name = 'Arm', filterable = TRUE),
-        todays_date = colDef(name = "Target Household", filterable = TRUE),
-        extid = colDef(name = "Participant ID", filterable = TRUE),
-        hhid = colDef(name = "HH ID", filterable = TRUE),
-        cl_id = colDef(name = "CL ID", filterable = TRUE),
-        fa_id = colDef(name = "FA ID", filterable = TRUE),
-        ind_sign_icf_status = colDef(name = "ICF Signed", filterable = TRUE),
-        icf_stat = colDef(name = "ICF Stat", filterable = TRUE)
-    ),
-    highlight = TRUE,
-    resizable = TRUE,
-    bordered = TRUE,
-    striped = TRUE,
-    elementId = element_id
-)
-
-
-wrap_download(
-  tbl, 
-  element_id,
-  'all_icf.csv')
-```
-
-### 2. Verified & Archived ICFs
-
-Note: Name and Age has been joined with V0 for upstream fixes
-```{r}
-element_id <- 'tbl2'
-tbl <- reactable(
-  merged_tbl %>% 
-    dplyr::filter(!is.na(icf_stat)) %>%
-    dplyr::select(cluster, 
-                  todays_date,
-                  extid, 
-                  hhid, 
-                  cl_id, 
-                  fa_id, 
-                  ind_sign_icf_status, 
+    dplyr::ungroup() %>%
+    dplyr::select(extid, 
+                  study_select,
+                  instanceID,
+                  SubmissionDate, 
                   icf_stat,
-                  archivist_select),
-    columns = list(
-        cluster = colDef(name = 'Cluster', filterable = TRUE),
-        todays_date = colDef(name = 'Date', filterable = TRUE),
-        extid = colDef(name = "Participant ID", filterable = TRUE),
-        hhid = colDef(name = "HH ID", filterable = TRUE),
-        cl_id = colDef(name = "CL ID", filterable = TRUE),
-        fa_id = colDef(name = "FA ID", filterable = TRUE),
-        ind_sign_icf_status = colDef(name = "ICF Signed", filterable = TRUE),
-        icf_stat = colDef(name = "ICF Stat", filterable = TRUE),
-        archivist_select = colDef(name = "Archivist ID", filterable = TRUE)
-    ),
-    highlight = TRUE,
-    resizable = TRUE,
-    bordered = TRUE,
-    striped = TRUE,
-    elementId = element_id
+                  extid, 
+                  fa_id, 
+                  cl_id, 
+                  archivist_select)
+
+icf <- verification %>% 
+    dplyr::full_join(resolution %>% 
+                         dplyr::select(instanceID, SubmissionDate, icf_stat, extid, study_select), 
+                     by = c('extid', 'study_select')) %>% 
+    dplyr::mutate(icf_stat = case_when(
+        is.na(icf_stat.y) & icf_stat.x == 'Rectification' ~ 'Unresolved',
+        TRUE ~ icf_stat.x)) %>%
+    dplyr::mutate(icf_stat = case_when(
+        icf_stat.x == 'Archived' ~ 'Archived',
+        icf_stat.y == 'Resolved-Archived' ~ 'Resolved-Archived',
+        icf_stat.x == 'Rectification' & icf_stat.y == 'Unresolved' ~ 'Rectification',
+        TRUE ~ icf_stat.x)) 
+
+icf_roster <- dplyr::bind_rows(
+  icf %>%
+    dplyr::select(extid, 
+                  study_select,
+                  instanceID = instanceID.x, 
+                  SubmissionDate = SubmissionDate.x, 
+                  icf_stat = icf_stat.x,
+                  extid, 
+                  fa_id, 
+                  cl_id, 
+                  archivist_select,
+                  safety_status,
+                  efficacy_status,
+                  pk_status),
+  icf %>%
+    dplyr::select(extid, 
+                  study_select,
+                  instanceID = instanceID.y, 
+                  SubmissionDate = SubmissionDate.y, 
+                  icf_stat,
+                  extid, 
+                  fa_id, 
+                  cl_id, 
+                  archivist_select,
+                  safety_status,
+                  efficacy_status,
+                  pk_status) %>% tidyr::drop_na(SubmissionDate),
+  
+  
 )
 
-
-wrap_download(
-  tbl, 
-  element_id,
-  'verified_archived_ifc.csv')
 ```
 
 
-### 3. Unresolved ICFs
 
 ```{r}
-v0_fix <- data_list$v0_repeat %>% 
-    dplyr::select(extid, dob, firstname, lastname) %>%
-    dplyr::mutate(dob = lubridate::date(dob),
-                  age = as.character(formattable::formattable(as.integer(lubridate::today() - dob)/365.25, format = "f", digits = 1))) %>% 
-    dplyr::mutate(across(where(is.character), toupper)) %>%
-    dplyr::mutate(name = glue::glue('{firstname} {lastname}'))
+# create historical table
+icf_hist <- icf_roster %>% 
+    dplyr::mutate(run_date = lubridate::date(lubridate::now())) %>%
+    dplyr::group_by(extid) %>% 
+    dplyr::mutate(max_submission_date = max(SubmissionDate)) %>%
+    dplyr::filter(SubmissionDate == max_submission_date) %>%
+    dplyr::ungroup() 
 
-element_id <- 'tbl3'
-tbl <- reactable(
-  merged_tbl %>% 
-    dplyr::filter(icf_stat == 'Rectification')  %>%
-    dplyr::left_join(v0_fix, by = 'extid') %>% 
-    dplyr::select(cluster, 
-                  name,
-                  age,
-                  todays_date,
-                  extid, 
-                  hhid, 
-                  cl_id, 
-                  fa_id, 
-                  ind_sign_icf_status, 
-                  icf_stat,
-                  archivist_select),
-    columns = list(
-        cluster = colDef(name = 'Cluster', filterable = TRUE),
-        name = colDef(name = 'Name', filterable = TRUE),
-        todays_date = colDef(name = "Target Household", filterable = TRUE),
-        extid = colDef(name = "Participant ID", filterable = TRUE),
-        age = colDef(name = 'Age', filterable = TRUE),
-        hhid = colDef(name = "HH ID", filterable = TRUE),
-        cl_id = colDef(name = "CL ID", filterable = TRUE),
-        fa_id = colDef(name = "FA ID", filterable = TRUE),
-        ind_sign_icf_status = colDef(name = "ICF Signed", filterable = TRUE),
-        icf_stat = colDef(name = "ICF Stat", filterable = TRUE),
-        archivist_select = colDef(name = "Archivist ID", filterable = TRUE)
-    ),
-    highlight = TRUE,
-    resizable = TRUE,
-    bordered = TRUE,
-    striped = TRUE,
-    elementId = element_id
-)
-
-
-wrap_download(
-  tbl, 
-  element_id,
-  'unresolved_ifc.csv')
+# get first of occurence from distinct
+roster_hist <- roster %>% dplyr::mutate(run_date = lubridate::date(lubridate::now()))
 ```
 
 
-### 4. ICFs Missing
 
 ```{r}
-element_id <- 'tbl4'
-tbl <- reactable(
-  merged_tbl %>% 
-    dplyr::filter(icf_stat == 'Lost-Not Found')  %>%
-    dplyr::left_join(v0_fix, by = 'extid') %>% 
-    dplyr::select(cluster, 
-                  todays_date,
-                  extid, 
-                  hhid, 
-                  cl_id, 
-                  fa_id, 
-                  ind_sign_icf_status, 
-                  icf_stat,
-                  archivist_select),
-    columns = list(
-        cluster = colDef(name = 'Cluster', filterable = TRUE),
-        todays_date = colDef(name = "Target Household", filterable = TRUE),
-        extid = colDef(name = "Participant ID", filterable = TRUE),
-        hhid = colDef(name = "HH ID", filterable = TRUE),
-        cl_id = colDef(name = "CL ID", filterable = TRUE),
-        fa_id = colDef(name = "FA ID", filterable = TRUE),
-        ind_sign_icf_status = colDef(name = "ICF Signed", filterable = TRUE),
-        icf_stat = colDef(name = "ICF Stat", filterable = TRUE),
-        archivist_select = colDef(name = "Archivist ID", filterable = TRUE)
-    ),
-    highlight = TRUE,
-    resizable = TRUE,
-    bordered = TRUE,
-    striped = TRUE,
-    elementId = element_id
-)
+# versioning
+version <- format(floor_date(lubridate::today(), 'week'), "%Y%m%d")
 
+
+# data coming from verification
+data_list <- list()
+final_col_list <- c(
+  'run_date', 
+  'extid', 
+  'instanceID',
+  'metric', 
+  'metric_aging', 
+  'study_select', 
+  'status',
+  'SubmissionDate'
+  )
+
+data_list$safety_unresolved_icf <- icf_hist %>% 
+    dplyr::filter(
+      icf_stat == 'Rectification',
+      study_select == 'safety') %>%
+    dplyr::mutate(
+      SubmissionDate = lubridate::date(SubmissionDate)) %>%
+    dplyr::mutate(
+      metric_aging = as.numeric(difftime(run_date, SubmissionDate, units = "days")),
+      metric = 'Safety ICF Unresolved',
+      source = 'Safety ICF') %>% 
+    dplyr::select(-efficacy_status) %>%
+    dplyr::select(status = safety_status, everything()) %>%
+    dplyr::select(all_of(final_col_list))
+
+data_list$efficacy_unresolved_icf <- icf_hist %>% 
+    dplyr::filter(
+      icf_stat == 'Rectification',
+      study_select == 'efficacy',
+      efficacy_status != "") %>%
+    dplyr::mutate(
+      SubmissionDate = lubridate::date(SubmissionDate)) %>%
+    dplyr::mutate(
+      metric_aging = as.numeric(difftime(run_date, SubmissionDate, units = "days")),
+      metric = 'Efficacy ICF Unresolved',
+      source = 'Efficacy ICF') %>% 
+    dplyr::select(-safety_status) %>%
+    dplyr::select(status = efficacy_status, everything()) %>%
+    dplyr::select(all_of(final_col_list))
+
+
+data_list$safety_resolved_icf <- icf_hist %>% 
+    dplyr::filter(
+      icf_stat == 'Resolved-Archived',
+      study_select == 'safety') %>%
+    dplyr::mutate(
+      SubmissionDate = lubridate::date(SubmissionDate)) %>%
+    dplyr::mutate(
+      metric_aging = NA,
+      metric = 'Safety ICF Resolved',
+      source = 'Safety ICF') %>% 
+    dplyr::select(-efficacy_status) %>%
+    dplyr::select(status = safety_status, everything()) %>%
+    dplyr::select(all_of(final_col_list))
+
+data_list$efficacy_resolved_icf <- icf_hist %>% 
+    dplyr::filter(
+      icf_stat == 'Resolved-Archived',
+      study_select == 'efficacy',
+      efficacy_status != "") %>%
+    dplyr::mutate(
+      SubmissionDate = lubridate::date(SubmissionDate)) %>%
+    dplyr::mutate(
+      metric_aging = NA,
+      metric = 'Efficacy ICF Resolved',
+      source = 'Efficacy ICF') %>% 
+    dplyr::select(-safety_status) %>%
+    dplyr::select(status = efficacy_status, everything()) %>%
+    dplyr::select(all_of(final_col_list))
+
+
+data_list$safety_unverified_icf <- roster_hist %>%
+    dplyr::filter(study_select == 'safety') %>%
+    dplyr::anti_join(icf_hist, 
+                     by = c('run_date','extid', 'study_select')) %>% 
+    dplyr::mutate(
+      SubmissionDate = lubridate::date(SubmissionDate)) %>%
+    dplyr::mutate(
+      metric_aging = as.numeric(difftime(run_date, SubmissionDate, units = "days")),
+      metric = 'Safety ICF Unverified',
+      source = 'Safety ICF') %>% 
+    dplyr::select(all_of(final_col_list))
+
+data_list$efficacy_unverified_icf <- roster_hist %>%
+    dplyr::filter(study_select == 'efficacy') %>%
+    dplyr::anti_join(icf_hist, 
+                     by = c('run_date','extid', 'study_select')) %>% 
+    dplyr::mutate(
+      SubmissionDate = lubridate::date(SubmissionDate)) %>%
+    dplyr::mutate(
+      metric_aging = as.numeric(difftime(run_date, SubmissionDate, units = "days")),
+      metric = 'Efficacy ICF Unverified',
+      source = 'Efficacy ICF') %>% 
+    dplyr::select(all_of(final_col_list))
+
+
+data_list$safety_missing_icf <- icf_hist %>% 
+    dplyr::filter(
+      icf_stat == 'Lost-Not Found',
+      study_select == 'safety') %>%
+    dplyr::mutate(
+      SubmissionDate = lubridate::date(SubmissionDate)) %>%
+    dplyr::mutate(
+      metric_aging = as.numeric(difftime(run_date, SubmissionDate, units = "days")),
+      metric = 'Safety ICF Missing',
+      source = 'Safety ICF') %>% 
+    dplyr::select(-efficacy_status) %>%
+    dplyr::select(status = safety_status, everything()) %>%
+    dplyr::select(all_of(final_col_list))
+
+data_list$efficacy_missing_icf <- icf_hist %>% 
+    dplyr::filter(
+      icf_stat == 'Lost-Not Found',
+      study_select == 'efficacy',
+      efficacy_status != "") %>%
+    dplyr::mutate(
+      SubmissionDate = lubridate::date(SubmissionDate)) %>%
+    dplyr::mutate(
+      metric_aging = as.numeric(difftime(run_date, SubmissionDate, units = "days")),
+      metric = 'Efficacy ICF Missing',
+      source = 'Efficacy ICF') %>% 
+    dplyr::select(-safety_status) %>%
+    dplyr::select(status = efficacy_status, everything()) %>%
+    dplyr::select(all_of(final_col_list))
+
+
+d <- purrr::reduce(data_list, dplyr::bind_rows) %>% 
+      dplyr::mutate(metric_aging_group = case_when(
+        metric == 'Efficacy ICF Unverified' & metric_aging > 30 ~ 
+            'Efficacy ICF Missing (Unverified >30 days)',
+        metric == 'Safety ICF Unverified' & metric_aging > 30 ~ 
+            'Safety ICF Missing (Unverified >30 days)',
+        metric == 'Efficacy ICF Unverified' & metric_aging > 20 ~ 
+            'Efficacy ICF Unverified >20days',
+        metric == 'Safety ICF Unverified' & metric_aging > 20 ~ 
+            'Safety ICF Unverified >20days',
+        metric == 'Efficacy ICF Unresolved' & metric_aging > 20 ~ 
+            'Efficacy ICF Unresolved >20days',
+        metric == 'Safety ICF Unresolved' & metric_aging > 20 ~ 
+            'Safety ICF Unresolved >20days',
+        TRUE ~ NA_character_
+    ))
+```
+
+
+## ICF Metrics Table
+
+This detail table can be use to drill-down on issues coming from ICF, there will be information regarding several ICF issues and their corresponding ID (`instanceID`) coming based on each issues. 
+
+**Note**:
+
+`instanceID` and `SubmissionDate` are fields coming from different table sources:
+
+- For `unresolved` ICF submission date came from verification form
+
+- For `unverified` ICF submission date came from safety/efficacy/pk form
+
+- For `missing` ICF submission date came from safety/efficacy/pk form
+
+
+```{r}
+c_data <- d %>%
+    dplyr::filter(run_date == max(.$run_date)) %>% 
+    dplyr::mutate(age = as.numeric(metric_aging),
+                  source = study_select) %>% 
+    dplyr::left_join(roster %>% dplyr::select(extid, 
+                                              study_select, 
+                                              `Worker ID` = wid, 
+                                              `FA ID` = fa_id, 
+                                              `Participant Age` = age), by = c('extid','study_select'))
+```
+
+```{r}
+data <- c_data %>% 
+    dplyr::mutate(metric = coalesce(metric_aging_group, metric)) %>%
+    dplyr::select(-metric_aging_group, -age, -source) %>% 
+    dplyr::select(`study` = study_select,
+                  metric,
+                  extid,
+                  `Participant Age`,
+                  `FA ID`,
+                  `Worker ID`,
+                  `ICF Issue Age` = metric_aging,
+                  instanceID,
+                  SubmissionDate,
+                  status)
+
+element_id <- "icf_detail_table"
+tbl <- reactable(
+  data,
+  columns = list(
+    study = colDef(minWidth = 150),
+    metric = colDef(minWidth = 350),
+    `Participant Age` = colDef(format = colFormat(digits = 1))
+  ),
+  highlight = TRUE,
+  resizable = TRUE,
+  bordered = TRUE,
+  striped = TRUE,
+  filterable = TRUE,
+  elementId = element_id,
+  groupBy = c('study', 'metric')
+)
 
 wrap_download(
   tbl, 
   element_id,
-  'missing_ifc.csv')
+  glue::glue('{version}-icf_metric_detail.csv'))
+```
+
+## ICF Status by Roster
+
+This section will show all user with copy of ICF to fill (`ind_icf_completed == 1`) with corresponding verification and resolution status
+
+```{r}
+element_id <- "roster_icf_detail_table"
+data <- roster %>% 
+  dplyr::select(extid, 
+                study = study_select, 
+               `Participant Age` = age,
+               `FA ID` = fa_id) %>% 
+    dplyr::left_join(icf %>% 
+                         dplyr::select(extid, 
+                                       `Worker ID` = cl_id,
+                                       `ICF Verification Date` = SubmissionDate.x,
+                                       `ICF Resolution Date` = SubmissionDate.y,
+                                       `ICF Verification Status` = icf_stat.x, 
+                                       `ICF Resolution Status` = icf_stat.y, 
+                                       `ICF Status` = icf_stat, 
+                                       study = study_select), 
+                     by = c('extid', 'study')) %>%
+    dplyr::mutate(`ICF Verification Status` = tidyr::replace_na(`ICF Verification Status`, 'Unverified'),
+                  `ICF Status` = tidyr::replace_na(`ICF Status`, 'Unverified'),
+                  `ICF Verification Date` = lubridate::date(`ICF Verification Date`),
+                  `ICF Resolution Date` = lubridate::date(`ICF Resolution Date`))
+
+tbl <- reactable(
+  data,
+  columns = list(
+    study = colDef(minWidth = 150),
+    `Participant Age` = colDef(format = colFormat(digits = 1))
+  ),
+  highlight = TRUE,
+  resizable = TRUE,
+  bordered = TRUE,
+  striped = TRUE,
+  filterable = TRUE,
+  elementId = element_id
+)
+
+wrap_download(
+  tbl, 
+  element_id,
+  glue::glue('{version}-icf_roster_detail.csv'))
 ```
