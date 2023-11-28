@@ -114,7 +114,6 @@ purrr::map(config::get('odk_projects'), function(project_name){
                   resolution)
 
   # instantiate geo objects to /tmp files
-  init_geo_objects()
   tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
                                        function(file_path = ..1,
                                                 clean_file_path = ..2,
