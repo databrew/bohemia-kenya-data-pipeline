@@ -710,7 +710,7 @@ for (name in names_to_check) {
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("Note: The reasons (", paste0(not_found_names, collapse = ", "), ") are not shown because it is not a reason for anyone being missing.")
+  cat("The following are not reasons for eos status:", paste0(not_found_names, collapse = "/ "))
 }
 ```
 
@@ -794,7 +794,7 @@ for (name in names_to_check) {
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("Note: The reasons (", paste0(not_found_names, collapse = ", "), ") are not shown because it is not a reason for anyone being missing.")
+  cat("The following are not reasons for eos status:", paste0(not_found_names, collapse = "/ "))
 }
 ```
 
