@@ -164,20 +164,25 @@ pfu_eos_v2 <- pfu_v2 %>%
                             person_died_eos == '1' ~ 'died',
                             person_migrated_eos == '1' ~ 'migrated',
                             not_continue_eos == '1' ~ 'not wish to continue',
-                            still_preg_no_eos == '1' ~ 'no longer pregnant',
-                            still_preg_no_reason == 'Baby was born alive' ~ 'no longer pregnant - baby born alive',
-                            still_preg_no_reason == 'Miscarriage' ~ 'no longer pregnant - miscarriage',
-                            still_preg_no_reason == 'Abortion (self-induced)' ~ 'no longer pregnant - abortion (self-induced)',
-                            still_preg_no_reason == 'Baby was born dead' ~ 'no longer pregnant - baby was born dead',
-                            still_preg_no_reason == 'pna' ~ 'no longer pregnant - prefer not to answer'))
+                            #still_preg_no_eos == '1' ~ 'no longer pregnant',
+                            still_preg_no_eos == '1' & 
+                              still_preg_no_reason == 'Baby was born alive' ~ 'no longer pregnant - baby born alive',
+                            still_preg_no_eos == '1' &
+                              still_preg_no_reason == 'Miscarriage' ~ 'no longer pregnant - miscarriage',
+                            still_preg_no_eos == '1' &
+                              still_preg_no_reason == 'Abortion (self-induced)' ~ 'no longer pregnant - abortion (self-induced)',
+                            still_preg_no_eos == '1' &
+                              still_preg_no_reason == 'Baby was born dead' ~ 'no longer pregnant - baby was born dead',
+                            still_preg_no_eos == '1' &
+                              still_preg_no_reason == 'pna' ~ 'no longer pregnant - prefer not to answer'))
 
   eos_reasons_v2 <- pfu_eos_v2 %>%
       group_by(reason) %>%
-      summarise('Number of refusal people' = n()) %>%
+      summarise('Number of eos people' = n()) %>%
       arrange(reason) %>%
-      rename('Reason for refusal' = reason) %>%
-      add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
-      mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(pfu_eos_v2)) * 100) %>%
+      rename('Reason for eos' = reason) %>%
+      add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(pfu_eos_v2)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 ```

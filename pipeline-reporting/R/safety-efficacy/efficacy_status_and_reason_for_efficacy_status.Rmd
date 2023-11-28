@@ -159,11 +159,11 @@ total_efficacy_v1 <- total_efficacy %>%
   # P.S. the efficacy v1 target was determined based on a file received from Joe
   total_efficacy_status_v1 <- total_efficacy_v1 %>%
     group_by(efficacy_status) %>%
-    summarise('Number of people visited in V1 (target: 2,878)' = n()) %>%
+    summarise('Number of people visited in V1' = n()) %>%
     arrange(efficacy_status) %>%
     rename('Efficacy status' = efficacy_status) %>%
-    add_row('Efficacy status' = 'total people visited', 'Number of people visited in V1 (target: 2,878)' = sum(.$'Number of people visited in V1 (target: 2,878)')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of people visited in V1 (target: 2,878)`)) / as.numeric(nrow(total_efficacy_v1)) * 100) %>%
+    add_row('Efficacy status' = 'total people visited', 'Number of people visited in V1' = sum(.$'Number of people visited in V1')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of people visited in V1`)) / as.numeric(nrow(total_efficacy_v1)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%'))
 
@@ -173,11 +173,11 @@ total_efficacy_v2 <- total_efficacy %>%
 
   total_efficacy_status_v2 <- total_efficacy_v2 %>%
       group_by(efficacy_status) %>%
-      summarise('Number of people visited in V2 (target: ?)' = n()) %>%
+      summarise('Number of people visited in V2' = n()) %>%
       arrange(efficacy_status) %>%
       rename('Efficacy status' = efficacy_status) %>%
-      add_row('Efficacy status' = 'total people visited', 'Number of people visited in V2 (target: ?)' = sum(.$'Number of people visited in V2 (target: ?)')) %>%
-      mutate('Percent complete' = (as.numeric(`Number of people visited in V2 (target: ?)`)) / as.numeric(nrow(total_efficacy_v2)) * 100) %>%
+      add_row('Efficacy status' = 'total people visited', 'Number of people visited in V2' = sum(.$'Number of people visited in V2')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V2`)) / as.numeric(nrow(total_efficacy_v2)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
 ```
