@@ -279,7 +279,7 @@ roster <- dplyr::bind_rows(
 # merge ICF data
 # get most recent submission only
 verification <- sepk_icf_verification %>% 
-    dplyr::group_by(extid) %>% 
+    dplyr::group_by(extid, study_select) %>% 
     dplyr::filter(SubmissionDate == max(SubmissionDate)) %>% 
     dplyr::ungroup() %>%
     dplyr::select(extid, 
@@ -298,7 +298,7 @@ verification <- sepk_icf_verification %>%
 
 # get most recent submission only
 resolution <- sepk_icf_resolution %>% 
-    dplyr::group_by(extid) %>% 
+    dplyr::group_by(extid, study_select) %>% 
     dplyr::filter(SubmissionDate == max(SubmissionDate)) %>% 
     dplyr::ungroup() %>%
     dplyr::select(extid, 
@@ -311,8 +311,8 @@ resolution <- sepk_icf_resolution %>%
                   cl_id, 
                   archivist_select)
 
-icf <- verification%>% 
-    dplyr::left_join(resolution %>% 
+icf <- verification %>% 
+    dplyr::full_join(resolution %>% 
                          dplyr::select(instanceID, SubmissionDate, icf_stat, extid, study_select), 
                      by = c('extid', 'study_select')) %>% 
     dplyr::mutate(icf_stat = case_when(
