@@ -343,70 +343,39 @@ add_cluster_geo_num <- function(data,
       crs <- CRS(p4s)
       llcrs <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 
-      # new_clusters <- rgdal::readOGR('/tmp/new_clusters/', 'new_clusters')
-      # new_cores <- rgdal::readOGR('/tmp/new_cores/', 'new_cores')
-      old_clusters <- rgdal::readOGR('/tmp/clusters/', 'clusters')
-      old_cores <- rgdal::readOGR('/tmp/cores/', 'cores')
-
-      # clusters projection
-      old_clusters_projected <- spTransform(
-        old_clusters,
-        crs)
-      old_cores_projected <- spTransform(
-        old_cores,
-        crs)
-      # new_clusters_projected <- spTransform(
-      #   new_clusters,
-      #   crs)
-      # new_cores_projected <- spTransform(
-      #   new_cores,
-      #   crs)
-
-      # OLD CORES AND CLUSTERS
-      old_clusters_projected_buffered <- rgeos::gBuffer(
-        spgeom = old_clusters_projected,
-        byid = TRUE,
-        width = 50)
-
-      old_cores_projected_buffered <- rgeos::gBuffer(
-        spgeom = old_cores_projected,
-        byid = TRUE,
-        width = 50)
-
-      # # NEW CORES AND CLUSTERS
-      # new_clusters_projected_buffered <- rgeos::gBuffer(
-      #   spgeom = new_clusters_projected,
-      #   byid = TRUE,
-      #   width = 50)
-      #
-      # new_cores_projected_buffered <- rgeos::gBuffer(
-      #   spgeom = new_cores_projected,
-      #   byid = TRUE,
-      #   width = 50)
-
-
       # data projection
       coordinates(data_proj) <- ~Longitude+Latitude
       proj4string(data_proj) <- llcrs
       data_proj <- spTransform(data_proj, crs)
 
+      load('assets/clusters.RData')
+      old_clusters <- clusters
 
-      old_cluster_o <- sp::over(data_proj, polygons(old_clusters_projected))
-      old_core_o <- sp::over(data_proj, polygons(old_cores_projected))
-
-      data_proj@data$geo_not_in_cluster <- is.na(old_cluster_o)
-      data_proj@data$geo_cluster_num <- old_clusters_projected_buffered@data$cluster_nu[old_cluster_o]
-
-      data_proj@data$geo_not_in_core <- is.na(old_core_o)
-      data_proj@data$geo_core_num <- old_cores_projected_buffered@data$cluster_nu[old_core_o]
+      # clusters projection
+      old_clusters_projected <- spTransform(
+        old_clusters,
+        crs)
+      # see which households are in which clusters with NO buffering first
+      old_clusters_projected <- spTransform(old_clusters, crs)
+      o <- sp::over(data_proj, polygons(old_clusters_projected))
+      data_proj@data$cluster_geo <- old_clusters_projected$cluster_number[o]
+      # for households which are not strictly in the cluster boundaries, associate them
+      # with a cluster if within 50 meters
+      old_clusters_projected_buffered <- rgeos::gBuffer(spgeom = old_clusters_projected,
+                                                        byid = TRUE, width = 50)
+      o <- sp::over(data_proj, polygons(old_clusters_projected_buffered))
+      data_proj@data$not_in_old_cluster <- is.na(o)
+      data_proj@data$cluster_with_buffer <- old_clusters_projected_buffered@data$cluster_number[o]
+      data_proj@data$old_cluster_correct <-
+        ifelse(is.na(data_proj@data$cluster_geo),
+               data_proj@data$cluster_with_buffer,
+               data_proj@data$cluster_geo)
 
       data_final <- left_join(data,
                  data_proj@data %>%
                    dplyr::select(instanceID,
-                                 geo_not_in_cluster,
-                                 geo_cluster_num,
-                                 geo_not_in_core,
-                                 geo_core_num),
+                                 geo_cluster_num = old_cluster_correct,
+                                 geo_not_in_cluster = not_in_old_cluster),
                  by = 'instanceID')
 
       logger::log_success(glue::glue('Success Reassigning cluster / core number to {form_id}-{repeat_name}'))
@@ -420,64 +389,6 @@ add_cluster_geo_num <- function(data,
     logger::log_success(glue::glue('Skip Reassigning cluster / core number to {form_id}-{repeat_name}'))
     return(data)
   }
-}
-
-
-
-init_geo_objects <- function(){
-  temp_folder <- '/tmp'
-
-  bucket_spatial <- 'bohemia-spatial-assets'
-
-  # input key
-  input_key <- list(
-    old_cluster = 'kwale/clusters.zip',
-    old_core = 'kwale/cores.zip',
-    new_cluster = 'kwale/new_clusters.zip',
-    new_core = 'kwale/new_cores.zip',
-    buffer = 'kwale/buffers.zip'
-  )
-
-  # cluster object
-  old_cluster_obj <- cloudbrewr::aws_s3_get_object(
-    bucket = bucket_spatial,
-    key = input_key$old_cluster,
-    output_dir = temp_folder
-  )
-
-  # core object
-  old_core_obj <- cloudbrewr::aws_s3_get_object(
-    bucket = bucket_spatial,
-    key = input_key$old_core,
-    output_dir = temp_folder
-  )
-
-  # cluster object
-  new_cluster_obj <- cloudbrewr::aws_s3_get_object(
-    bucket = bucket_spatial,
-    key = input_key$new_cluster,
-    output_dir = temp_folder
-  )
-
-  # core object
-  new_core_obj <- cloudbrewr::aws_s3_get_object(
-    bucket = bucket_spatial,
-    key = input_key$new_core,
-    output_dir = temp_folder
-  )
-
-  # buffer object
-  buffer_obj <- cloudbrewr::aws_s3_get_object(
-    bucket = bucket_spatial,
-    key = input_key$buffer,
-    output_dir = temp_folder
-  )
-
-  unzip(old_cluster_obj$file_path, exdir = temp_folder)
-  unzip(old_core_obj$file_path, exdir = temp_folder)
-  unzip(new_cluster_obj$file_path, exdir = temp_folder)
-  unzip(new_core_obj$file_path, exdir = temp_folder)
-  unzip(buffer_obj$file_path, exdir = temp_folder)
 }
 
 
