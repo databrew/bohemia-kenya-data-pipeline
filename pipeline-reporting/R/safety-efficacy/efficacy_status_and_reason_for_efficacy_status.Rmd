@@ -154,8 +154,20 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
     )) %>%
     select(visit, extid, efficacy_status, dob_efficacy, todays_date_efficacy, sex_efficacy, efficacy_reason)
   
-# create the dataset that will be used for this script  
-  data <- left_join(v0dem, eff, by = c('extid'))
+# create the dataset that will be used for this script
+  # this will exclude the people who were manually removed
+  data <- left_join(v0dem, eff, by = c('extid')) %>%
+    filter(extid != '74052-06', # dob change led to not efficacy eligible (aka out of 5-15 years)
+           extid != '18039-03', # "
+           extid != '02042-03', # "
+           extid != '02042-02', # "
+           extid != '26007-03', # "
+           extid != '56118-06') # "
+  
+# create the dataset for the extid explorer
+  data_investigation <- data %>%
+    filter(!is.na(visit)) %>% # removes extids not in Efficacy
+    select(visit, extid, efficacy_status, efficacy_reason, sex_v0, sex_efficacy, dob_v0, dob_efficacy, todays_date_v0, todays_date_efficacy)
 ```
 
 ```{r targets}
@@ -714,4 +726,23 @@ wrap_download(
   eff_cluster_rdt_results_readable, 
   element_id,
   'efficacy_rdt_results_by_cluster.csv')
+```
+
+## extid explorer
+```{r extid-explorer}
+element_id <- 'extid-explorerer'
+
+data_readable <- reactable(data_investigation, columns = list(), 
+                                              highlight = TRUE,
+                                              resizable = TRUE,
+                                              bordered = TRUE,
+                                              striped = TRUE,
+                                              filterable=TRUE,
+                                              elementId = element_id
+                                              )
+
+wrap_download(
+  data_readable, 
+  element_id,
+  'extid_explorer.csv')
 ```
