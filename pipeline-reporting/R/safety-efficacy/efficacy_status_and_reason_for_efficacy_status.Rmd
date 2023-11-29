@@ -744,5 +744,5 @@ data_readable <- reactable(data_investigation, columns = list(),
 wrap_download(
   data_readable, 
   element_id,
-  'extid_explorer.csv')
+  'efficacy_extid_explorer.csv')
 ```

@@ -79,6 +79,16 @@ pfu_repeat <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/pfu/pfu-repeat_preg_symptom.csv')) %>%
   pad_hhid()
 
+v0_dem_repeat <- cloudbrewr::aws_s3_get_table(
+    bucket = DATA_STAGING_BUCKET_NAME,
+    key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography-repeat_individual.csv')) %>%
+    pad_hhid()
+
+v0_demography <- cloudbrewr::aws_s3_get_table(
+    bucket = DATA_STAGING_BUCKET_NAME,
+    key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography.csv')) %>%
+    pad_hhid()
+
 # this is a function to create a download csv button
 wrap_download <- function(reactable_obj, element_id, output_filename){
   onclick_command <- glue::glue(
@@ -153,13 +163,18 @@ pfu_v2 <- pfu %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
 ```
 
-```{r eos_reason}
-# create a table of the reasons a woman is eos
+```{r data creation}
+# create the merged v0 data
+  v0dem <- left_join(v0_dem_repeat, v0_demography, by=c('PARENT_KEY' = 'KEY'))  %>%
+    select(extid, dob, sex, todays_date) %>%
+    rename(dob_v0 = dob,
+           todays_date_v0 = todays_date,
+           sex_v0 = sex)
 
-pfu_eos_v2 <- pfu_v2 %>%
-  select(extid, hhid, cluster, pregnancy_status, ltfu_eos, person_died_eos, person_migrated_eos, fourth_absence_eos, not_continue_eos, still_preg_no_eos, still_preg_no_reason) %>%
-  filter(pregnancy_status == 'eos') %>%
-  mutate(reason = case_when(ltfu_eos == '1' |
+# assign the reasons for eos and in
+pfu_reason <- pfu %>%
+  mutate(pregnancy_status_reason = case_when(pregnancy_status == 'in' ~ 'in',
+                            ltfu_eos == '1' |
                               fourth_absence_eos == '1' ~ 'absent 4 times in a row: ltfu',
                             person_died_eos == '1' ~ 'died',
                             person_migrated_eos == '1' ~ 'migrated',
@@ -174,13 +189,34 @@ pfu_eos_v2 <- pfu_v2 %>%
                             still_preg_no_eos == '1' &
                               still_preg_no_reason == 'Baby was born dead' ~ 'no longer pregnant - baby was born dead',
                             still_preg_no_eos == '1' &
-                              still_preg_no_reason == 'pna' ~ 'no longer pregnant - prefer not to answer'))
+                              still_preg_no_reason == 'pna' ~ 'no longer pregnant - prefer not to answer')) %>%
+  rename(dob_pregnancy = dob_string,
+         sex_pregnancy = sex,
+         todays_date_pregnancy = todays_date)
+
+# create the dataset that will be used for this script
+  # this will exclude the people who were manually removed
+  data <- left_join(v0dem, pfu_reason, by = c('extid')) # add manual changes with filter function here 
+  
+# create the dataset for the extid explorer
+  data_investigation <- data %>%
+    filter(!is.na(visit)) %>% # removes extids not in Efficacy
+    select(visit, extid, pregnancy_status, pregnancy_status_reason, sex_v0, sex_pregnancy, dob_v0, dob_pregnancy, todays_date_v0, todays_date_pregnancy)
+
+```
+
+```{r eos_reason}
+# create a table of the reasons a woman is eos
+
+  pfu_eos_v2 <- data %>%
+    filter(visit == 'V2',
+           pregnancy_status == 'eos')
 
   eos_reasons_v2 <- pfu_eos_v2 %>%
-      group_by(reason) %>%
+      group_by(pregnancy_status_reason) %>%
       summarise('Number of eos people' = n()) %>%
-      arrange(reason) %>%
-      rename('Reason for eos' = reason) %>%
+      arrange(pregnancy_status_reason) %>%
+      rename('Reason for eos' = pregnancy_status_reason) %>%
       add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
       mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(pfu_eos_v2)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
@@ -200,9 +236,9 @@ reactable(pfu_totals_v2, columns = list(
 
 # make a note of the real total number of people visited without repeats
 if (any(duplicated(pfu_totals_v2$extid))) {
-  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(pfu_totals_v2$extid)), "\n")
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(pfu_totals_v2$extid)), "\n.")
 } else {
-  "Note: There are no duplicates based on extid in the data."
+  cat("Note: There are no duplicates based on extid in the data.")
 }
 ```
 
@@ -238,4 +274,22 @@ for (name in names_to_check) {
 if (length(not_found_names) > 0) {
   cat("The following reasons are not shown: ", paste0(not_found_names, collapse = " / "))
 }
+```
+## PFU extid explorer
+```{r pfu-explorer}
+element_id <- 'extid-explorerer'
+
+data_readable <- reactable(data_investigation, columns = list(), 
+                                              highlight = TRUE,
+                                              resizable = TRUE,
+                                              bordered = TRUE,
+                                              striped = TRUE,
+                                              filterable=TRUE,
+                                              elementId = element_id
+                                              )
+
+wrap_download(
+  data_readable, 
+  element_id,
+  'pfu_extid_explorer.csv')
 ```
