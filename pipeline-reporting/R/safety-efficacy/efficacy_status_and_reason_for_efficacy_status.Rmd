@@ -70,10 +70,15 @@ absence1stattempt <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/absences1stattempt/absences1stattempt.csv')) %>%
   pad_hhid()
 
+v0_dem_repeat <- cloudbrewr::aws_s3_get_table(
+    bucket = DATA_STAGING_BUCKET_NAME,
+    key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography-repeat_individual.csv')) %>%
+    pad_hhid()
+
 v0_demography <- cloudbrewr::aws_s3_get_table(
-  bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography-repeat_individual.csv')) %>%
-  pad_hhid()
+    bucket = DATA_STAGING_BUCKET_NAME,
+    key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography.csv')) %>%
+    pad_hhid()
 
 efficacy <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
@@ -119,6 +124,52 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
 }
 ```
 
+```{r data creation}
+# create the merged v0 data
+  v0dem <- left_join(v0_dem_repeat, v0_demography, by=c('PARENT_KEY' = 'KEY'))  %>%
+    select(extid, dob, sex, todays_date) %>%
+    rename(dob_v0 = dob,
+           todays_date_v0 = todays_date,
+           sex_v0 = sex)
+
+# include efficacy information
+  eff <- efficacy %>%
+    rename(dob_efficacy = dob,
+           sex_efficacy = sex, 
+           todays_date_efficacy = todays_date) %>%
+    mutate(efficacy_reason = case_when(
+      efficacy_status == 'in' ~ 'in',
+      not_continue_eos == '1' ~ 'decline participation',
+      not_agree_efficacy_procedures_eos == '1' ~ 'not agree to efficacy procedures',
+      non_resident_eos == '1' ~ 'not a resident',
+      other_trials_eos == '1' ~ 'enrolled in other trials',
+      person_absent_reason_eos == '1' | person_absent == '1' ~ 'absent',
+      person_unenrolled_migrated == '1' ~ 'migrated',
+      person_unenrolled_died == '1' ~ 'died',
+      thumbprint_status == '0' ~ 'thumbprint status',
+      sign_icf_status == '0' ~ 'sign icf status',
+      minor_assent_status == '0' ~ 'minor assent status',
+      starting_efficacy_status == 'eos' ~ 'previously eos',
+      TRUE ~ NA_character_  # To handle cases that don't match any condition
+    )) %>%
+    select(visit, extid, efficacy_status, dob_efficacy, todays_date_efficacy, sex_efficacy, efficacy_reason)
+  
+# create the dataset that will be used for this script
+  # this will exclude the people who were manually removed
+  data <- left_join(v0dem, eff, by = c('extid')) %>%
+    filter(extid != '74052-06', # dob change led to not efficacy eligible (aka out of 5-15 years)
+           extid != '18039-03', # "
+           extid != '02042-03', # "
+           extid != '02042-02', # "
+           extid != '26007-03', # "
+           extid != '56118-06') # "
+  
+# create the dataset for the extid explorer
+  data_investigation <- data %>%
+    filter(!is.na(visit)) %>% # removes extids not in Efficacy
+    select(visit, extid, efficacy_status, efficacy_reason, sex_v0, sex_efficacy, dob_v0, dob_efficacy, todays_date_v0, todays_date_efficacy)
+```
+
 ```{r targets}
 # these numbers are determined by Aryton based on Joe's logic and are stored in AWS
 target_table <- efficacy_targets %>%
@@ -159,11 +210,11 @@ total_efficacy_v1 <- total_efficacy %>%
   # P.S. the efficacy v1 target was determined based on a file received from Joe
   total_efficacy_status_v1 <- total_efficacy_v1 %>%
     group_by(efficacy_status) %>%
-    summarise('Number of people visited in V1 (target: 2,878)' = n()) %>%
+    summarise('Number of people visited in V1' = n()) %>%
     arrange(efficacy_status) %>%
     rename('Efficacy status' = efficacy_status) %>%
-    add_row('Efficacy status' = 'total people visited', 'Number of people visited in V1 (target: 2,878)' = sum(.$'Number of people visited in V1 (target: 2,878)')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of people visited in V1 (target: 2,878)`)) / as.numeric(nrow(total_efficacy_v1)) * 100) %>%
+    add_row('Efficacy status' = 'total people visited', 'Number of people visited in V1' = sum(.$'Number of people visited in V1')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of people visited in V1`)) / as.numeric(nrow(total_efficacy_v1)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%'))
 
@@ -173,11 +224,11 @@ total_efficacy_v2 <- total_efficacy %>%
 
   total_efficacy_status_v2 <- total_efficacy_v2 %>%
       group_by(efficacy_status) %>%
-      summarise('Number of people visited in V2 (target: ?)' = n()) %>%
+      summarise('Number of people visited in V2' = n()) %>%
       arrange(efficacy_status) %>%
       rename('Efficacy status' = efficacy_status) %>%
-      add_row('Efficacy status' = 'total people visited', 'Number of people visited in V2 (target: ?)' = sum(.$'Number of people visited in V2 (target: ?)')) %>%
-      mutate('Percent complete' = (as.numeric(`Number of people visited in V2 (target: ?)`)) / as.numeric(nrow(total_efficacy_v2)) * 100) %>%
+      add_row('Efficacy status' = 'total people visited', 'Number of people visited in V2' = sum(.$'Number of people visited in V2')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V2`)) / as.numeric(nrow(total_efficacy_v2)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
 ```
@@ -191,87 +242,59 @@ efficacy_v2 <- total_efficacy_v2 %>%
 
 efficacy_v2 <- left_join(efficacy_v2, total_efficacy_v1, by=c('extid')) %>%
   select(extid, efficacy_status, v2_efficacystatus) %>%
-  rename(v1_efficacystatus = efficacy_status) # join the v2 'in' people with their v1 statuses
-  
-# create a column that says whether the safety people are follow up or enrolment.
-efficacy_v2$visit_type[efficacy_v2$v1_efficacystatus == 'in'] <- 'follow up'
-efficacy_v2$visit_type[efficacy_v2$v1_efficacystatus == 'out' | is.na(efficacy_v2$v1_efficacystatus)] <- 'enrolment'
-
-efficacy_in <- efficacy_v2 %>%
+  rename(v1_efficacystatus = efficacy_status) %>% # join the v2 'in' people with their v1 statuses
+  mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
+    v1_efficacystatus == 'in' ~ 'follow up',
+    v1_efficacystatus == 'out' |
+      is.na(v1_efficacystatus) ~ 'enrolment'
+  )) %>%
   filter(v2_efficacystatus == 'in')
 
 # create a table that shows how many people are follow up and enrolment in V2
 # make a table of reasons people are eos
-in_type_v2 <- efficacy_in %>%
+in_type_v2 <- efficacy_v2 %>%
   group_by(visit_type) %>%
   summarise('Number of in people' = n()) %>%
   arrange(visit_type) %>%
   rename('Visit type' = visit_type) %>%
   add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
-  mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_in)) * 100) %>%
+  mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v2)) * 100) %>%
   mutate('Percent' = round(`Percent`, 2)) %>%
   mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
 ```
 
 ```{r eos}
 ## this will create a table of how many people are eos and why they are eos
-# first let's determine the reason someone is eos in the safety repeat individual form 
-efficacy_eos <- efficacy %>%
-  select(KEY, extid, visit, efficacy_status, safety_status, starting_efficacy_status, ltfu_eos, person_died, person_died_safety_eos, person_died_efficacy_eos, person_migrated_eos, second_consecutive_absence_eos, person_absent_v7_eos, not_continue_eos, person_absent_reason_eos, not_agree_efficacy_procedures_eos, non_resident_eos, other_trials_eos) %>%
-  filter(efficacy_status == 'eos') 
 
-efficacy_eos_v1 <- efficacy_eos %>%
-  filter(visit == 'V1')
-  
-  # write the reason that someone is out. This is determined from the google_url for efficacy.
-  #efficacy_eos$reason[efficacy_eos$starting_efficacy_status == 'eos'] <- 'previously eos'
-  #efficacy_eos$reason[efficacy_eos$ltfu_eos == 1] <- 'lost to follow up' # this may need to include metadata version reasons too (see google doc)
-  #efficacy_eos$reason[efficacy_eos$person_died_safety_eos == 1] <- 'died and was in safety'
-  #efficacy_eos$reason[efficacy_eos$person_died_efficacy_eos == 1] <- 'died and was in efficacy'
-  #efficacy_eos$reason[efficacy_eos$person_migrated_eos == 1] <- 'migrated'
-  #efficacy_eos$reason[efficacy_eos$second_consecutive_absence_eos ==  1] <- 'absent twice'
-  #efficacy_eos$reason[efficacy_eos$person_absent_v7_eos == 1] <- 'absent in V7' # only needed for v7
-  efficacy_eos_v1$reason[efficacy_eos_v1$not_continue_eos == 1] <- 'decline participation'
-  efficacy_eos_v1$reason[efficacy_eos_v1$not_agree_efficacy_procedures_eos == 1] <- 'not agree to efficacy procedures'
-  efficacy_eos_v1$reason[efficacy_eos_v1$non_resident_eos == 1] <- 'not a resident'
-  efficacy_eos_v1$reason[efficacy_eos_v1$other_trials_eos == 1] <- 'enrolled in other trials'
+## V1 ############################# 
+  efficacy_eos_v1 <- data %>%
+    filter(visit == 'V1',
+           efficacy_status == 'eos')
   
   # make a table of why people are eos
   eos_reasons_v1 <- efficacy_eos_v1 %>%
-    group_by(reason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of eos people' = n()) %>%
-    arrange(reason) %>%
-    rename('Reason for eos' = reason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for eos' = efficacy_reason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos_v1)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
   
-  
-# again for V2
-efficacy_eos_v2 <- efficacy_eos %>%
-  filter(visit == 'V2')
 
-  # write the reason that someone is out. This is determined from the google_url for efficacy.
-  efficacy_eos_v2$reason[efficacy_eos_v2$starting_efficacy_status == 'eos'] <- 'previously eos'
-  #efficacy_eos$reason[efficacy_eos$ltfu_eos == 1] <- 'lost to follow up' # this may need to include metadata version reasons too (see google doc)
-  #efficacy_eos$reason[efficacy_eos$person_died_safety_eos == 1] <- 'died and was in safety'
-  #efficacy_eos$reason[efficacy_eos$person_died_efficacy_eos == 1] <- 'died and was in efficacy'
-  #efficacy_eos$reason[efficacy_eos$person_migrated_eos == 1] <- 'migrated'
-  #efficacy_eos$reason[efficacy_eos$second_consecutive_absence_eos ==  1] <- 'absent twice'
-  #efficacy_eos$reason[efficacy_eos$person_absent_v7_eos == 1] <- 'absent in V7' # only needed for v7
-  efficacy_eos_v2$reason[efficacy_eos_v2$not_continue_eos == 1] <- 'decline participation'
-  efficacy_eos_v2$reason[efficacy_eos_v2$not_agree_efficacy_procedures_eos == 1] <- 'not agree to efficacy procedures'
-  efficacy_eos_v2$reason[efficacy_eos_v2$non_resident_eos == 1] <- 'not a resident'
-  efficacy_eos_v2$reason[efficacy_eos_v2$other_trials_eos == 1] <- 'enrolled in other trials'
-  efficacy_eos_v2$reason[efficacy_eos_v2$person_absent_reason_eos == 1] <- 'absent'
+## V2 ###########################
+  
+  efficacy_eos_v2 <- data %>%
+    filter(visit == 'V2',
+           efficacy_status == 'eos')
   
   # make a table of why people are eos
   eos_reasons_v2 <- efficacy_eos_v2 %>%
-    group_by(reason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of eos people' = n()) %>%
-    arrange(reason) %>%
-    rename('Reason for eos' = reason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for eos' = efficacy_reason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos_v2)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
@@ -281,111 +304,70 @@ efficacy_eos_v2 <- efficacy_eos %>%
 
 ```{r out}
 ## this will create a table of how many people are out and why they are out
-# first let's determine the reason someone is out in the safety repeat individual form 
-efficacy_out <- efficacy %>%
-  select(KEY, extid, visit, efficacy_status, safety_status, person_unenrolled_migrated, person_unenrolled_died, past_enrollment_visits, starting_efficacy_status, person_absent, eos) %>%
-  filter(efficacy_status == 'out') 
 
-efficacy_out_v1 <- efficacy_out %>%
-  filter(visit == 'V1')
+## V1 ########################### 
+  efficacy_out_v1 <- data %>%
+    filter(visit == 'V1',
+           efficacy_status == 'out')
   
-  # write the reason that someone is out. This is determined from the google_url for efficacy.
-  efficacy_out_v1$reason[efficacy_out_v1$person_absent == 1] <- 'absent'
-  efficacy_out_v1$reason[efficacy_out_v1$person_unenrolled_migrated == 1] <- 'migrated'
-  efficacy_out_v1$reason[efficacy_out_v1$person_unenrolled_died == 1] <- 'died'
-  
-  # these seem to be wrong
-  #efficacy_out$reason[efficacy_out$past_unenrollment_visits == 1] <- 'not enrolled in V1, V2, or V3'
-  #efficacy_out$reason[efficacy_out$starting_efficacy_status == 'out' &  efficacy_out$person_absent == '1' & efficacy_out$eos != 1 & (efficacy_out$visit == 'V1' | efficacy_out$visit == 'V2' | efficacy_out$visit == 'V3')] <- 'not enrolled in V1, V2, or V3'
-  
-  
-  
-  # make a table of why people are out
   out_reasons_v1 <- efficacy_out_v1 %>%
-    group_by(reason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of out people' = n()) %>%
-    arrange(reason) %>%
-    rename('Reason for out' = reason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for out' = efficacy_reason) %>%
     add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(efficacy_out_v1)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+   
+## V2 ##############################
   
+  efficacy_out_v2 <- data %>%
+    filter(visit == 'V2',
+           efficacy_status == 'out')
   
-efficacy_out_v2 <- efficacy_out %>%
-  filter(visit == 'V2')
-  
-  # write the reason that someone is out. This is determined from the google_url for efficacy.
-  efficacy_out_v2$reason[efficacy_out_v2$person_absent == 1] <- 'absent'
-  efficacy_out_v2$reason[efficacy_out_v2$person_unenrolled_migrated == 1] <- 'migrated'
-  efficacy_out_v2$reason[efficacy_out_v2$person_unenrolled_died == 1] <- 'died'
-  #efficacy_out$reason[efficacy_out$past_unenrollment_visits == 1] <- 'not enrolled yet'
-  efficacy_out$reason[efficacy_out$starting_efficacy_status == 'out' &  efficacy_out$person_absent == '1' & efficacy_out$eos != 1 & (efficacy_out$visit == 'V1' | efficacy_out$visit == 'V2' | efficacy_out$visit == 'V3')] <- 'not enrolled yet'
-  
-  
-  
-  # make a table of why people are out
+    # make a table of why people are out
   out_reasons_v2 <- efficacy_out_v2 %>%
-    group_by(reason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of out people' = n()) %>%
-    arrange(reason) %>%
-    rename('Reason for out' = reason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for out' = efficacy_reason) %>%
     add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(efficacy_out_v2)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
 ```
 
 ```{r refusal}
 ## this will create a table of how many people are refusal and why they are refusal
-# let us start with safety
-efficacy_refusal <- efficacy %>%
-  select(KEY,
-         extid, visit, 
-         starting_efficacy_status,
-         thumbprint_status,
-         sign_icf_status, minor_assent_status,
-         efficacy_status, 
-         person_absent) %>%
-  filter(efficacy_status == 'refusal') 
 
-efficacy_refusal_v1 <- efficacy_refusal %>%
-  filter(visit == 'V1')
-
-  # write the reason that someone is out. This is determined from the google_url for efficacy.
-  #efficacy_refusal$reason[efficacy_refusal$starting_efficacy_status == 'refusal'] <- 'previously refusal'
-  efficacy_refusal_v1$reason[efficacy_refusal_v1$thumbprint_status == 0] <- 'thumbprint status'
-                            efficacy_refusal_v1$reason[efficacy_refusal_v1$sign_icf_status == 0] <- 'sign icf status'
-                            efficacy_refusal_v1$reason[efficacy_refusal_v1$minor_assent_status == 0] <- 'minor assent status'
+## V1 ########################### 
+  efficacy_refusal_v1 <- data %>%
+    filter(visit == 'V1',
+           efficacy_status == 'refusal')
   
-  # make a table of why people are eos
   refusal_reasons_v1 <- efficacy_refusal_v1 %>%
-    group_by(reason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of refusal people' = n()) %>%
-    arrange(reason) %>%
-    rename('Reason for refusal' = reason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for refusal' = efficacy_reason) %>%
     add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(efficacy_refusal_v1)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+   
+## V2 ##############################
   
+  efficacy_refusal_v2 <- data %>%
+    filter(visit == 'V2',
+           efficacy_status == 'refusal')
   
-# V2
-efficacy_refusal_v2 <- efficacy_refusal %>%
-  filter(visit == 'V2')
-
-  # write the reason that someone is out. This is determined from the google_url for efficacy.
-  #efficacy_refusal$reason[efficacy_refusal$starting_efficacy_status == 'refusal'] <- 'previously refusal'
-  efficacy_refusal_v2$reason[efficacy_refusal_v2$thumbprint_status == 0] <- 'thumbprint status'
-                            efficacy_refusal_v2$reason[efficacy_refusal_v2$sign_icf_status == 0] <- 'sign icf status'
-                            efficacy_refusal_v2$reason[efficacy_refusal_v2$minor_assent_status == 0] <- 'minor assent status'
-  
-  # make a table of why people are eos
   refusal_reasons_v2 <- efficacy_refusal_v2 %>%
-    group_by(reason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of refusal people' = n()) %>%
-    arrange(reason) %>%
-    rename('Reason for refusal' = reason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for refusal' = efficacy_reason) %>%
     add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(efficacy_refusal_v2)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
@@ -425,15 +407,17 @@ eff_cluster_rdt_results_v1 <- eff_results_v1_edited %>%
 
 # we want to see the rates of malaria. So create a table of totals (all clusters) of the proportions of the four ways using (pan+/-;pf+/-). Include percentages of each for the entire study.
 eff_rdt_prop_totals_v1 <- eff_results_v1 %>%
+  filter(combination != 'blank test responses') %>%
   group_by(combination) %>%
   summarise('Count' = n()) %>%
   add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
-  mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results)) * 100) %>%
+  mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results_v1)) * 100) %>%
   mutate(Percent = round(Percent, 2)) %>%
   mutate(Percent = paste0(Percent, '%')) %>%
   rename('Combination type' = combination)
 
-# V2
+
+## V2 ##############################
 
 eff_results_v2 <- eff_results %>%
   filter(visit == 'V2', 
@@ -459,10 +443,11 @@ eff_cluster_rdt_results_v2 <- eff_results_v2_edited %>%
 
 # we want to see the rates of malaria. So create a table of totals (all clusters) of the proportions of the four ways using (pan+/-;pf+/-). Include percentages of each for the entire study.
 eff_rdt_prop_totals_v2 <- eff_results_v2 %>%
+  filter(combination != 'blank test responses') %>%
   group_by(combination) %>%
   summarise('Count' = n()) %>%
   add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
-  mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results)) * 100) %>%
+  mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results_v2)) * 100) %>%
   mutate(Percent = round(Percent, 2)) %>%
   mutate(Percent = paste0(Percent, '%')) %>%
   rename('Combination type' = combination)
@@ -482,10 +467,17 @@ reactable(total_efficacy_status_v2, columns = list(
 # make a note of duplicates
 if (any(duplicated(total_efficacy_v2$extid))) {
   cat('Note: Excluding the duplicates, the real total number of people visited is',
-      length(unique(total_efficacy_v2$extid)), '\n')
+      length(unique(total_efficacy_v2$extid)), '.\n')
 } else {
-  "Note: There are no duplicates based on extid in the data."
+  cat("Note: There are no duplicates based on extid in the data.")
 }
+```
+
+### in
+```{r in_show}
+reactable(in_type_v2, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
 ### eos
@@ -496,8 +488,7 @@ reactable(eos_reasons_v2, columns = list(
 
 # generate a message that says which reasons do not appear
 # Specify the names you want to check for
-names_to_check <- c('previously eos', 
-                    'decline participation', 
+names_to_check <- c('decline participation', 
                     'not agree to efficacy procedures', 
                     'not a resident', 
                     'enrolled in other trials')
@@ -507,14 +498,14 @@ not_found_names <- character(0)
 
 # Check each name
 for (name in names_to_check) {
-  if (!name %in% efficacy_eos_v1$reason) {
+  if (!name %in% efficacy_eos_v2$efficacy_reason) {
     not_found_names <- c(not_found_names, name)
   }
 }
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("The following are not reasons for eos:", paste0(not_found_names, collapse = " / "))
+  cat("The following are not reasons for eos:", paste0(not_found_names, collapse = " / ", "."))
 }
 ```
 
@@ -536,14 +527,14 @@ not_found_names <- character(0)
 
 # Check each name
 for (name in names_to_check) {
-  if (!name %in% efficacy_out_v1$reason) {
+  if (!name %in% efficacy_out_v2$efficacy_reason) {
     not_found_names <- c(not_found_names, name)
   }
 }
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("The following are not reasons for out status:", paste0(not_found_names, collapse = "/ "))
+  cat("The following are not reasons for out status:", paste0(not_found_names, collapse = " / ", "."))
 }
 ```
 
@@ -564,14 +555,14 @@ not_found_names <- character(0)
 
 # Check each name
 for (name in names_to_check) {
-  if (!name %in% efficacy_refusal_v1$reason) {
+  if (!name %in% efficacy_refusal_v2$efficacy_reason) {
     not_found_names <- c(not_found_names, name)
   }
 }
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("The following are not reasons for refusals:", paste0(not_found_names, collapse = "/ "))
+  cat("The following are not reasons for refusals:", paste0(not_found_names, collapse = "/ ", "."))
 }
 ```
 
@@ -581,8 +572,14 @@ if (length(not_found_names) > 0) {
 reactable(eff_rdt_prop_totals_v2, columns = list(
   `Percent` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
+
+# make a note of blank test responses
+if (sum(eff_results_v2$combination == 'blank test responses') >= 1) {
+  cat('Note:', sum(eff_results_v2$combination == 'blank test responses'), 'blank test responses have been excluded from this table.\n')
+} else {
+  cat('Note: No blank test responses were recorded.\n')
+}
 ```
-######    Note: the rdt test results only look at children with an efficacy status of 'in'
 
 #### rdt results by cluster in v2
 ```{r rdt-results-by-cluster-v2}
@@ -612,9 +609,9 @@ reactable(total_efficacy_status_v1, columns = list(
 
 # make a note of the real total number of people visited without repeats
 if (any(duplicated(total_efficacy_v1$extid))) {
-  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(total_efficacy_v1$extid)), "\n")
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(total_efficacy_v1$extid)), "\n.")
 } else {
-  "Note: There are no duplicates based on extid in the data."
+  cat("Note: There are no duplicates based on extid in the data.")
 }
 ```
 
@@ -633,14 +630,14 @@ not_found_names <- character(0)
 
 # Check each name
 for (name in names_to_check) {
-  if (!name %in% efficacy_eos_v1$reason) {
+  if (!name %in% efficacy_eos_v1$efficacy_reason) {
     not_found_names <- c(not_found_names, name)
   }
 }
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("The following reasons are not reasons for eos status:", paste0(not_found_names, collapse = " / "))
+  cat("The following reasons are not reasons for eos status:", paste0(not_found_names, collapse = " / ", "."))
 }
 ```
 
@@ -659,14 +656,14 @@ not_found_names <- character(0)
 
 # Check each name
 for (name in names_to_check) {
-  if (!name %in% efficacy_out_v1$reason) {
+  if (!name %in% efficacy_out_v1$efficacy_reason) {
     not_found_names <- c(not_found_names, name)
   }
 }
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("The following reasons are not reasons for out status:", paste0(not_found_names, collapse = ", "))
+  cat("The following reasons are not reasons for out status:", paste0(not_found_names, collapse = ", ", "."))
 }
 ```
 
@@ -685,14 +682,14 @@ not_found_names <- character(0)
 
 # Check each name
 for (name in names_to_check) {
-  if (!name %in% efficacy_refusal_v1$reason) {
+  if (!name %in% efficacy_refusal_v1$efficacy_reason) {
     not_found_names <- c(not_found_names, name)
   }
 }
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("The following are not reasons for refusals:", paste0(not_found_names, collapse = ", "))
+  cat("The following are not reasons for refusals:", paste0(not_found_names, collapse = ", ", "."))
 }
 ```
 
@@ -702,8 +699,15 @@ if (length(not_found_names) > 0) {
 reactable(eff_rdt_prop_totals_v1, columns = list(
   `Percent` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
+
+# make a note of blank test responses
+if (sum(eff_results_v1$combination == 'blank test responses') >= 1) {
+  cat('Note:', sum(eff_results_v1$combination == 'blank test responses'), 'blank test responses have been excluded from this table.\n')
+} else {
+  cat('Note: No blank test responses were recorded. \n')
+}
+
 ```
-######    Note: the rdt test results only look at children with an efficacy status of 'in'
 
 #### rdt results by cluster in v1
 ```{r rdt-results-by-cluster-v1}
@@ -722,4 +726,23 @@ wrap_download(
   eff_cluster_rdt_results_readable, 
   element_id,
   'efficacy_rdt_results_by_cluster.csv')
+```
+
+## extid explorer
+```{r extid-explorer}
+element_id <- 'extid-explorerer'
+
+data_readable <- reactable(data_investigation, columns = list(), 
+                                              highlight = TRUE,
+                                              resizable = TRUE,
+                                              bordered = TRUE,
+                                              striped = TRUE,
+                                              filterable=TRUE,
+                                              elementId = element_id
+                                              )
+
+wrap_download(
+  data_readable, 
+  element_id,
+  'efficacy_extid_explorer.csv')
 ```
