@@ -283,7 +283,7 @@ in_type_v2 <- efficacy_v2 %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
   
 
-## V2 ###########################
+## V2 ########################### # need to add enrolment vs. follow up
   
   efficacy_eos_v2 <- data %>%
     filter(visit == 'V2',

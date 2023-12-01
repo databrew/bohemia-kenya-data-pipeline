@@ -72,9 +72,14 @@ absence1stattempt <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/absences1stattempt/absences1stattempt.csv')) %>%
   pad_hhid()
 
-v0_demography <- cloudbrewr::aws_s3_get_table(
+v0_dem_repeat <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography-repeat_individual.csv')) %>%
+  pad_hhid()
+  
+v0_demography <- cloudbrewr::aws_s3_get_table(
+  bucket = DATA_STAGING_BUCKET_NAME,
+  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography.csv')) %>%
   pad_hhid()
 
 safety <- cloudbrewr::aws_s3_get_table(
@@ -116,26 +121,97 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
 }
 ```
 
-```{r targets}
-# only take the necessary columns (extid and safety_status) from the datasets
+```{r data creation}
+# create the merged v0 data
+  v0dem <- left_join(v0_dem_repeat, v0_demography, by=c('PARENT_KEY' = 'KEY')) %>%
+    select(extid, dob, sex, todays_date) %>%
+    rename(dob_v0 = dob,
+           todays_date_v0 = todays_date,
+           sex_v0 = sex)
+  
+# create the merged safety data
   clean_safety_repeat <- safety_repeat_individual %>%
-    select(PARENT_KEY, extid, safety_status, sex)
+    select(PARENT_KEY, extid, safety_status, starting_safety_status, dob_string, sex, participant_take_drug, participant_take_drug_2, non_resident_eos, weight_eos, weight_eos_short, study_drug_eos, concom_meds_eos, concom_meds_eos_short, severe_illness_eos, severe_illness_eos_short, obvious_screening, baby_not_week_old_eos, pregnant_eos, pregnancy_section_eos, pregnancy_section_eos_short, preg_test_pos_eos_short, preg_test_2_eos_short, obvious_screening, preg_test_refuse_eos_short, other_trials_eos, loa_loa_eos, sum_night_hospital_eos, not_agree_safety_procedures_eos, refuse_drug_eos, refuse_drug_eos_2, not_continue_eos, person_died_eos, person_out_died, person_migrated, person_out_migrated, ind_witness_present, person_absent, obvious_screening, ind_thumbprint_status, ind_sign_icf_status, minor_assent_status, starting_safety_status) %>%
+    rename(dob = dob_string)
   clean_safetynew_repeat <- safetynew_repeat_individual %>%
-    select(PARENT_KEY, extid, safety_status, sex) %>%
-    rename(safetynew_status = safety_status,
-           sex_safetynew = sex)
+    select(PARENT_KEY, extid, safety_status, dob, sex, participant_take_drug, participant_take_drug_2, non_resident_eos, weight_eos, study_drug_eos, concom_meds_eos, severe_illness_eos, obvious_screening, baby_not_week_old_eos, pregnant_eos, pregnancy_section_eos, obvious_screening, other_trials_eos, loa_loa_eos, not_agree_safety_procedures_eos, refuse_drug_eos, refuse_drug_eos_2, ind_witness_present, obvious_screening, ind_thumbprint_status, ind_sign_icf_status, minor_assent_status) %>%
+    rename(take_drug_safetynew = participant_take_drug,
+           take_drug_2_safetynew = participant_take_drug_2)
   clean_safety <- safety %>%
-    select(KEY, visit, cluster, hhid, todays_date)
+    select(KEY, visit, todays_date, hhid, cluster)
   clean_safetynew <- safetynew %>%
-    select(KEY, visit, cluster, hhid, todays_date)
+    select(KEY, visit, todays_date, hhid, cluster)
   
   # join safety and safety repeat and do the same for safetynew
-  joined_safety <- left_join(clean_safety_repeat, clean_safety, by=c('PARENT_KEY' = 'KEY'))
+  joined_safety <- left_join(clean_safety, clean_safety_repeat, by=c('KEY' = 'PARENT_KEY'))
   joined_safetynew <- left_join(clean_safetynew_repeat, clean_safetynew, by=c('PARENT_KEY' = 'KEY'))
   
   # join these two new dataframes
-  total_safety <- bind_rows(joined_safety, joined_safetynew)
+  total_safety <- bind_rows(joined_safety, joined_safetynew) %>%
+    mutate(took_drug = coalesce(participant_take_drug, 
+                                participant_take_drug_2, 
+                                take_drug_safetynew, 
+                                take_drug_2_safetynew),
+           safetystatus = safety_status,
+           safety_reason = case_when(
+             safety_status == 'in' ~ 'in',
+             starting_safety_status == 'eos' ~ 'previously eos',
+             starting_safety_status == 'refusal' ~ 'previously refusal',
+             non_resident_eos == '1' ~ 'not resident',
+             weight_eos == '1' |
+               weight_eos_short == '1' ~ 'under weight',
+             study_drug_eos == '1' ~ 'study drug',
+             concom_meds_eos == '1' |
+               concom_meds_eos_short == '1' ~ 'concom meds',
+             severe_illness_eos == '1' |
+               severe_illness_eos_short == '1' |
+               obvious_screening == 'Ill' ~ 'severe illness',
+             baby_not_week_old_eos == '1' ~ 'baby under 1 week',
+             pregnant_eos == '1' |
+               preg_test_pos_eos_short == '1' |
+               preg_test_2_eos_short == '1' |
+               obvious_screening == 'Pregnant' |
+               pregnancy_section_eos_short == '1' |
+               pregnancy_section_eos == '1' ~ 'pregnant',
+             preg_test_refuse_eos_short == '1' ~ 'pregnancy test refusal',
+             other_trials_eos == '1' ~ 'other trials',
+             loa_loa_eos == '1' ~ 'visited loa loa',
+             sum_night_hospital_eos >= '1' ~ 'spent night at the hospital',
+             not_agree_safety_procedures_eos == '1' ~ 'not agree to safety procedures',
+             refuse_drug_eos == '1' |
+               refuse_drug_eos_2 == '1' ~ 'participant withdrew informed consent',
+             not_continue_eos == '1' ~ 'not wish to continue',
+             person_died_eos == '1' |
+               person_out_died == '1' ~ 'died',
+             person_migrated == '1' & 
+               starting_safety_status == 'in' |
+               person_out_migrated == '1' ~ 'migrated',
+             starting_safety_status == 'eos' ~ 'previously eos',
+             obvious_screening == 'ineligible' ~ 'Ineligible at obvious reasoning',
+             obvious_screening == 'Baby' ~ 'A baby that cannot walk yet',
+             obvious_screening == 'Witness' |
+               ind_witness_present == '1 ' ~ 'no witness',
+             person_absent == '1' ~ 'absent',
+             obvious_screening == 'Refusal' ~ 'a person who does not want to participate',
+             obvious_screening == 'Language' ~ 'does not speak English or Swahili',
+             ind_thumbprint_status == '0' ~ 'not consented or provided their thumbprint',
+             ind_sign_icf_status == '0' ~ 'not agree or sign informed consent',
+             minor_assent_status == '0' ~ 'minor not sign assent',
+             starting_safety_status == 'refusal' ~ 'previously refusal',
+             TRUE ~ NA_character_  # To handle cases that don't match any condition
+           ))  
+    #select(visit, extid, safety_status, dob, todays_date, sex, safety_reason) %>%
+    #rename(dob_safety_visit = dob,
+     #      todays_date_safety = todays_date,
+      #     sex_safety = sex)
+  
+  
+# join total_safety and v0 data
+  data <- merge(total_safety, v0dem, by = c('extid'), all = TRUE)
 
+```
+
+```{r targets}
 # these numbers are determined by Aryton based on Joe's logic and are stored in AWS
   target_table <- safety_targets %>%
     group_by(visit) %>%
@@ -167,10 +243,7 @@ target_table <- target_table %>%
 ### V1
 
 # make the safetynew_status and safety_status into one column and the sexes
-total_safety <- total_safety %>%
-  mutate(safetystatus = coalesce(safety_status, safetynew_status),
-                                 sex = coalesce(sex, sex_safetynew)) %>% 
-  select(extid, safetystatus, cluster, sex, todays_date, visit) %>%
+total_safety <- data %>%
   filter(safetystatus != 'UNDEFINED') # we find an UNDEFINED from someone most likely submitting a form without filling it out so we will remove NA from extid 
 
 # since this is only a table for V1 we will only keep V1 people from total_safety
@@ -179,6 +252,7 @@ total_safety_v1 <- total_safety %>%
 
 # create a summary table of safety_status counts
 total_safety_status_v1 <- total_safety_v1 %>%
+  select(extid, safetystatus, cluster, sex, todays_date, visit) %>%
   group_by(safetystatus) %>%
   summarise('Number of people visited in V1' = n()) %>%
   arrange(safetystatus) %>%
@@ -194,6 +268,7 @@ total_safety_v2 <- total_safety %>%
   filter(visit == 'V2')
 
 total_safety_status_v2 <- total_safety_v2 %>%
+  select(extid, safetystatus, cluster, sex, todays_date, visit) %>%
   group_by(safetystatus) %>%
   summarise('Number of people visited in V2' = n()) %>%
   arrange(safetystatus) %>%
@@ -206,9 +281,10 @@ total_safety_status_v2 <- total_safety_v2 %>%
 
 ## V3
 total_safety_v3 <- total_safety %>%
-  filter(visit == 'V3')
+  filter(visit == 'V3') 
 
 total_safety_status_v3 <- total_safety_v3 %>%
+  select(extid, safetystatus, cluster, sex, todays_date, visit) %>%
   group_by(safetystatus) %>%
   summarise('Number of people visited in V3' = n()) %>%
   arrange(safetystatus) %>%
@@ -220,362 +296,170 @@ total_safety_status_v3 <- total_safety_v3 %>%
 ```
 
 ```{r in}
-# Safety V3
-## table of how many people are in as enrolment and in as follow up in for each visit
-# first create a dataset with the in safety status people from SafetyV2 and then joining Safety V1 and V2 (total_safety_v1 and total_safety_v2)
-  safety_v3 <- total_safety_v3 %>%
-    rename(v3_safetystatus = safetystatus) %>%
-    select(extid, v3_safetystatus) # get the v3 'in' people
-  
-  safety_v3 <- left_join(safety_v3, total_safety_v2, by=c('extid')) %>%
-    select(extid, safetystatus, v3_safetystatus) %>%
-    rename(v2_safetystatus = safetystatus) # join the v3 'in' people with their v2 statuses
-  
-# create a column that says whether the safety people are follow up or enrolment. This will be determined by classifying as follow up if they were 'in' in V1 and 'in' in V2 AND classify as enrolment if they were 'out' in V1 and 'in' in V2
-safety_v3$visit_type[safety_v3$v2_safetystatus == 'in'] <- 'follow up'
-safety_v3$visit_type[safety_v3$v2_safetystatus == 'out' | is.na(safety_v3$v2_safetystatus)] <- 'enrolment'
+## create a table of how many people are in as enrolment and in as follow up in Safety visits
+# create a dataset with the in efficacy status people from Safety V2 and then joining Safety V2 and V3 (total_safety_v2 and total_safety_v3)
+safety_v3 <- total_safety_v3 %>%
+  rename(v3_safetystatus = safetystatus) %>%
+  select(extid, v3_safetystatus, safety_reason) %>% # get the v3 'in' people
+  rename(v3_safety_reason = safety_reason)
 
-safety_in_v3 <- safety_v3 %>%
-  filter(v3_safetystatus == 'in')
+safety_v3 <- left_join(safety_v3, total_safety_v2, by=c('extid')) %>%
+  select(extid, safetystatus, v3_safetystatus, v3_safety_reason) %>%
+  rename(v2_safetystatus = safetystatus) %>% # join the v3 'in' people with their v1 statuses
+  mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
+    v2_safetystatus == 'in' ~ 'follow up',
+    v2_safetystatus == 'eos' ~ 'previously eos',
+    v2_safetystatus == 'out' |
+      is.na(v2_safetystatus) ~ 'enrolment'
+  )) 
 
-# table that shows how many people are follow up and enrolment in V3
+# create a table that shows how many people are follow up and enrolment in V2
 # make a table of reasons people are eos
-in_type_v3 <- safety_in_v3 %>%
+in_type_v3 <- safety_v3 %>%
+  filter(v3_safetystatus == 'in') %>%
   group_by(visit_type) %>%
   summarise('Number of in people' = n()) %>%
   arrange(visit_type) %>%
   rename('Visit type' = visit_type) %>%
   add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
-  mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(safety_in_v3)) * 100) %>%
+  mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(safety_v3)) * 100) %>%
   mutate('Percent' = round(`Percent`, 2)) %>%
   mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
 
 
-## table of how many people are in as enrolment and in as follow up in Safety V2
-# first create a dataset with the in safety status people from SafetyV2 and then joining Safety V1 and V2 (total_safety_v1 and total_safety_v2)
+# create a dataset with the in efficacy status people from Safety V2 and then joining Safety V1 and V2 (total_safety_v1 and total_safety_v2)
 safety_v2 <- total_safety_v2 %>%
   rename(v2_safetystatus = safetystatus) %>%
-  select(extid, v2_safetystatus) # get the v2 'in' people
+  select(extid, v2_safetystatus, safety_reason) %>% # get the v2 'in' people
+  rename(v2_safety_reason = safety_reason)
 
 safety_v2 <- left_join(safety_v2, total_safety_v1, by=c('extid')) %>%
-  select(extid, safetystatus, v2_safetystatus) %>%
-  rename(v1_safetystatus = safetystatus) # join the v2 'in' people with their v1 statuses
-
-#safe_in <- left_join(safety_in, safety_repeat_individual, by=c("extid")) 
-
-#safe_in <- safe_in %>% select(extid, v1_safetystatus, v2_safetystatus, continue_participation, obvious_screening) # add the continue_participation and obvious_screening columns for double checking purposes below
-  
-# create a column that says whether the safety people are follow up or enrolment. This will be determined in two ways:
-# A. classify as follow up if they were 'in' in V1 and 'in' in V2 AND classify as enrolment if they were 'out' in V1 and 'in' in V2
-safety_v2$visit_type[safety_v2$v1_safetystatus == 'in'] <- 'follow up'
-safety_v2$visit_type[safety_v2$v1_safetystatus == 'out' | is.na(safety_v2$v1_safetystatus)] <- 'enrolment'
-
-safety_in <- safety_v2 %>%
-  filter(v2_safetystatus == 'in')
-
-# B. classify as follow up if they answered continue_participation AND classify as enrolment if they answered obvious_screening
-# we are doing this two different ways to make sure we catch any errors
-#safe_in$visit_type_b[safe_in$obvious_screening == 'NA'] <- "follow up"
-#safe_in$visit_type_b[safe_in$continue_participation == 'NA'] <- "enrolment"
+  select(extid, safetystatus, v2_safetystatus, v2_safety_reason) %>%
+  rename(v1_safetystatus = safetystatus) %>% # join the v2 'in' people with their v1 statuses
+  mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
+    v1_safetystatus == 'in' ~ 'follow up',
+    v1_safetystatus == 'eos' ~ 'previously eos',
+    v1_safetystatus == 'out' |
+      is.na(v1_safetystatus) ~ 'enrolment'
+  ))
 
 # create a table that shows how many people are follow up and enrolment in V2
 # make a table of reasons people are eos
-in_type_v2 <- safety_in %>%
+in_type_v2 <- safety_v2 %>%
+  filter(v2_safetystatus == 'in') %>%
   group_by(visit_type) %>%
   summarise('Number of in people' = n()) %>%
   arrange(visit_type) %>%
   rename('Visit type' = visit_type) %>%
   add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
-  mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(safety_in)) * 100) %>%
+  mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(safety_v2)) * 100) %>%
   mutate('Percent' = round(`Percent`, 2)) %>%
   mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
 
 ```
 
 ```{r eos}
-## this will create a table of how many people are eos and why they are eos
-# first let's determine the reason someone is eos in the safety repeat individual form 
-safety_eos <- safety_repeat_individual %>%
-  select(PARENT_KEY, extid, safety_status, not_agree_safety_procedures_eos, safety_inclusion_eos, non_resident_eos, weight_eos, study_drug_eos, concom_meds_eos, severe_illness_eos, baby_not_week_old_eos, pregnant_eos, pregnancy_section_eos, other_trials_eos, loa_loa_eos, sum_night_hospital_eos, pregnancy_section_eos_short, preg_test_refuse_eos_short, preg_test_pos_eos_short, preg_test_2_eos_short, short_safety_inclusion_eos, weight_eos_short, concom_meds_eos_short, severe_illness_eos_short, refuse_drug_eos, not_take_drug_reason, refuse_drug_eos_2, not_take_drug_reason_2, person_died_eos, starting_safety_status, person_migrated, not_continue_eos, starting_safety_status) %>%
-  mutate(type = 'safety') %>%
-  filter(safety_status == 'eos')# to identify where the person came from later on
 
-# need to filter by visit from clean_safety
-safety_eos_v1 <- left_join(safety_eos, clean_safety, by=c('PARENT_KEY'='KEY')) %>%
-  filter(visit == 'V1')
+## V1 ###########################
+  
+  safety_eos_v1 <- data %>%
+    filter(visit == 'V1',
+           safetystatus == 'eos')
+  
+  # make a table of why people are eos
+  eos_reasons_v1 <- safety_eos_v1 %>%
+    group_by(safety_reason) %>%
+    summarise('Number of eos people' = n()) %>%
+    arrange(safety_reason) %>%
+    rename('Reason for eos' = safety_reason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_eos_v1)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+## V2 ############################
+  
+  safety_eos_v2 <- safety_v2 %>%
+    filter(v2_safetystatus == 'eos') # remove people who were eos in V1
+  
+  total_safe_eos_enrolment_v2 <- safety_eos_v2 %>%
+    filter(visit_type == 'enrolment')
+  total_safe_eos_followup_v2 <- safety_eos_v2 %>%
+    filter(visit_type == 'follow up')
 
-# conditions for not_agree_to_safety_procedures
-safety_eos_v1$reason[safety_eos_v1$not_agree_safety_procedures_eos == 1] <- 'not agree to safety procedures'
-
-# conditions for safety_inclusion_eos
-safety_eos_v1$reason[safety_eos_v1$non_resident_eos == 1] <- 'not resident'
-safety_eos_v1$reason[safety_eos_v1$weight_eos == 1] <- 'under weight'
-safety_eos_v1$reason[safety_eos_v1$study_drug_eos == 1] <- 'study drug'
-safety_eos_v1$reason[safety_eos_v1$concom_meds_eos == 1] <- 'concom meds'
-safety_eos_v1$reason[safety_eos_v1$severe_illness_eos == 1] <- 'severe illness'
-safety_eos_v1$reason[safety_eos_v1$baby_not_week_old_eos == 1] <- 'baby under 1 week'
-safety_eos_v1$reason[safety_eos_v1$pregnant_eos == 1] <- 'pregnant'
-safety_eos_v1$reason[safety_eos_v1$pregnancy_section_eos == 1] <- 'pregnant'
-safety_eos_v1$reason[safety_eos_v1$other_trials_eos == 1] <- 'other trials'
-safety_eos_v1$reason[safety_eos_v1$loa_loa_eos == 1] <- 'visited loa loa'
-
-# conditions for sum_night_hospital_eos
-safety_eos_v1$reason[safety_eos_v1$sum_night_hospital_eos >= 1] <- 'spent night at the hospital'
-
-# conditions for pregnancy_section_eos_short
-safety_eos_v1$reason[safety_eos_v1$preg_test_refuse_eos_short == 1] <- 'pregnancy test refusal'
-safety_eos_v1$reason[safety_eos_v1$preg_test_pos_eos_short == 1 |
-                       safety_eos_v1$preg_test_2_eos_short == 1] <- 'pregnant'
-
-# conditions for short_safety_inclusion_eos
-safety_eos_v1$reason[safety_eos_v1$pregnancy_section_eos_short == 1] <- 'pregnant'
-safety_eos_v1$reason[safety_eos_v1$weight_eos_short == 1] <- 'under weight'
-safety_eos_v1$reason[safety_eos_v1$concom_meds_eos_short == 1] <- 'concom meds'
-safety_eos_v1$reason[safety_eos_v1$severe_illness_eos_short == 1] <- 'severe illness'
-
-# conditions for refuse_drug_eos
-safety_eos_v1$reason[safety_eos_v1$refuse_drug_eos == 1 |
-                       safety_eos_v1$refuse_drug_eos_2 == 1] <- 'participant withdrew informed consent'
-
-# next let's determine the reason someone is eos in the safetynew repeat individual data
-safetynew_eos <- safetynew_repeat_individual %>%
-  select(PARENT_KEY, extid, safety_status, not_agree_safety_procedures_eos, safety_inclusion_eos, non_resident_eos, weight_eos, study_drug_eos, concom_meds_eos, severe_illness_eos, baby_not_week_old_eos, pregnant_eos, pregnancy_section_eos, other_trials_eos, loa_loa_eos, refuse_drug_eos, not_take_drug_reason, refuse_drug_eos_2, not_take_drug_reason_2) %>%
-  mutate(type = 'safety new') %>%
-  filter(safety_status == 'eos')
-
-# get the visit number from clean_safetynew
-safetynew_eos_v1 <- left_join(safetynew_eos, clean_safetynew, by=c('PARENT_KEY' = 'KEY')) %>%
-  filter(visit == 'V1')
-
-# conditions for not_agree_to_safety_procedures
-safetynew_eos_v1$reason[safetynew_eos_v1$not_agree_safety_procedures_eos == 1] <- 'not agree to safety procedures'
-
-# conditions for safety_inclusion_eos
-safetynew_eos_v1$reason[safetynew_eos_v1$non_resident_eos == 1] <- 'not resident'
-safetynew_eos_v1$reason[safetynew_eos_v1$weight_eos == 1] <- 'under weight'
-safetynew_eos_v1$reason[safetynew_eos_v1$study_drug_eos == 1] <- 'study drug'
-safetynew_eos_v1$reason[safetynew_eos_v1$concom_meds_eos == 1] <- 'concom meds'
-safetynew_eos_v1$reason[safetynew_eos_v1$severe_illness_eos == 1] <- 'severe illness'
-safetynew_eos_v1$reason[safetynew_eos_v1$baby_not_week_old_eos == 1] <- 'baby under 1 week'
-safetynew_eos_v1$reason[safetynew_eos_v1$pregnant_eos == 1 | 
-                          safetynew_eos_v1$pregnancy_section_eos == 1] <- 'pregnant'
-safetynew_eos_v1$reason[safetynew_eos_v1$other_trials_eos == 1] <- 'other trials'
-safetynew_eos_v1$reason[safetynew_eos_v1$loa_loa_eos == 1] <- 'visited loa loa'
-
-# conditions for refuse_drug_eos
-safetynew_eos_v1$reason[safetynew_eos_v1$refuse_drug_eos == 1 |
-                          safetynew_eos_v1$refuse_drug_eos_2 == 1] <- 'participant withdrew informed consent'
-
-# join safetynew_eos and safety_eos by extid, safety status, and reason
-total_safe_eos_v1 <- bind_rows(safety_eos_v1, safetynew_eos_v1)
-
-# make a table of reasons people are eos
-eos_reasons_v1 <- total_safe_eos_v1 %>%
-  group_by(reason) %>%
-  summarise('Number of eos people' = n()) %>%
-  arrange(reason) %>%
-  rename('Reason for eos' = reason) %>%
-  add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_v1)) * 100) %>%
-  mutate('Percent complete' = round(`Percent complete`, 2)) %>%
-  mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
-
-
-## V2######################################
-safety_eos_v2 <- left_join(safety_eos, clean_safety, by=c('PARENT_KEY'='KEY')) %>%
-  filter(visit == 'V2')
-
-# create a reason column
-safety_eos_v2$reason[safety_eos_v2$not_continue_eos == '1'] <- 'not wish to continue'
-safety_eos_v2$reason[safety_eos_v2$not_agree_safety_procedures_eos == 1] <- 'not agree to safety procedures'
-safety_eos_v2$reason[safety_eos_v2$non_resident_eos == 1] <- 'not resident'
-safety_eos_v2$reason[safety_eos_v2$weight_eos == 1 |
-                       safety_eos_v2$weight_eos_short == 1] <- 'under weight'
-safety_eos_v2$reason[safety_eos_v2$study_drug_eos == 1] <- 'study drug'
-safety_eos_v2$reason[safety_eos_v2$concom_meds_eos == 1 |
-                       safety_eos_v2$concom_meds_eos_short == 1] <- 'concom meds'
-safety_eos_v2$reason[safety_eos_v2$severe_illness_eos == 1 |
-                       safety_eos_v2$severe_illness_eos_short == 1] <- 'severe illness'
-safety_eos_v2$reason[safety_eos_v2$baby_not_week_old_eos == 1] <- 'baby under 1 week'
-safety_eos_v2$reason[safety_eos_v2$pregnant_eos == 1 |
-                       safety_eos_v2$pregnancy_section_eos == 1 |
-                       safety_eos_v2$pregnancy_section_eos_short == 1 |
-                       safety_eos_v2$preg_test_pos_eos_short == 1 |
-                       safety_eos_v2$preg_test_2_eos_short == 1] <- 'pregnant'
-safety_eos_v2$reason[safety_eos_v2$other_trials_eos == 1] <- 'other trials'
-safety_eos_v2$reason[safety_eos_v2$loa_loa_eos == 1] <- 'visited loa loa'
-safety_eos_v2$reason[safety_eos_v2$sum_night_hospital_eos >= 1] <- 'spent night at the hospital'
-safety_eos_v2$reason[safety_eos_v2$preg_test_refuse_eos_short == 1] <- 'pregnancy test refusal'
-safety_eos_v2$reason[safety_eos_v2$refuse_drug_eos == 1 |
-                       safety_eos_v2$refuse_drug_eos_2 == 1] <- 'participant withdrew informed consent'
-safety_eos_v2$reason[safety_eos_v2$person_died_eos == 1] <- 'died'
-safety_eos_v2$reason[safety_eos_v2$person_migrated == 1 &
-                       safety_eos_v2$starting_safety_status == 'in'] <- 'migrated'
-safety_eos_v2$reason[safety_eos_v2$starting_safety_status == 'eos'] <- 'eos in V1'
-
-
-# do the same for safetynew V2
-safetynew_eos_v2 <- left_join(safetynew_eos, clean_safetynew, by=c('PARENT_KEY' = 'KEY')) %>%
-  filter(visit == 'V2')
-
-# create a reason column
-safetynew_eos_v2$reason[safetynew_eos_v2$not_agree_safety_procedures_eos == 1] <- 'not agree to safety procedures'
-safetynew_eos_v2$reason[safetynew_eos_v2$non_resident_eos == 1] <- 'not resident'
-safetynew_eos_v2$reason[safetynew_eos_v2$weight_eos == 1] <- 'under weight'
-safetynew_eos_v2$reason[safetynew_eos_v2$study_drug_eos == 1] <- 'study drug'
-safetynew_eos_v2$reason[safetynew_eos_v2$concom_meds_eos == 1] <- 'concom meds'
-safetynew_eos_v2$reason[safetynew_eos_v2$severe_illness_eos == 1] <- 'severe illness'
-safetynew_eos_v2$reason[safetynew_eos_v2$baby_not_week_old_eos == 1] <- 'baby under 1 week'
-safetynew_eos_v2$reason[safetynew_eos_v2$pregnant_eos == 1 |
-                          safetynew_eos_v2$pregnancy_section_eos == 1] <- 'pregnant'
-safetynew_eos_v2$reason[safetynew_eos_v2$other_trials_eos == 1] <- 'other trials'
-safetynew_eos_v2$reason[safetynew_eos_v2$loa_loa_eos == 1] <- 'visited loa loa'
-safetynew_eos_v2$reason[safetynew_eos_v2$refuse_drug_eos == 1 |
-                          safetynew_eos_v2$refuse_drug_eos_2 == 1] <- 'participant withdrew informed consent'
-
-# join safetynew_eos and safety_eos by extid, safety status, and reason
-total_safe_eos_v2 <- bind_rows(safety_eos_v2, safetynew_eos_v2)
-
-# need the visit_type variable from safety_v2 to make two different eos tables (enrolment vs. follow up)
-total_safe_eos_v2 <- left_join(total_safe_eos_v2, safety_v2, by=c('extid'))
-
-total_safe_eos_enrolment_v2 <- total_safe_eos_v2 %>%
-  filter(visit_type == 'enrolment')
-total_safe_eos_followup_v2 <- total_safe_eos_v2 %>%
-  filter(visit_type == 'follow up')
-
-# make a table of both enrolment and followup together since they will be split up later
-total_safe_eos_v2$visit_type[total_safe_eos_v2$reason == 'eos in V1'] <- 'eos in V1'
-
-eos_reasons_v2 <- total_safe_eos_v2 %>%
-  group_by(visit_type) %>%
-  summarise('Number of eos people' = n()) %>%
-  rename('Reason for eos' = visit_type) %>%
-  add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-  mutate('Percent of eos' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_v2)) * 100) %>%
-  mutate('Percent of eos' = round(`Percent of eos`, 2)) %>%
-  mutate('Percent of eos' = paste0(`Percent of eos`, '%')) # Replace zero values with NA
+  eos_reasons_v2 <- safety_eos_v2 %>%
+    group_by(visit_type) %>%
+    summarise('Number of eos people' = n()) %>%
+    rename('Reason for eos' = visit_type) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent of eos' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_eos_v2)) * 100) %>%
+    mutate('Percent of eos' = round(`Percent of eos`, 2)) %>%
+    mutate('Percent of eos' = paste0(`Percent of eos`, '%')) # Replace zero values with NA
 
 # make a table of enrolment people who are eos
-eos_reasons_enrolment_v2 <- total_safe_eos_enrolment_v2 %>%
-  group_by(reason) %>%
-  summarise('Number of eos people' = n()) %>%
-  arrange(reason) %>%
-  rename('Reason for eos' = reason) %>%
-  add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_enrolment_v2)) * 100) %>%
-  mutate('Percent complete' = round(`Percent complete`, 2)) %>%
-  mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  eos_reasons_enrolment_v2 <- total_safe_eos_enrolment_v2 %>%
+    group_by(v2_safety_reason) %>%
+    summarise('Number of eos people' = n()) %>%
+    arrange(v2_safety_reason) %>%
+    rename('Reason for eos' = v2_safety_reason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_enrolment_v2)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
 # make a table of reasons follow up people are eos #
-eos_reasons_followup_v2 <- total_safe_eos_followup_v2 %>%
-  group_by(reason) %>%
-  summarise('Number of eos people' = n()) %>%
-  arrange(reason) %>%
-  rename('Reason for eos' = reason) %>%
-  add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_followup_v2)) * 100) %>%
-  mutate('Percent complete' = round(`Percent complete`, 2)) %>%
-  mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  eos_reasons_followup_v2 <- total_safe_eos_followup_v2 %>%
+    group_by(v2_safety_reason) %>%
+    summarise('Number of eos people' = n()) %>%
+    arrange(v2_safety_reason) %>%
+    rename('Reason for eos' = v2_safety_reason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_followup_v2)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
+## V3 ############################
+  
+  safety_eos_v3 <- safety_v3 %>%
+    filter(v3_safetystatus == 'eos') # remove people who were eos in V1
+  
+  total_safe_eos_enrolment_v3 <- safety_eos_v3 %>%
+    filter(visit_type == 'enrolment')
+  total_safe_eos_followup_v3 <- safety_eos_v3 %>%
+    filter(visit_type == 'follow up')
 
-
-## V3######################################
-safety_eos_v3 <- left_join(safety_eos, clean_safety, by=c('PARENT_KEY'='KEY')) %>%
-  filter(visit == 'V3')
-
-# create a reason column
-safety_eos_v3$reason[safety_eos_v3$not_continue_eos == '1'] <- 'not wish to continue'
-safety_eos_v3$reason[safety_eos_v3$not_agree_safety_procedures_eos == 1] <- 'not agree to safety procedures'
-safety_eos_v3$reason[safety_eos_v3$non_resident_eos == 1] <- 'not resident'
-safety_eos_v3$reason[safety_eos_v3$weight_eos == 1 |
-                       safety_eos_v3$weight_eos_short == 1] <- 'under weight'
-safety_eos_v3$reason[safety_eos_v3$study_drug_eos == 1] <- 'study drug'
-safety_eos_v3$reason[safety_eos_v3$concom_meds_eos == 1 |
-                       safety_eos_v3$concom_meds_eos_short == 1] <- 'concom meds'
-safety_eos_v3$reason[safety_eos_v3$severe_illness_eos == 1 |
-                       safety_eos_v3$severe_illness_eos_short == 1] <- 'severe illness'
-safety_eos_v3$reason[safety_eos_v3$baby_not_week_old_eos == 1] <- 'baby under 1 week'
-safety_eos_v3$reason[safety_eos_v3$pregnant_eos == 1 |
-                       safety_eos_v3$pregnancy_section_eos == 1 |
-                       safety_eos_v3$pregnancy_section_eos_short == 1 |
-                       safety_eos_v3$preg_test_pos_eos_short == 1 |
-                       safety_eos_v3$preg_test_2_eos_short == 1] <- 'pregnant'
-safety_eos_v3$reason[safety_eos_v3$other_trials_eos == 1] <- 'other trials'
-safety_eos_v3$reason[safety_eos_v3$loa_loa_eos == 1] <- 'visited loa loa'
-safety_eos_v3$reason[safety_eos_v3$sum_night_hospital_eos >= 1] <- 'spent night at the hospital'
-safety_eos_v3$reason[safety_eos_v3$preg_test_refuse_eos_short == 1] <- 'pregnancy test refusal'
-safety_eos_v3$reason[safety_eos_v3$refuse_drug_eos == 1 |
-                       safety_eos_v3$refuse_drug_eos_2 == 1] <- 'participant withdrew informed consent'
-safety_eos_v3$reason[safety_eos_v3$person_died_eos == 1] <- 'died'
-safety_eos_v3$reason[safety_eos_v3$person_migrated == 1 &
-                       safety_eos_v3$starting_safety_status == 'in'] <- 'migrated'
-safety_eos_v3$reason[safety_eos_v3$starting_safety_status == 'eos'] <- 'eos in previous visit'
-
-
-# do the same for safetynew V2
-safetynew_eos_v3 <- left_join(safetynew_eos, clean_safetynew, by=c('PARENT_KEY' = 'KEY')) %>%
-  filter(visit == 'V3')
-
-# create a reason column
-safetynew_eos_v3$reason[safetynew_eos_v3$not_agree_safety_procedures_eos == 1] <- 'not agree to safety procedures'
-safetynew_eos_v3$reason[safetynew_eos_v3$non_resident_eos == 1] <- 'not resident'
-safetynew_eos_v3$reason[safetynew_eos_v3$weight_eos == 1] <- 'under weight'
-safetynew_eos_v3$reason[safetynew_eos_v3$study_drug_eos == 1] <- 'study drug'
-safetynew_eos_v3$reason[safetynew_eos_v3$concom_meds_eos == 1] <- 'concom meds'
-safetynew_eos_v3$reason[safetynew_eos_v3$severe_illness_eos == 1] <- 'severe illness'
-safetynew_eos_v3$reason[safetynew_eos_v3$baby_not_week_old_eos == 1] <- 'baby under 1 week'
-safetynew_eos_v3$reason[safetynew_eos_v3$pregnant_eos == 1 |
-                          safetynew_eos_v3$pregnancy_section_eos == 1] <- 'pregnant'
-safetynew_eos_v3$reason[safetynew_eos_v3$other_trials_eos == 1] <- 'other trials'
-safetynew_eos_v3$reason[safetynew_eos_v3$loa_loa_eos == 1] <- 'visited loa loa'
-safetynew_eos_v3$reason[safetynew_eos_v3$refuse_drug_eos == 1 |
-                          safetynew_eos_v3$refuse_drug_eos_2 == 1] <- 'participant withdrew informed consent'
-
-# join safetynew_eos and safety_eos by extid, safety status, and reason
-total_safe_eos_v3 <- bind_rows(safety_eos_v3, safetynew_eos_v3)
-
-# need the visit_type variable from safety_v2 to make two different eos tables (enrolment vs. follow up)
-total_safe_eos_v3 <- left_join(total_safe_eos_v3, safety_v3, by=c('extid'))
-
-total_safe_eos_enrolment_v3 <- total_safe_eos_v3 %>%
-  filter(visit_type == 'enrolment')
-total_safe_eos_followup_v3 <- total_safe_eos_v3 %>%
-  filter(visit_type == 'follow up')
-
-# make a table of both enrolment and followup together since they will be split up later
-total_safe_eos_v3$visit_type[total_safe_eos_v3$reason == 'eos in previous visit'] <- 'eos in previous visit'
-
-eos_reasons_v3 <- total_safe_eos_v3 %>%
-  group_by(visit_type) %>%
-  summarise('Number of eos people' = n()) %>%
-  rename('Reason for eos' = visit_type) %>%
-  add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-  mutate('Percent of eos' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_v3)) * 100) %>%
-  mutate('Percent of eos' = round(`Percent of eos`, 2)) %>%
-  mutate('Percent of eos' = paste0(`Percent of eos`, '%')) # Replace zero values with NA
+  eos_reasons_v3 <- safety_eos_v3 %>%
+    group_by(visit_type) %>%
+    summarise('Number of eos people' = n()) %>%
+    rename('Reason for eos' = visit_type) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent of eos' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_eos_v3)) * 100) %>%
+    mutate('Percent of eos' = round(`Percent of eos`, 2)) %>%
+    mutate('Percent of eos' = paste0(`Percent of eos`, '%')) # Replace zero values with NA
 
 # make a table of enrolment people who are eos
-eos_reasons_enrolment_v3 <- total_safe_eos_enrolment_v3 %>%
-  group_by(reason) %>%
-  summarise('Number of eos people' = n()) %>%
-  arrange(reason) %>%
-  rename('Reason for eos' = reason) %>%
-  add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_enrolment_v3)) * 100) %>%
-  mutate('Percent complete' = round(`Percent complete`, 2)) %>%
-  mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  eos_reasons_enrolment_v3 <- total_safe_eos_enrolment_v3 %>%
+    group_by(v3_safety_reason) %>%
+    summarise('Number of eos people' = n()) %>%
+    arrange(v3_safety_reason) %>%
+    rename('Reason for eos' = v3_safety_reason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_enrolment_v3)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
 # make a table of reasons follow up people are eos #
-eos_reasons_followup_v3 <- total_safe_eos_followup_v3 %>%
-  group_by(reason) %>%
-  summarise('Number of eos people' = n()) %>%
-  arrange(reason) %>%
-  rename('Reason for eos' = reason) %>%
-  add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-  mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_followup_v3)) * 100) %>%
-  mutate('Percent complete' = round(`Percent complete`, 2)) %>%
-  mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  eos_reasons_followup_v3 <- total_safe_eos_followup_v3 %>%
+    group_by(v3_safety_reason) %>%
+    summarise('Number of eos people' = n()) %>%
+    arrange(v3_safety_reason) %>%
+    rename('Reason for eos' = v3_safety_reason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_followup_v3)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+
+
 ```
 
 ```{r v1_out}
@@ -864,6 +748,98 @@ refusal_reasons_v3 <- total_safe_refusal_v3 %>%
 reactable(target_table, columns = list(), pagination = FALSE)
 ```
 
+## V3 Numbers
+### Overall safety statuses
+```{r v3_total_show}
+reactable(total_safety_status_v3, columns = list(
+  `Percent complete` = colDef(align = "right")
+))
+
+# make a note of the real total number of people visited without repeats
+if (any(duplicated(total_safety_v3$extid))) {
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(total_safety_v3$extid)), "\n")
+} else {
+  "Note: There are no duplicates based on extid in the data."
+}
+```
+
+### in
+```{r v3_in_show}
+reactable(in_type_v3, columns = list(
+  `Percent` = colDef(align = "right")
+))
+```
+
+### eos
+```{r v3_eos}
+reactable(eos_reasons_v3, columns = list(
+  `Percent of eos` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+```
+
+#### follow up visit
+```{r v3_eos_show}
+reactable(eos_reasons_followup_v3, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
+# Specify the names you want to check for
+names_to_check <- c('not wish to continue', 'not agree to safety procedures', 'not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'other trials', 'visited loa loa', 'spent night at the hospital', 'pregnancy test refusal', 'participant withdrew informed consent', 'died', 'migrated', 'eos in V1')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% eos_reasons_followup_v3$'Reason for eos') {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("Note: The following are not reasons to be eos: (", paste0(not_found_names, collapse = "/ "), ".")
+}
+```
+
+#### enrolment visit
+```{r v3_eos_enrolment}
+reactable(eos_reasons_enrolment_v3, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# because the table is organised by extid and not reason, some reasons may not appear on the table; therefore the next part will create a line of code that generates a message that says which reason is not appearing. In this by names I mean the reason column.
+# Specify the names you want to check for
+names_to_check <- c('not agree to safety procedures', 'not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant, other trials', 'visited loa loa', 'participant withdrew informed consent')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% eos_reasons_enrolment_v3$'Reason for eos') {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for eos status:", paste0(not_found_names, collapse = "/ "))
+}
+```
+
+### out
+``` {r v3_out_show}
+reactable(out_reasons_v3, columns = list(`Percent complete` = colDef(align = 'right')))
+```
+
+### refusal
+``` {r v3_refusal_show}
+reactable(refusal_reasons_v3, columns = list(`Percent complete` = colDef(align = 'right')))
+```
+
+
 ## V2 Numbers
 ### Overall safety statuses
 ```{r v2_total_show}
@@ -915,7 +891,7 @@ for (name in names_to_check) {
 
 # Generate a message based on the results (only if names are not found)
 if (length(not_found_names) > 0) {
-  cat("Note: The reasons (", paste0(not_found_names, collapse = "/ "), ") are not shown because it is not a reason for anyone being missing.")
+  cat("Note: The following are not reasons to be eos (", paste0(not_found_names, collapse = "/ "), ".")
 }
 ```
 
@@ -1044,7 +1020,7 @@ reactable(refusal_reasons_v1, columns = list(`Percent complete` = colDef(align =
 ## this will create a table of absent people and tell us whether they had an absence first attempt form filled out or not
 total_absent <- bind_rows(total_safe_refusal_v1, 
                      total_safe_out_v1, 
-                     total_safe_eos_v1) %>%
+                     safety_eos_v1) %>%
   select(extid, safety_status, visit, reason) %>%
   filter(reason == 'absent') %>%
   mutate(group = (ifelse(.$extid %in% absence1stattempt$extid_enter, 'absent with form', 'absent w/out form')))
@@ -1064,15 +1040,15 @@ reactable(absent_table, columns = list(`Percent` = colDef(align = 'right')))
 
 # this next part will show the sex and age distribution of those who were absent
 
-distribution <- bind_rows(total_safe_eos_v1, total_safe_out_v1, total_safe_refusal_v1) %>%
-  select(extid, safety_status, visit, reason) %>%
+distribution <- bind_rows(safety_eos_v1, total_safe_out_v1, total_safe_refusal_v1) %>%
+  select(extid, visit, reason) %>%
   filter(reason == 'absent') 
 dist_sex <- left_join(distribution, total_safety_v1, by=c('extid')) %>%
   select(extid, safety_status, sex, todays_date) %>%
   rename(safety_status_use = safety_status,
          sex_use = sex)
 
-dist_age <- left_join(dist_sex, v0_demography, by=c('extid')) %>%
+dist_age <- left_join(dist_sex, v0_dem_repeat, by=c('extid')) %>%
   select(extid, safety_status_use, sex_use, dob, todays_date) %>%
   rename(safety_status = safety_status_use,
          sex = sex_use)
@@ -1130,67 +1106,3 @@ print(sex_plot)
 
 ```
 
-### Reason to be out by cluster
-```{r cluster}
-## this will create a table of "Safety Status" and "Reason they are out" by cluster. So we want a column of the clusters and the reason for being out
-
-# need to get the cluster number which is in safety and safetynew or in the df created earlier extid_safety_status_df
-
-element_id <- 'safety_status_reason_out_by_cluster'
-
-cluster <- bind_rows(total_safe_eos_v1, total_safe_out_v1, total_safe_refusal_v1) %>%
-  select(extid, safety_status, visit, reason)
-cluster <- left_join(cluster, total_safety_v1, by=c('extid')) %>%
-  select(extid, cluster, safety_status, reason)
-
-# make the table requested of out reason by cluster
-cluster_table <- cluster %>%
-  filter(safety_status == 'out') %>%
-  select(cluster, reason) %>%
-  group_by(cluster, reason) %>%
-  summarise(number = n()) %>%
-  group_by(cluster) %>%
-  mutate(percent = paste(round((number / sum(number) * 100), 1), "%")) %>%
-  pivot_wider(names_from = reason, 
-              values_from = c(number, percent),
-              names_sep = ' that are ',
-              values_fill = list(number = 0, percent = "0%")) %>%
-  select('cluster', 'number that are A baby that cannot walk yet', 'percent that are A baby that cannot walk yet', 'number that are absent', 'percent that are absent', 'number that are migrated', 'percent that are migrated', 'number that are no witness', 'percent that are no witness', 'number that are pregnant', 'percent that are pregnant', 'number that are A person so ill that they cannot leave the bed', 'percent that are A person so ill that they cannot leave the bed', 'number that are died', 'percent that are died') %>%
-  rename('Cluster' = cluster,
-         'A baby that cannot walk yet' = 'number that are A baby that cannot walk yet',
-         'Absent' = 'number that are absent',
-         'Migrated' = 'number that are migrated',
-         'No witness' = 'number that are no witness',
-         'Pregnant' = 'number that are pregnant',
-         'A person so ill they cannot leave bed' = 'number that are A person so ill that they cannot leave the bed',
-         'Died' = 'number that are died',
-         'Percent of babies that cannot walk' = 'percent that are A baby that cannot walk yet',
-         'Percent absent' = 'percent that are absent',
-         'Percent migrated' = 'percent that are migrated',
-         'Percent no witness' = 'percent that are no witness',
-         'Percent pregnant' = 'percent that are pregnant',
-         'Percent ill' = 'percent that are A person so ill that they cannot leave the bed',
-         'Percent died' = 'percent that are died')
-
-table <- reactable(cluster_table, 
-                   columns = list(
-                     `Percent migrated` = colDef(align = 'right'),
-                     `Percent of babies that cannot walk` = colDef(align = 'right'),
-                     `Percent absent` = colDef(align = 'right'),
-                     `Percent no witness` = colDef(align = 'right'),
-                     `Percent pregnant` = colDef(align = 'right'),
-                     `Percent ill` = colDef(align = 'right')),
-                      highlight = TRUE,
-                      resizable = TRUE,
-                      bordered = TRUE,
-                      striped = TRUE,
-                      filterable=TRUE,
-                      elementId = element_id
-                   )
-
-wrap_download(
-  table, 
-  element_id,
-  'safety_status_reason_out_by_cluster.csv')
-
-```
