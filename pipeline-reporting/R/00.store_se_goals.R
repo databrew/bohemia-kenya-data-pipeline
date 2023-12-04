@@ -428,6 +428,13 @@ efficacy_targets %>%
   tidyr::drop_na() %>%
   fwrite('output/bohemia_prod/dwh/goal_efficacy_targets/goal_efficacy_targets.csv')
 
+
+# Store PFU to S3
+dir.create('output/bohemia_prod/dwh/goal_efficacy_targets', recursive = TRUE)
+pfu_targets %>%
+  tidyr::drop_na() %>%
+  fwrite('output/bohemia_prod/dwh/goal_efficacy_targets/goal_pfu_targets.csv')
+
 cloudbrewr::aws_s3_bulk_store(
   bucket = 'bohemia-lake-db',
   prefix = '/bohemia_prod',
