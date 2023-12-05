@@ -198,10 +198,10 @@ efficacy <- cloudbrewr::aws_s3_get_table(
 # create initial roster
 safety_roster <- safety %>% 
     dplyr::inner_join(safety_repeat_individual, 
-                      by = c('KEY'='PARENT_KEY')) %>%
-    mutate(ind_icf_completed = as.character(ind_icf_completed)) %>%
+                      by = c('KEY'='PARENT_KEY')) %>% 
+    filter(!is.na(ind_read_sign_name)) %>%
     filter(!is.na(ind_icf_completed)) %>%
-    filter(ind_icf_completed == 1) %>% 
+    filter(ind_icf_completed == 1) %>%
     dplyr::mutate(study_select = 'safety',
                   wid = as.character(wid)) %>% 
     dplyr::group_by(extid, study_select) %>% 
@@ -218,9 +218,10 @@ safety_roster <- safety %>%
 
 safetynew_roster <- safetynew %>%
     dplyr::inner_join(safetynew_repeat_individual,
-                      by = c('KEY'='PARENT_KEY')) %>%
-    mutate(ind_icf_completed = as.character(ind_icf_completed)) %>%
+                      by = c('KEY'='PARENT_KEY')) %>% 
+    filter(!is.na(ind_read_sign_name)) %>%
     filter(!is.na(ind_icf_completed)) %>%
+    filter(ind_icf_completed == 1) %>%
     dplyr::mutate(study_select = 'safety',
                   wid = as.character(wid)) %>% 
     dplyr::group_by(extid, study_select) %>% 
@@ -238,6 +239,7 @@ safetynew_roster <- safetynew %>%
 
 efficacy_roster <- efficacy %>%
     # dplyr::filter(efficacy_status != 'refusal') %>% 
+    filter(!is.na(icf_completed)) %>%
     dplyr::filter(icf_completed == 1) %>%
     dplyr::mutate(study_select = 'efficacy',
                   wid = as.character(wid)) %>% 
@@ -472,7 +474,7 @@ data_list$efficacy_resolved_icf <- icf_hist %>%
 data_list$safety_unverified_icf <- roster_hist %>%
     dplyr::filter(study_select == 'safety') %>%
     dplyr::anti_join(icf_hist, 
-                     by = c('run_date','extid', 'study_select')) %>% 
+                     by = c('run_date', 'extid')) %>% 
     dplyr::mutate(
       SubmissionDate = lubridate::date(SubmissionDate)) %>%
     dplyr::mutate(
@@ -484,7 +486,7 @@ data_list$safety_unverified_icf <- roster_hist %>%
 data_list$efficacy_unverified_icf <- roster_hist %>%
     dplyr::filter(study_select == 'efficacy') %>%
     dplyr::anti_join(icf_hist, 
-                     by = c('run_date','extid', 'study_select')) %>% 
+                     by = c('run_date','extid')) %>% 
     dplyr::mutate(
       SubmissionDate = lubridate::date(SubmissionDate)) %>%
     dplyr::mutate(
