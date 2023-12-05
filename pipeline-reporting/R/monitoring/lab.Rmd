@@ -222,6 +222,7 @@ lab2_incidences_mapping <- lab2 %>%
 
 ```{r}
 version <- format(floor_date(lubridate::today(), 'week'), "%Y%m%d")
+curr_week <- floor_date(lubridate::today(), 'week')
 
 mapping <- dplyr::tribble(
   ~incidences, ~incidences_long,
@@ -236,8 +237,6 @@ mapping <- dplyr::tribble(
 )
 
 incidences_mapping <- dplyr::bind_rows(lab1_incidences_mapping,lab2_incidences_mapping) %>% 
-    dplyr::ungroup() %>% 
-    dplyr::rowwise() %>%
     dplyr::mutate(incidences = stringr::str_split(incidences, pattern=" ")) %>% 
     tidyr::unnest(incidences) %>% 
     dplyr::ungroup() %>% 
@@ -274,7 +273,7 @@ eff_hist <- purrr::map_dfr(date_list, function(d){
     dplyr::mutate(run_date = d) %>% 
     dplyr::filter(SubmissionDate <= d)
   }) %>% 
-  dplyr::select(instanceID, run_date, sample = dbs_barcode, SubmissionDate, extid) %>% 
+  dplyr::select(instanceID, run_date, sample = dbs_barcode, SubmissionDate, extid, visit) %>% 
   dplyr::filter(sample != "") %>% 
   dplyr::distinct()
 
@@ -284,19 +283,24 @@ samples_in_eff_by_run <- eff_hist %>%
     dplyr::anti_join(lab_hist, 
                      by = c('run_date', 'sample')) %>% 
   dplyr::filter(run_date >= MIN_DATE)
-samples_in_lab_by_run <- lab_hist %>%
+samples_in_lab_by_run <- lab_hist  %>% 
+    dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
+    dplyr::filter(run_date == week_start) %>%
     dplyr::anti_join(samples_in_eff_by_run,
                      by = c('run_date', 'sample')) %>% 
+  dplyr::filter(run_date >= MIN_DATE) %>%
+  dplyr::mutate(age = as.numeric(difftime(lubridate::date(run_date), 
+                                          lubridate::date(SubmissionDate), units = "days")),
+                sample_status = case_when(sample_status == 'Review-Approved'~'Approved', TRUE~sample_status)) %>%
+  dplyr::group_by(run_date, sample) %>% 
+  dplyr::filter(SubmissionDate == max(SubmissionDate)) %>%
+  dplyr::ungroup() %>% 
   dplyr::filter(run_date >= MIN_DATE)
 ```
 
 ### a). Pending – samples pending for >10 days
 ```{r}
 from_lab <- samples_in_lab_by_run %>% 
-    dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
-    dplyr::filter(run_date == week_start) %>%
-    dplyr::mutate(age = as.numeric(difftime(lubridate::date(run_date), 
-                                            lubridate::date(SubmissionDate), units = "days"))) %>% 
     dplyr::group_by(run_date) %>% 
     dplyr::summarise(
       `Pending Samples` = n_distinct(sample[sample_status == 'Pending']),
@@ -309,14 +313,8 @@ reactable(tbl)
 
 ```{r}
 from_lab <- samples_in_lab_by_run %>% 
-    dplyr::filter(run_date == floor_date(lubridate::today(), 'week')) %>%
-    dplyr::ungroup() %>% 
-    dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
-    dplyr::filter(run_date == week_start) %>%
-    dplyr::mutate(age = as.numeric(difftime(lubridate::date(run_date), 
-                                            lubridate::date(SubmissionDate), units = "days"))) %>% 
-    dplyr::select(-week_start) %>% 
     dplyr::filter(sample_status == 'Pending') %>% 
+    dplyr::filter(run_date == curr_week) %>%
     dplyr::select(run_date, source, 
                   instanceID, 
                   sample,
@@ -324,7 +322,7 @@ from_lab <- samples_in_lab_by_run %>%
                   SubmissionDate, 
                   extid, 
                   incidences,
-                  age)
+                  `Query Age` = age)
 
 
 tbl <- dplyr::bind_rows(from_lab)
@@ -336,7 +334,8 @@ tbl <- reactable(tbl,
     bordered = TRUE,
     striped = TRUE,
     filterable = TRUE,
-    elementId = element_id
+    elementId = element_id,
+    groupBy = c('incidences')
 )
 
 wrap_download(
@@ -349,11 +348,7 @@ wrap_download(
 
 ### b). Quarantined samples – anomaly report for each scenario:
 ```{r}
-from_lab <- samples_in_lab_by_run %>% 
-    dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
-    dplyr::filter(run_date == week_start) %>%
-    dplyr::mutate(age = as.numeric(difftime(lubridate::date(run_date), 
-                                            lubridate::date(SubmissionDate), units = "days"))) %>% 
+from_lab <- samples_in_lab_by_run %>%
     dplyr::group_by(run_date) %>% 
     dplyr::summarise(`Quarantine` = n_distinct(sample[sample_status == 'Quarantine']))
 
@@ -364,24 +359,19 @@ reactable(tbl)
 
 
 ```{r}
-from_lab <- samples_in_lab_by_run %>% 
-    dplyr::ungroup() %>% 
-    dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
-    dplyr::filter(run_date == floor_date(lubridate::today(), 'week')) %>%
-    dplyr::filter(run_date == week_start) %>%
-    dplyr::mutate(age = as.numeric(difftime(lubridate::date(run_date), 
-                                            lubridate::date(SubmissionDate), units = "days"))) %>% 
+from_lab <- samples_in_lab_by_run %>%
     dplyr::select(-week_start) %>% 
     dplyr::select(instanceID, source, sample_status, run_date, sample, SubmissionDate, extid, age, incidences) %>% 
     dplyr::filter(sample_status == 'Quarantine')  %>% 
-    dplyr::select(run_date, source, 
+    dplyr::filter(run_date == curr_week) %>%
+    dplyr::select(source, 
                   instanceID, 
                   sample,
                   `Sample Status` = sample_status, 
                   SubmissionDate, 
                   extid, 
                   incidences,
-                  age)
+                  `Query Age` = age)
 
 
 
@@ -394,7 +384,8 @@ tbl <- reactable(tbl,
     bordered = TRUE,
     striped = TRUE,
     filterable = TRUE,
-    elementId = element_id
+    elementId = element_id,
+    groupBy = c('incidences')
 )
 
 wrap_download(
@@ -428,18 +419,20 @@ reactable(tbl)
 ```{r}
 from_field <- samples_in_eff_by_run %>% 
     dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
-    dplyr::filter(run_date == floor_date(lubridate::today(), 'week')) %>%
     dplyr::filter(run_date == week_start) %>%
+    dplyr::filter(run_date == curr_week) %>%
     dplyr::mutate(age = as.numeric(difftime(lubridate::date(run_date), 
                                             lubridate::date(SubmissionDate), units = "days")),
-                  source = 'Field (efficacy)') %>% 
+                  source = 'Efficacy') %>% 
     dplyr::select(-week_start) %>% 
-    dplyr::select(run_date, source, 
+    dplyr::select(run_date, 
+                  `study` = source,
+                  visit,
                   instanceID, 
                   sample,
                   SubmissionDate, 
                   extid, 
-                  age)
+                  `Query Age` = age)
 
 tbl <- dplyr::bind_rows(from_field)
 
@@ -450,7 +443,8 @@ tbl <- reactable(tbl,
     bordered = TRUE,
     striped = TRUE,
     filterable = TRUE,
-    elementId = element_id
+    elementId = element_id,
+    groupBy = c('study', 'visit')
 )
 
 wrap_download(

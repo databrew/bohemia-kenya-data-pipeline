@@ -25,8 +25,6 @@ Please report bug to `e.elobolobo@gmail.com` / `atediarjo@gmail.com`
 
 #### Definitions:
 
-1. `Missing Tablets`: `Arrival` - (`Dispatch` - `Returns (Unused)` - `Returns (Unusable / Lost)` - `Returns Empty Blisters`)
-
 ```{r, echo=FALSE, message=FALSE}
 knitr::opts_chunk$set(
   comment = '', 
@@ -616,19 +614,15 @@ df <- pharmacy_flow_df %>%
 ## Pharmacy to SFA Flow Summary
 ```{r}
 tbl <- df %>% 
-  dplyr::mutate(pharmacy_missing_tablets = 
-                  pharmacy_arrival - (pharmacy_dispatch - 
-                                        pharmacy_unused_return - 
-                                        pharmacy_unusable_return - 
-                                        pharmacy_empty_blister_return)) %>%
+  dplyr::mutate(pharmacy_stock = (pharmacy_arrival - pharmacy_dispatch) + pharmacy_unused_return) %>% 
   dplyr::select(run_date, 
                 name,
                 `Pharmacy Arrival` = pharmacy_arrival,
                 `Pharmacy Dispatch to SFA` = pharmacy_dispatch,
+                `Pharmacy Stock` = pharmacy_stock,
                 `Pharmacy Returns (Unused) from SFA` = pharmacy_unused_return,
                 `Pharmacy Returns (Unusable / Lost) from SFA` = pharmacy_unusable_return,
-                `Pharmacy Returns (Empty Blisters) from SFA` = pharmacy_empty_blister_return,
-                `Pharmacy Missing Tablets` = pharmacy_missing_tablets
+                `Pharmacy Returns (Empty Blisters) from SFA` = pharmacy_empty_blister_return
                 )
 
 
@@ -646,19 +640,15 @@ reactable(
 ## SFA to FA Flow Summary
 ```{r}
 tbl <- df %>% 
-  dplyr::mutate(sfa_missing_tablets = 
-                sfa_arrival - (sfa_dispatch - 
-                                        sfa_unused_return - 
-                                        sfa_unusable_return - 
-                                        sfa_empty_blister_return)) %>%
+  dplyr::mutate(sfa_stock = (sfa_arrival - sfa_dispatch) + sfa_unused_return) %>%
   dplyr::select(run_date, 
                 name,
                 `SFA Arrival` = sfa_arrival,
                 `SFA Dispatch to FA` = sfa_dispatch,
+                `SFA Stock` = sfa_stock,
                 `SFA Returns (Unused) from FA` = sfa_unused_return,
                 `SFA Returns (Unusable / Lost) from FA` = sfa_unusable_return,
-                `SFA Returns (Empty Blisters) from FA` = sfa_empty_blister_return,
-                `SFA Missing Tablets` = sfa_missing_tablets
+                `SFA Returns (Empty Blisters) from FA` = sfa_empty_blister_return
                 )
 
 
@@ -677,19 +667,15 @@ reactable(
 ## FA to CL Flow Summary
 ```{r}
 tbl <- df %>% 
-  dplyr::mutate(fa_missing_tablets = 
-                fa_arrival - (fa_dispatch - 
-                                        fa_unused_return - 
-                                        fa_unusable_return - 
-                                        fa_empty_blister_return)) %>%
+  dplyr::mutate(fa_stock = fa_arrival - (fa_dispatch + fa_unused_return)) %>%
   dplyr::select(run_date, 
                 name,
                 `FA Arrival` = fa_arrival,
                 `FA Dispatch to CLs` = fa_dispatch,
+                `FA Stock` = fa_stock,
                 `FA Returns (Unused) from CLs` = fa_unused_return,
                 `FA Returns (Unusable / Lost) from CLs` = fa_unusable_return,
                 `FA Returns (Empty Blisters) from CLs` = fa_empty_blister_return,
-                `FA Missing Tablets` = fa_missing_tablets,
                 `Stock Used by CLs` = stock_used_by_cl
                 )
 
@@ -867,22 +853,23 @@ data_list$efficacy <- efficacy_hist %>%
 
 
 df <- data_list %>% 
-    purrr::reduce(dplyr::bind_rows) %>% 
+    purrr::reduce(dplyr::bind_rows) %>%
     dplyr::select(
       run_date,
-      wid, 
-                  SubmissionDate,
-                  weight = current_weight, 
-                  visit, 
-                  study = source, 
-                  cluster, 
-                  iptype, 
-                  extid, 
-                  taken, 
-                  dose) %>% 
+      instanceID,
+      wid,
+      SubmissionDate,
+      weight = current_weight, 
+      visit, 
+      study = source, 
+      cluster, 
+      iptype, 
+      extid, 
+      taken, 
+      dose) %>% 
     dplyr::mutate(overdose = case_when(taken > dose ~ 1, TRUE ~ 0),
                   underdose = case_when(taken < dose ~ 1, TRUE ~ 0)) %>% 
-    dplyr::inner_join(assignments, by = c("cluster" = "cluster_number"))
+    dplyr::inner_join(assignments, by = c("cluster" = "cluster_number")) 
 ```
 
 
@@ -890,11 +877,11 @@ df <- data_list %>%
 ```{r}
 tbl <- df %>% 
     dplyr::filter(run_date >= MIN_DATE) %>% 
-    dplyr::group_by(run_date) %>% 
+    dplyr::group_by(iptype, run_date) %>% 
     dplyr::summarise(`Individual Overdose` = n_distinct(extid[overdose==1]),
                      `Individual Underdose` = n_distinct(extid[underdose==1]))
 
-reactable(tbl)
+reactable(tbl, groupBy = c('iptype'))
 ```
 
 
@@ -918,7 +905,8 @@ tbl <- reactable(df %>%
             striped = TRUE,
             wrap = TRUE,
             filterable=TRUE,
-            elementId = element_id
+            elementId = element_id,
+            groupBy = c("iptype", "visit")
 )
 
 wrap_download(tbl, 
@@ -943,7 +931,8 @@ tbl <- reactable(df %>%
             striped = TRUE,
             wrap = TRUE,
             filterable=TRUE,
-            elementId = element_id
+            elementId = element_id,
+            groupBy = c("iptype", "visit")
 )
 
 wrap_download(tbl, 
