@@ -104,32 +104,65 @@ get_departures <- function() {
 # This is relevant for safety to remove any household with all individuals that has refusal status
 # NOTE: THIS IS NOT USING SAFETY_STATUS
 get_refusals <- function() {
-  dx <- safety_merged_tbl %>%
-    # special categories for "refusal"
-    mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
-             ind_icf_thumbprint == 'no' |
-             ind_agree_sign_icf == 'no' |
-             minor_agree_sign_assent == 'no') %>%
-    dplyr::select(hhid, visit, extid, is_refusal) %>%
-    bind_rows(safetynew_merged_tbl %>%
-                # special categories for "refusal"
-                mutate(is_refusal = obvious_screening == 'Refusal' |
-                         ind_icf_thumbprint == 'no' |
-                         ind_agree_sign_icf == 'no' |
-                         minor_agree_sign_assent == 'no')) %>%
-    mutate(is_refusal = ifelse(is.na(is_refusal), FALSE, is_refusal)) %>%
-    group_by(visit, hhid) %>%
-    summarise(n_refusals = sum(as.numeric(is_refusal)),
-              n_individual_submissions = n()) %>%
-    ungroup %>%
-    mutate(p_refusals = n_refusals / n_individual_submissions * 100) %>%
-    arrange(desc(p_refusals))
-  all_refusals <- dx %>%
-    filter(p_refusals == 100) %>%
-    arrange(hhid) %>%
-    dplyr::mutate(is_refusal = TRUE) %>%
-    dplyr::select(visit, hhid, is_refusal)
-  return(all_refusals)
+  buffer <- tibble()
+  remove_visits <- c('V1', 'V2', 'V3', 'V4')
+  a <- purrr::map_dfr(remove_visits, function(this_visit) {
+    message('Removing 100% refusal households for visit ', this_visit)
+    tryCatch({
+      dx <- safety_repeat_individual %>%
+        left_join(safety %>% dplyr::select(KEY, hhid, visit), by = c('PARENT_KEY' = 'KEY')) %>%
+        filter(visit == this_visit) %>%
+        # take out those who are dead or migrated (keeping in other absences)
+        filter(!person_absent_reason %in% c('Migrated', 'Died')) %>%
+        # special categories for "refusal"
+        mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
+                 ind_icf_thumbprint == 'no' |
+                 ind_agree_sign_icf == 'no' |
+                 minor_agree_sign_assent == 'no') %>%
+        dplyr::select(hhid, extid, is_refusal) %>%
+        bind_rows(safetynew_repeat_individual %>%
+                    left_join(safetynew %>% dplyr::select(KEY, hhid, visit), by = c('PARENT_KEY' = 'KEY')) %>%
+                    filter(visit == this_visit) %>%
+                    # special categories for "refusal"
+                    mutate(is_refusal = obvious_screening == 'Refusal' |
+                             ind_icf_thumbprint == 'no' |
+                             ind_agree_sign_icf == 'no' |
+                             minor_agree_sign_assent == 'no')) %>%
+        mutate(is_refusal = ifelse(is.na(is_refusal), FALSE, is_refusal)) %>%
+        group_by(hhid) %>%
+        summarise(n_refusals = sum(as.numeric(is_refusal)),
+                  n_individual_submissions = n()) %>%
+        ungroup %>%
+        mutate(p_refusals = n_refusals / n_individual_submissions * 100) %>%
+        arrange(desc(p_refusals))
+
+
+      all_refusals <- dx %>%
+        filter(p_refusals == 100) %>%
+        arrange(hhid) %>%
+        dplyr::mutate(visit = this_visit)
+
+
+      all_refusals <- dplyr::bind_rows(buffer, all_refusals)
+
+      buffer <<- all_refusals %>%
+        dplyr::mutate(
+          next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,
+          visit = glue::glue('V{next_visit_num}'))
+
+      return(all_refusals)
+
+    }, error = function(e){
+      return(buffer)
+    })
+
+
+  }) %>%
+    dplyr::mutate(
+      next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,
+      visit = glue::glue('V{next_visit_num}')) %>%
+    dplyr::filter(next_visit_num < 5) %>%
+    dplyr::mutate(is_refusal = TRUE)
 }
 
 
@@ -159,10 +192,15 @@ get_safety_targets <- function(){
 
   master_list$cascade_target <- dplyr::bind_rows(
     safetynew_merged_tbl  %>%
-      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, safety_status),
+      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, safety_status, geo_cluster_num),
     safety_merged_tbl  %>%
-      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, safety_status),
+      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, safety_status, geo_cluster_num),
   )  %>%
+    dplyr::mutate(
+      next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,
+      visit = glue::glue('V{next_visit_num}')) %>%
+    dplyr::filter(next_visit_num < 5) %>% # stop cascading goals
+    dplyr::select(-next_visit_num) %>%
     dplyr::left_join(get_departures() %>% dplyr::select(departure_visit = visit,
                                                         departure_time = start_time,
                                                         extid) %>% dplyr::mutate(is_departure = TRUE) %>% distinct(),
@@ -175,13 +213,7 @@ get_safety_targets <- function(){
     dplyr::group_by(visit, assignment, cluster, village) %>%
     dplyr::summarise(
       hh_target = n_distinct(hhid),
-      ind_target = n_distinct(extid)) %>%
-    dplyr::mutate(
-      ind_target = ind_target,
-      next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,
-      visit = glue::glue('V{next_visit_num}')) %>%
-    dplyr::filter(next_visit_num < 5) %>% # stop cascading goals
-    dplyr::select(-next_visit_num)
+      ind_target = n_distinct(extid))
 
   target <- master_list %>% purrr::reduce(dplyr::bind_rows)
 
@@ -410,7 +442,7 @@ efficacy_merged_tbl <- efficacy %>%
 
 
 # Consolidate all goals
-all_refusals <- get_refusals()
+all_refusals <- get_refusals() %>% dplyr::select(hhid, visit)
 safety_targets <- get_safety_targets()
 pfu_targets <- get_pfu_targets() %>% dplyr::ungroup()
 efficacy_targets <- get_efficacy_targets()
