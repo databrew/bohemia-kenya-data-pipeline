@@ -161,7 +161,8 @@ get_refusals <- function() {
     dplyr::mutate(
       next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,
       visit = glue::glue('V{next_visit_num}')) %>%
-    dplyr::filter(next_visit_num < 5)
+    dplyr::filter(next_visit_num < 5) %>%
+    dplyr::mutate(is_refusal = TRUE)
 }
 
 
