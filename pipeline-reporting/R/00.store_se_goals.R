@@ -442,7 +442,7 @@ efficacy_merged_tbl <- efficacy %>%
 
 
 # Consolidate all goals
-all_refusals <- get_refusals() %>% dplyr::select(hhid, visit)
+all_refusals <- get_refusals() %>% dplyr::select(hhid, visit, is_refusal)
 safety_targets <- get_safety_targets()
 pfu_targets <- get_pfu_targets() %>% dplyr::ungroup()
 efficacy_targets <- get_efficacy_targets()
