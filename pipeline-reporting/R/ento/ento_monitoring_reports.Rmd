@@ -26,6 +26,17 @@ library(glue)
 library(fontawesome)
 library(cloudbrewr)
 library(lubridate)
+
+# function to make pad hhid with zero
+pad_hhid <- function(data){
+  if('hhid' %in% names(data)){
+    data %>%
+      dplyr::mutate(hhid = stringr::str_pad(hhid, 5, pad = "0"))
+  }else{
+    data
+  }
+}
+
 ```
 
 
@@ -72,6 +83,14 @@ data <- cloudbrewr::aws_s3_get_table(
   key = input_key$screening) %>%
   dplyr::filter(
     site != "Larval Habitat")
+
+pk_individuals <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = glue::glue('bohemia_ext_data/pk_individuals/pk_individuals.csv')) %>%
+  pad_hhid()
+
+# cluster to remove
+removed_clusters <- pk_individuals %>% distinct(cluster) %>% .$cluster
 
 orig_les <- data %>%
   dplyr::filter(orig_le != "") %>% .$orig_le
@@ -263,6 +282,9 @@ monitoring0 <- cloudbrewr::aws_s3_get_table(
 )
 
 monitoring1 <- monitoring0 %>%
+  dplyr::mutate(active_or_withdrawn = 
+          case_when(cluster_number %in% (pk_individuals$cluster %>% unique()) ~ 
+          'cluster excluded from study', TRUE ~ active_or_withdrawn)) %>%
   dplyr::select(`Cluster` = cluster_number,
                 `Household ID / Livestock Enclosure ID` = id,
                 `Date of consent on screening form` = date_of_consent,

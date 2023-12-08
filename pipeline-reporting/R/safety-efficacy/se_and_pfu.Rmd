@@ -47,7 +47,6 @@ DATA_STAGING_BUCKET_NAME <- 'databrew.org'
 DATA_LAKE_BUCKET_NAME <- 'bohemia-lake-db'
 PROJECT_SOURCE <- 'kwale'
 SE_FOLDER_TARGET <- glue::glue('{PROJECT_SOURCE}/clean-form')
-CLUSTER_TO_REMOVE <- c(1,4,6,3,35,47,52,66,71,76,86,89)
 ```
 
 ```{r}
@@ -183,6 +182,8 @@ prep_safety_tbl <- function(safety_df,
 #################################
 # Fetch v0 demography
 #################################
+
+
 worker_registration <- cloudbrewr::aws_s3_get_table(
   bucket = 'databrew.org',
   key = 'kwale/clean-form/reconaregistration/reconaregistration.csv'
@@ -227,6 +228,14 @@ safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/clean-form/safetynew/safetynew-repeat_individual.csv')) %>%
   pad_hhid()
 
+pk_individuals <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = glue::glue('bohemia_ext_data/pk_individuals/pk_individuals.csv')) %>%
+  pad_hhid()
+
+# cluster to remove
+CLUSTER_TO_REMOVE <- pk_individuals %>% distinct(cluster) %>% .$cluster
+
 
 assignment <- cloudbrewr::aws_s3_get_table(
   bucket = 'bohemia-lake-db',
@@ -267,6 +276,7 @@ target_efficacy_by_cluster_and_village = efficacy_targets %>%
     dplyr::group_by(visit, cluster, village) %>% 
     dplyr::summarise(hh_target = sum(hh_target),
                      ind_target = sum(ind_target))
+
 ```
 
 
@@ -1153,15 +1163,15 @@ element_id <- 'attendance-tracker'
 
 attendance <- dplyr::bind_rows(
   safety %>% 
-    dplyr::select(wid, instanceID, SubmissionDate, hhid, visit) %>% 
+    dplyr::select(wid, instanceID, SubmissionDate, hhid, visit, cluster) %>% 
     dplyr::mutate(form_id = 'safety',
                   wid = as.character(wid)), 
   safetynew %>% 
-    dplyr::select(wid, instanceID, SubmissionDate, hhid, visit)%>% 
+    dplyr::select(wid, instanceID, SubmissionDate, hhid, visit, cluster)%>% 
     dplyr::mutate(form_id = 'safetynew',
                   wid = as.character(wid)),
   efficacy %>% 
-    dplyr::select(wid, instanceID, SubmissionDate, hhid, visit)%>% 
+    dplyr::select(wid, instanceID, SubmissionDate, hhid, visit, cluster)%>% 
     dplyr::mutate(form_id = 'efficacy',
                   wid = as.character(wid))
 )  %>% 
@@ -1171,7 +1181,6 @@ attendance <- dplyr::bind_rows(
 
 tbl <- reactable(
   attendance,
-  groupBy = c("wid", "form_id"),
   highlight = TRUE,
   filterable = TRUE,
   resizable = TRUE,
