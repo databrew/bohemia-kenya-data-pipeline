@@ -17,3 +17,7 @@ Metadata will be stored as a zip file in S3 for tracking purposes under databrew
 5. How form is versioned?
 For each scheduled runs, versioning will be based on `YYMMDD01` (for manual updates, it will be adding through the last suffixes `YYMMDD02`)
 
+
+### Changelog
+
+1. 12/8/2023: [Make changes to PK Individuals](https://bohemiakenya.slack.com/archives/C059Q4RU2CA/p1702015098497179?thread_ts=1702014794.698659&cid=C059Q4RU2CA)

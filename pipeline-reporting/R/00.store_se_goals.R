@@ -13,7 +13,6 @@ DATA_STAGING_BUCKET_NAME <- 'databrew.org'
 DATA_LAKE_BUCKET_NAME <- 'bohemia-lake-db'
 PROJECT_SOURCE <- 'kwale'
 SE_FOLDER_TARGET <- glue::glue('{PROJECT_SOURCE}/clean-form')
-CLUSTER_TO_REMOVE <- c(1,4,6,32,35,47,52,66,71,76,86,89)
 
 tryCatch({
   logger::log_info('Attempt AWS login')
@@ -209,7 +208,6 @@ get_safety_targets <- function(){
     dplyr::filter(start_time < departure_time | is.na(departure_time)) %>%
     dplyr::left_join(all_refusals) %>%
     dplyr::filter(is.na(is_refusal)) %>%
-    dplyr::filter(safety_status != 'refusal') %>%
     dplyr::group_by(visit, assignment, cluster, village) %>%
     dplyr::summarise(
       hh_target = n_distinct(hhid),
@@ -303,7 +301,6 @@ get_efficacy_targets <- function(){
     dplyr::filter(start_time < departure_time | is.na(departure_time)) %>%
     dplyr::left_join(all_refusals) %>%
     dplyr::filter(is.na(is_refusal)) %>%
-    dplyr::filter(efficacy_status != 'refusal') %>%
     dplyr::group_by(visit, assignment, cluster, village) %>%
     dplyr::summarise(
       hh_target = n_distinct(hhid),
@@ -377,15 +374,30 @@ safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
 
 assignment <- cloudbrewr::aws_s3_get_table(
   bucket = 'bohemia-lake-db',
-  key = glue::glue('bohemia_prod/dim_arm_assignment/assignments.csv')) %>%
+  key = glue::glue('bohemia_ext_data/assignments/assignments.csv')) %>%
   pad_hhid()
 
 
 efficacy_selection <- cloudbrewr::aws_s3_get_table(
   bucket = 'bohemia-lake-db',
-  key = glue::glue('bohemia_ext/efficacy_selection.csv')) %>%
+  key = glue::glue('bohemia_ext_data/efficacy_selection/efficacy_selection.csv')) %>%
   pad_hhid() %>%
   dplyr::select(extid)
+
+pk_individuals <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = glue::glue('bohemia_ext_data/pk_individuals/pk_individuals.csv')) %>%
+  pad_hhid()
+
+
+pfu <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/pfu/pfu.csv'
+) %>%
+  pad_hhid()
+
+# cluster to remove
+CLUSTER_TO_REMOVE <- pk_individuals %>% distinct(cluster) %>% .$cluster
 
 # village mapping
 village_mapping <- v0 %>%
