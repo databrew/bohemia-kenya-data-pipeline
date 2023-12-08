@@ -409,7 +409,7 @@ v0_merged_tbl <- v0 %>%
   dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY'))  %>%
   dplyr::inner_join(
     assignment,
-    by = c('geo_cluster_num' = 'cluster_number')) %>%
+    by = c('cluster' = 'cluster_number')) %>%
   dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)
 
 # prep safety table
