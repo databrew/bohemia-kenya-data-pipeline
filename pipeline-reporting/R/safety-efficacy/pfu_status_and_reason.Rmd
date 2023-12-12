@@ -144,10 +144,10 @@ target_table <- left_join(target_table, total_pfu, by=('Visit'))
 ```{r status}
 # make a table of the number of women in, eos, and total visited for each visit
 
-# V2
-pfu_v2 <- pfu %>%
-  filter(visit == 'V2') 
-
+## V2 ###############
+  pfu_v2 <- pfu %>%
+    filter(visit == 'V2') 
+  
   # change Status from logical to character
   pfu_v2$Status <- as.character(pfu_v2$Status)
 
@@ -159,6 +159,101 @@ pfu_v2 <- pfu %>%
       add_row('PFU status' = 'total people visited', 
               'Number of people visited in V2 (target: ?)' = sum(.$'Number of people visited in V2 (target: ?)')) %>%
       mutate('Percent complete' = (as.numeric(`Number of people visited in V2 (target: ?)`)) / as.numeric(nrow(pfu_v2)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%'))
+  
+  
+## V3 ########################
+  pfu_v3 <- pfu %>%
+    filter(visit == 'V3') 
+
+  # change Status from logical to character
+  pfu_v3$Status <- as.character(pfu_v3$Status)
+
+  pfu_totals_v3 <- pfu_v3 %>%
+      group_by(pregnancy_status) %>%
+      summarise('Number of people visited in V3 (target: ?)' = n()) %>%
+      arrange(pregnancy_status) %>%
+      rename('PFU status' = pregnancy_status) %>%
+      add_row('PFU status' = 'total people visited', 
+              'Number of people visited in V3 (target: ?)' = sum(.$'Number of people visited in V3 (target: ?)')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V3 (target: ?)`)) / as.numeric(nrow(pfu_v3)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%'))
+  
+  
+## V4 ########################
+  pfu_v4 <- pfu %>%
+    filter(visit == 'V4') 
+
+  # change Status from logical to character
+  pfu_v4$Status <- as.character(pfu_v4$Status)
+
+  pfu_totals_v4 <- pfu_v4 %>%
+      group_by(pregnancy_status) %>%
+      summarise('Number of people visited in V4 (target: ?)' = n()) %>%
+      arrange(pregnancy_status) %>%
+      rename('PFU status' = pregnancy_status) %>%
+      add_row('PFU status' = 'total people visited', 
+              'Number of people visited in V4 (target: ?)' = sum(.$'Number of people visited in V4 (target: ?)')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V4 (target: ?)`)) / as.numeric(nrow(pfu_v4)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%'))
+  
+  
+## V5 ########################
+  pfu_v5 <- pfu %>%
+    filter(visit == 'V5') 
+
+  # change Status from logical to character
+  pfu_v5$Status <- as.character(pfu_v5$Status)
+
+  pfu_totals_v5 <- pfu_v5 %>%
+      group_by(pregnancy_status) %>%
+      summarise('Number of people visited in V5 (target: ?)' = n()) %>%
+      arrange(pregnancy_status) %>%
+      rename('PFU status' = pregnancy_status) %>%
+      add_row('PFU status' = 'total people visited', 
+              'Number of people visited in V5 (target: ?)' = sum(.$'Number of people visited in V5 (target: ?)')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V5 (target: ?)`)) / as.numeric(nrow(pfu_v5)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%'))
+  
+  
+## V6 ########################
+  pfu_v6 <- pfu %>%
+    filter(visit == 'V6') 
+
+  # change Status from logical to character
+  pfu_v6$Status <- as.character(pfu_v6$Status)
+
+  pfu_totals_v6 <- pfu_v6 %>%
+      group_by(pregnancy_status) %>%
+      summarise('Number of people visited in V6 (target: ?)' = n()) %>%
+      arrange(pregnancy_status) %>%
+      rename('PFU status' = pregnancy_status) %>%
+      add_row('PFU status' = 'total people visited', 
+              'Number of people visited in V6 (target: ?)' = sum(.$'Number of people visited in V6 (target: ?)')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V6 (target: ?)`)) / as.numeric(nrow(pfu_v6)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%'))
+  
+  
+## V7 ########################
+  pfu_v7 <- pfu %>%
+    filter(visit == 'V7') 
+
+  # change Status from logical to character
+  pfu_v7$Status <- as.character(pfu_v7$Status)
+
+  pfu_totals_v7 <- pfu_v7 %>%
+      group_by(pregnancy_status) %>%
+      summarise('Number of people visited in V7 (target: ?)' = n()) %>%
+      arrange(pregnancy_status) %>%
+      rename('PFU status' = pregnancy_status) %>%
+      add_row('PFU status' = 'total people visited', 
+              'Number of people visited in V7 (target: ?)' = sum(.$'Number of people visited in V7 (target: ?)')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V7 (target: ?)`)) / as.numeric(nrow(pfu_v7)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
 ```
@@ -208,6 +303,8 @@ pfu_reason <- pfu %>%
 ```{r eos_reason}
 # create a table of the reasons a woman is eos
 
+## V2 ####################
+
   pfu_eos_v2 <- data %>%
     filter(visit == 'V2',
            pregnancy_status == 'eos')
@@ -221,6 +318,92 @@ pfu_reason <- pfu %>%
       mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(pfu_eos_v2)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+  
+## V3 ####################
+
+  pfu_eos_v3 <- data %>%
+    filter(visit == 'V3',
+           pregnancy_status == 'eos')
+
+  eos_reasons_v3 <- pfu_eos_v3 %>%
+      group_by(pregnancy_status_reason) %>%
+      summarise('Number of eos people' = n()) %>%
+      arrange(pregnancy_status_reason) %>%
+      rename('Reason for eos' = pregnancy_status_reason) %>%
+      add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(pfu_eos_v3)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+  
+## V4 ####################
+
+  pfu_eos_v4 <- data %>%
+    filter(visit == 'V4',
+           pregnancy_status == 'eos')
+
+  eos_reasons_v4 <- pfu_eos_v4 %>%
+      group_by(pregnancy_status_reason) %>%
+      summarise('Number of eos people' = n()) %>%
+      arrange(pregnancy_status_reason) %>%
+      rename('Reason for eos' = pregnancy_status_reason) %>%
+      add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(pfu_eos_v4)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+  
+## V5 ####################
+
+  pfu_eos_v5 <- data %>%
+    filter(visit == 'V5',
+           pregnancy_status == 'eos')
+
+  eos_reasons_v5 <- pfu_eos_v5 %>%
+      group_by(pregnancy_status_reason) %>%
+      summarise('Number of eos people' = n()) %>%
+      arrange(pregnancy_status_reason) %>%
+      rename('Reason for eos' = pregnancy_status_reason) %>%
+      add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(pfu_eos_v5)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+  
+## V6 ####################
+
+  pfu_eos_v6 <- data %>%
+    filter(visit == 'V6',
+           pregnancy_status == 'eos')
+
+  eos_reasons_v6 <- pfu_eos_v6 %>%
+      group_by(pregnancy_status_reason) %>%
+      summarise('Number of eos people' = n()) %>%
+      arrange(pregnancy_status_reason) %>%
+      rename('Reason for eos' = pregnancy_status_reason) %>%
+      add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(pfu_eos_v6)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+  
+## V7 ####################
+
+  pfu_eos_v7 <- data %>%
+    filter(visit == 'V7',
+           pregnancy_status == 'eos')
+
+  eos_reasons_v7 <- pfu_eos_v7 %>%
+      group_by(pregnancy_status_reason) %>%
+      summarise('Number of eos people' = n()) %>%
+      arrange(pregnancy_status_reason) %>%
+      rename('Reason for eos' = pregnancy_status_reason) %>%
+      add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(pfu_eos_v7)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
 ```
 
 ## PFU targets
