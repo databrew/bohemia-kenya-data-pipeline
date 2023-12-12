@@ -191,9 +191,9 @@ get_safety_targets <- function(){
 
   master_list$cascade_target <- dplyr::bind_rows(
     safetynew_merged_tbl  %>%
-      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, safety_status, geo_cluster_num),
+      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, safety_status, cluster),
     safety_merged_tbl  %>%
-      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, safety_status, geo_cluster_num),
+      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, safety_status, cluster),
   )  %>%
     dplyr::mutate(
       next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,

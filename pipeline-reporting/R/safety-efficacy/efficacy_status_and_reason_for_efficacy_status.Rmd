@@ -231,39 +231,143 @@ total_efficacy_v2 <- data %>%
       mutate('Percent complete' = (as.numeric(`Number of people visited in V2`)) / as.numeric(nrow(total_efficacy_v2)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
+  
+# totals for V3
+total_efficacy_v3 <- data %>%
+  filter(visit == 'V3')
+
+  total_efficacy_status_v3 <- total_efficacy_v3 %>%
+      group_by(efficacy_status) %>%
+      summarise('Number of people visited in V3' = n()) %>%
+      arrange(efficacy_status) %>%
+      rename('Efficacy status' = efficacy_status) %>%
+      add_row('Efficacy status' = 'total people visited', 'Number of people visited in V3' = sum(.$'Number of people visited in V3')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V3`)) / as.numeric(nrow(total_efficacy_v3)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%'))
+  
+  
+# totals for V4
+total_efficacy_v4 <- data %>%
+  filter(visit == 'V4')
+
+  total_efficacy_status_v4 <- total_efficacy_v4 %>%
+      group_by(efficacy_status) %>%
+      summarise('Number of people visited in V4' = n()) %>%
+      arrange(efficacy_status) %>%
+      rename('Efficacy status' = efficacy_status) %>%
+      add_row('Efficacy status' = 'total people visited', 'Number of people visited in V4' = sum(.$'Number of people visited in V4')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V4`)) / as.numeric(nrow(total_efficacy_v4)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%'))
+  
+
+# totals for V5
+total_efficacy_v5 <- data %>%
+  filter(visit == 'V5')
+
+  total_efficacy_status_v5 <- total_efficacy_v5 %>%
+      group_by(efficacy_status) %>%
+      summarise('Number of people visited in V5' = n()) %>%
+      arrange(efficacy_status) %>%
+      rename('Efficacy status' = efficacy_status) %>%
+      add_row('Efficacy status' = 'total people visited', 'Number of people visited in V5' = sum(.$'Number of people visited in V5')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V5`)) / as.numeric(nrow(total_efficacy_v5)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%'))
+  
+  
+# totals for V6
+total_efficacy_v6 <- data %>%
+  filter(visit == 'V6')
+
+  total_efficacy_status_v6 <- total_efficacy_v6 %>%
+      group_by(efficacy_status) %>%
+      summarise('Number of people visited in V6' = n()) %>%
+      arrange(efficacy_status) %>%
+      rename('Efficacy status' = efficacy_status) %>%
+      add_row('Efficacy status' = 'total people visited', 'Number of people visited in V6' = sum(.$'Number of people visited in V6')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V6`)) / as.numeric(nrow(total_efficacy_v6)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%'))
+  
+  
+# totals for V7
+total_efficacy_v7 <- data %>%
+  filter(visit == 'V7')
+
+  total_efficacy_status_v7 <- total_efficacy_v7 %>%
+      group_by(efficacy_status) %>%
+      summarise('Number of people visited in V7' = n()) %>%
+      arrange(efficacy_status) %>%
+      rename('Efficacy status' = efficacy_status) %>%
+      add_row('Efficacy status' = 'total people visited', 'Number of people visited in V7' = sum(.$'Number of people visited in V7')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited in V7`)) / as.numeric(nrow(total_efficacy_v7)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%'))
 ```
 
 ```{r in}
-## create a table of how many people are in as enrolment and in as follow up in Efficacy V2
-# create a dataset with the in efficacy status people from Efficacy V2 and then joining Efficacy V1 and V2 (total_safety_v1 and total_safety_v2)
-efficacy_v2 <- total_efficacy_v2 %>%
-  rename(v2_efficacystatus = efficacy_status,
-         v2_efficacyreason = efficacy_reason) %>%
-  select(extid, v2_efficacystatus, v2_efficacyreason) # get the v2 'in' people
+## create a table of how many people are in as enrolment and in as follow up in Efficacy V3
+# create a dataset with the in efficacy status people from Efficacy V3 and then joining Efficacy V2 and V3 (total_safety_v2 and total_safety_v3)
+  efficacy_v3 <- total_efficacy_v3 %>%
+    rename(v3_efficacystatus = efficacy_status,
+           v3_efficacyreason = efficacy_reason) %>%
+    select(extid, v3_efficacystatus, v3_efficacyreason) # get the v2 'in' people
+  
+  efficacy_v3 <- left_join(efficacy_v3, total_efficacy_v2, by=c('extid')) %>%
+    select(extid, efficacy_status, v3_efficacystatus, v3_efficacyreason) %>%
+    rename(v2_efficacystatus = efficacy_status) %>% # join the v2 'in' people with their v1 statuses
+    mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
+      v2_efficacystatus == 'in' ~ 'follow up',
+      v2_efficacystatus == 'out' |
+        is.na(v2_efficacystatus) ~ 'enrolment'
+    ))
+  
+  efficacy_v3_in <- efficacy_v3 %>%
+    filter(v3_efficacystatus == 'in')
 
-efficacy_v2 <- left_join(efficacy_v2, total_efficacy_v1, by=c('extid')) %>%
-  select(extid, efficacy_status, v2_efficacystatus, v2_efficacyreason) %>%
-  rename(v1_efficacystatus = efficacy_status) %>% # join the v2 'in' people with their v1 statuses
-  mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
-    v1_efficacystatus == 'in' ~ 'follow up',
-    v1_efficacystatus == 'out' |
-      is.na(v1_efficacystatus) ~ 'enrolment'
-  ))
+  in_type_v3 <- efficacy_v3_in %>%
+    group_by(visit_type) %>%
+    summarise('Number of in people' = n()) %>%
+    arrange(visit_type) %>%
+    rename('Visit type' = visit_type) %>%
+    add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
+    mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v3_in)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
 
-efficacy_v2_in <- efficacy_v2 %>%
-  filter(v2_efficacystatus == 'in')
-
-# create a table that shows how many people are follow up and enrolment in V2
-# make a table of reasons people are eos
-in_type_v2 <- efficacy_v2_in %>%
-  group_by(visit_type) %>%
-  summarise('Number of in people' = n()) %>%
-  arrange(visit_type) %>%
-  rename('Visit type' = visit_type) %>%
-  add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
-  mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v2_in)) * 100) %>%
-  mutate('Percent' = round(`Percent`, 2)) %>%
-  mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+  
+## V2 #########################
+  
+  efficacy_v2 <- total_efficacy_v2 %>%
+    rename(v2_efficacystatus = efficacy_status,
+           v2_efficacyreason = efficacy_reason) %>%
+    select(extid, v2_efficacystatus, v2_efficacyreason) # get the v2 'in' people
+  
+  efficacy_v2 <- left_join(efficacy_v2, total_efficacy_v1, by=c('extid')) %>%
+    select(extid, efficacy_status, v2_efficacystatus, v2_efficacyreason) %>%
+    rename(v1_efficacystatus = efficacy_status) %>% # join the v2 'in' people with their v1 statuses
+    mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
+      v1_efficacystatus == 'in' ~ 'follow up',
+      v1_efficacystatus == 'out' |
+        is.na(v1_efficacystatus) ~ 'enrolment'
+    ))
+  
+  efficacy_v2_in <- efficacy_v2 %>%
+    filter(v2_efficacystatus == 'in')
+  
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  in_type_v2 <- efficacy_v2_in %>%
+    group_by(visit_type) %>%
+    summarise('Number of in people' = n()) %>%
+    arrange(visit_type) %>%
+    rename('Visit type' = visit_type) %>%
+    add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
+    mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v2_in)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
 ```
 
 ```{r eos}
@@ -286,7 +390,7 @@ in_type_v2 <- efficacy_v2_in %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
   
 
-## V2 ########################### # need to add enrolment vs. follow up
+## V2 ###########################
   
   efficacy_eos_v2 <- efficacy_v2 %>%
     filter(v2_efficacystatus == 'eos')
@@ -330,6 +434,51 @@ in_type_v2 <- efficacy_v2_in %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
+  
+## V3 ###########################
+  
+  efficacy_eos_v3 <- efficacy_v3 %>%
+    filter(v3_efficacystatus == 'eos')
+  
+  # make a table of why people are eos
+  eos_reasons_v3 <- efficacy_eos_v3 %>%
+    group_by(v3_efficacyreason) %>%
+    summarise('Number of eos people' = n()) %>%
+    arrange(v3_efficacyreason) %>%
+    rename('Reason for eos' = v3_efficacyreason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos_v3)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+
+# create datasets to make an enrolment and follow up eos table
+  total_eff_eos_enrolment_v3 <- efficacy_eos_v3 %>%
+    filter(visit_type == 'enrolment')
+  total_eff_eos_followup_v3 <- efficacy_eos_v3 %>%
+    filter(visit_type == 'follow up')
+  
+# make a table of enrolment people who are eos
+  eos_reasons_enrolment_v3 <- total_eff_eos_enrolment_v3 %>%
+    group_by(v3_efficacyreason) %>%
+    summarise('Number of eos people' = n()) %>%
+    arrange(v3_efficacyreason) %>%
+    rename('Reason for eos' = v3_efficacyreason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_enrolment_v3)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+
+# make a table of reasons follow up people are eos #
+  eos_reasons_followup_v3 <- total_eff_eos_followup_v3 %>%
+    group_by(v3_efficacyreason) %>%
+    summarise('Number of eos people' = n()) %>%
+    arrange(v3_efficacyreason) %>%
+    rename('Reason for eos' = v3_efficacyreason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_followup_v3)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+
 ```
 
 ```{r out}
@@ -366,7 +515,96 @@ in_type_v2 <- efficacy_v2_in %>%
     mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(efficacy_out_v2)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+
   
+## V3 ##############################
+  
+  efficacy_out_v3 <- data %>%
+    filter(visit == 'V3',
+           efficacy_status == 'out')
+  
+    # make a table of why people are out
+  out_reasons_v3 <- efficacy_out_v3 %>%
+    group_by(efficacy_reason) %>%
+    summarise('Number of out people' = n()) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for out' = efficacy_reason) %>%
+    add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(efficacy_out_v3)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+  
+## V4 ##############################
+  
+  efficacy_out_v4 <- data %>%
+    filter(visit == 'V4',
+           efficacy_status == 'out')
+  
+    # make a table of why people are out
+  out_reasons_v4 <- efficacy_out_v4 %>%
+    group_by(efficacy_reason) %>%
+    summarise('Number of out people' = n()) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for out' = efficacy_reason) %>%
+    add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(efficacy_out_v4)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+  
+## V5 ##############################
+  
+  efficacy_out_v5 <- data %>%
+    filter(visit == 'V5',
+           efficacy_status == 'out')
+  
+    # make a table of why people are out
+  out_reasons_v5 <- efficacy_out_v5 %>%
+    group_by(efficacy_reason) %>%
+    summarise('Number of out people' = n()) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for out' = efficacy_reason) %>%
+    add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(efficacy_out_v5)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+  
+## V6 ##############################
+  
+  efficacy_out_v6 <- data %>%
+    filter(visit == 'V6',
+           efficacy_status == 'out')
+  
+    # make a table of why people are out
+  out_reasons_v6 <- efficacy_out_v6 %>%
+    group_by(efficacy_reason) %>%
+    summarise('Number of out people' = n()) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for out' = efficacy_reason) %>%
+    add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(efficacy_out_v6)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+  
+## V7 ##############################
+  
+  efficacy_out_v7 <- data %>%
+    filter(visit == 'V7',
+           efficacy_status == 'out')
+  
+    # make a table of why people are out
+  out_reasons_v7 <- efficacy_out_v7 %>%
+    group_by(efficacy_reason) %>%
+    summarise('Number of out people' = n()) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for out' = efficacy_reason) %>%
+    add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(efficacy_out_v7)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 ```
 
 ```{r refusal}
@@ -402,95 +640,538 @@ in_type_v2 <- efficacy_v2_in %>%
     mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(efficacy_refusal_v2)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+
+## V3 ##############################
+  
+  efficacy_refusal_v3 <- data %>%
+    filter(visit == 'V3',
+           efficacy_status == 'refusal')
+  
+  refusal_reasons_v3 <- efficacy_refusal_v3 %>%
+    group_by(efficacy_reason) %>%
+    summarise('Number of refusal people' = n()) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for refusal' = efficacy_reason) %>%
+    add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(efficacy_refusal_v3)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+
+## V4 ##############################
+  
+  efficacy_refusal_v4 <- data %>%
+    filter(visit == 'V4',
+           efficacy_status == 'refusal')
+  
+  refusal_reasons_v4 <- efficacy_refusal_v4 %>%
+    group_by(efficacy_reason) %>%
+    summarise('Number of refusal people' = n()) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for refusal' = efficacy_reason) %>%
+    add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(efficacy_refusal_v4)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+  
+## V5 ##############################
+  
+  efficacy_refusal_v5 <- data %>%
+    filter(visit == 'V5',
+           efficacy_status == 'refusal')
+  
+  refusal_reasons_v5 <- efficacy_refusal_v5 %>%
+    group_by(efficacy_reason) %>%
+    summarise('Number of refusal people' = n()) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for refusal' = efficacy_reason) %>%
+    add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(efficacy_refusal_v5)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+  
+## V6 ##############################
+  
+  efficacy_refusal_v6 <- data %>%
+    filter(visit == 'V6',
+           efficacy_status == 'refusal')
+  
+  refusal_reasons_v6 <- efficacy_refusal_v6 %>%
+    group_by(efficacy_reason) %>%
+    summarise('Number of refusal people' = n()) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for refusal' = efficacy_reason) %>%
+    add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(efficacy_refusal_v6)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  
+  
+## V7 ##############################
+  
+  efficacy_refusal_v7 <- data %>%
+    filter(visit == 'V7',
+           efficacy_status == 'refusal')
+  
+  refusal_reasons_v7 <- efficacy_refusal_v7 %>%
+    group_by(efficacy_reason) %>%
+    summarise('Number of refusal people' = n()) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for refusal' = efficacy_reason) %>%
+    add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(efficacy_refusal_v7)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 ```
 
 ```{r rdt-results}
-eff_results <- efficacy %>%
-  select(extid, cluster, pan_result, pf_result, visit, efficacy_status) %>%
-  mutate(combination = case_when(pan_result == 'Positive' & pf_result == 'Positive' ~ 'pan + pf +',
-                                 pan_result == 'Negative' & pf_result == 'Negative' ~ 'pan - pf -',
-                                 pan_result == 'Positive' & pf_result == 'Negative' ~ 'pan + pf -',
-                                 pan_result == 'Negative' & pf_result == 'Positive' ~ 'pan - pf +',
-                                 pan_result == '' & pf_result == '' ~ 'blank test responses'))
+# present the rdt results for the different visits
+  eff_results <- efficacy %>%
+    select(extid, cluster, pan_result, pf_result, visit, efficacy_status) %>%
+    mutate(combination = case_when(pan_result == 'Positive' & pf_result == 'Positive' ~ 'pan + pf +',
+                                   pan_result == 'Negative' & pf_result == 'Negative' ~ 'pan - pf -',
+                                   pan_result == 'Positive' & pf_result == 'Negative' ~ 'pan + pf -',
+                                   pan_result == 'Negative' & pf_result == 'Positive' ~ 'pan - pf +',
+                                   pan_result == '' & pf_result == '' ~ 'blank test responses'))
 
-eff_results_v1 <- eff_results %>%
-  filter(visit == 'V1', 
-         efficacy_status == 'in')
 
-# make combination into individual columns
-eff_results_v1_edited <- eff_results_v1 %>%
-  mutate(
-    neg_pos = ifelse(pan_result == 'Negative' & pf_result == 'Positive', 1, 0),
-    pos_neg = ifelse(pan_result == 'Positive' & pf_result == 'Negative', 1, 0),
-    pos_pos = ifelse(pan_result == 'Positive' & pf_result == 'Positive', 1, 0),
-    neg_neg = ifelse(pan_result == 'Negative' & pf_result == 'Negative', 1, 0)
-  )
-
-# Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
-eff_cluster_rdt_results_v1 <- eff_results_v1_edited %>%
-  group_by(cluster) %>%
-  summarise('pan+ pf+' = sum(pos_pos),
-            'pan+ pf-' = sum(pos_neg),
-            'pan- pf+' = sum(neg_pos),
-            'pan- pf-' = sum(neg_neg)) %>%
-  rename(Cluster = cluster)
+## V1 #################################
+  
+  eff_results_v1 <- eff_results %>%
+    filter(visit == 'V1', 
+           efficacy_status == 'in')
+  
+  # make combination into individual columns
+  eff_results_v1_edited <- eff_results_v1 %>%
+    mutate(
+      neg_pos = ifelse(pan_result == 'Negative' & pf_result == 'Positive', 1, 0),
+      pos_neg = ifelse(pan_result == 'Positive' & pf_result == 'Negative', 1, 0),
+      pos_pos = ifelse(pan_result == 'Positive' & pf_result == 'Positive', 1, 0),
+      neg_neg = ifelse(pan_result == 'Negative' & pf_result == 'Negative', 1, 0)
+    )
+  
+  # Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
+  eff_cluster_rdt_results_v1 <- eff_results_v1_edited %>%
+    group_by(cluster) %>%
+    summarise('pan+ pf+' = sum(pos_pos),
+              'pan+ pf-' = sum(pos_neg),
+              'pan- pf+' = sum(neg_pos),
+              'pan- pf-' = sum(neg_neg)) %>%
+    rename(Cluster = cluster)
 
 # we want to see the rates of malaria. So create a table of totals (all clusters) of the proportions of the four ways using (pan+/-;pf+/-). Include percentages of each for the entire study.
-eff_results_v1_clean <- eff_results_v1 %>%
-  filter(combination != 'blank test responses')
-
-eff_rdt_prop_totals_v1 <- eff_results_v1_clean %>%
-  group_by(combination) %>%
-  summarise('Count' = n()) %>%
-  add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
-  mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results_v1_clean)) * 100) %>%
-  mutate(Percent = round(Percent, 2)) %>%
-  mutate(Percent = paste0(Percent, '%')) %>%
-  rename('Combination type' = combination)
+  eff_results_v1_clean <- eff_results_v1 %>%
+    filter(combination != 'blank test responses')
+  
+  eff_rdt_prop_totals_v1 <- eff_results_v1_clean %>%
+    group_by(combination) %>%
+    summarise('Count' = n()) %>%
+    add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
+    mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results_v1_clean)) * 100) %>%
+    mutate(Percent = round(Percent, 2)) %>%
+    mutate(Percent = paste0(Percent, '%')) %>%
+    rename('Combination type' = combination)
 
 
 ## V2 ##############################
 
-eff_results_v2 <- eff_results %>%
-  filter(visit == 'V2', 
-         efficacy_status == 'in')
-
-# make combination into individual columns
-eff_results_v2_edited <- eff_results_v2 %>%
-  mutate(
-    neg_pos = ifelse(pan_result == 'Negative' & pf_result == 'Positive', 1, 0),
-    pos_neg = ifelse(pan_result == 'Positive' & pf_result == 'Negative', 1, 0),
-    pos_pos = ifelse(pan_result == 'Positive' & pf_result == 'Positive', 1, 0),
-    neg_neg = ifelse(pan_result == 'Negative' & pf_result == 'Negative', 1, 0)
-  )
-
-# Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
-eff_cluster_rdt_results_v2 <- eff_results_v2_edited %>%
-  group_by(cluster) %>%
-  summarise('pan+ pf+' = sum(pos_pos),
-            'pan+ pf-' = sum(pos_neg),
-            'pan- pf+' = sum(neg_pos),
-            'pan- pf-' = sum(neg_neg)) %>%
-  rename(Cluster = cluster)
+  eff_results_v2 <- eff_results %>%
+    filter(visit == 'V2', 
+           efficacy_status == 'in')
+  
+  # make combination into individual columns
+  eff_results_v2_edited <- eff_results_v2 %>%
+    mutate(
+      neg_pos = ifelse(pan_result == 'Negative' & pf_result == 'Positive', 1, 0),
+      pos_neg = ifelse(pan_result == 'Positive' & pf_result == 'Negative', 1, 0),
+      pos_pos = ifelse(pan_result == 'Positive' & pf_result == 'Positive', 1, 0),
+      neg_neg = ifelse(pan_result == 'Negative' & pf_result == 'Negative', 1, 0)
+    )
+  
+  # Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
+  eff_cluster_rdt_results_v2 <- eff_results_v2_edited %>%
+    group_by(cluster) %>%
+    summarise('pan+ pf+' = sum(pos_pos),
+              'pan+ pf-' = sum(pos_neg),
+              'pan- pf+' = sum(neg_pos),
+              'pan- pf-' = sum(neg_neg)) %>%
+    rename(Cluster = cluster)
 
 # we want to see the rates of malaria. So create a table of totals (all clusters) of the proportions of the four ways using (pan+/-;pf+/-). Include percentages of each for the entire study.
-eff_results_v2_clean <- eff_results_v2 %>%
-  filter(combination != 'blank test responses')
+  eff_results_v2_clean <- eff_results_v2 %>%
+    filter(combination != 'blank test responses')
+  
+  eff_rdt_prop_totals_v2 <- eff_results_v2_clean %>%
+    group_by(combination) %>%
+    summarise('Count' = n()) %>%
+    add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
+    mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results_v2_clean)) * 100) %>%
+    mutate(Percent = round(Percent, 2)) %>%
+    mutate(Percent = paste0(Percent, '%')) %>%
+    rename('Combination type' = combination)
+  
 
-eff_rdt_prop_totals_v2 <- eff_results_v2_clean %>%
-  group_by(combination) %>%
-  summarise('Count' = n()) %>%
-  add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
-  mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results_v2_clean)) * 100) %>%
-  mutate(Percent = round(Percent, 2)) %>%
-  mutate(Percent = paste0(Percent, '%')) %>%
-  rename('Combination type' = combination)
+## V3 ##############################
+
+  eff_results_v3 <- eff_results %>%
+    filter(visit == 'V3', 
+           efficacy_status == 'in')
+  
+  # make combination into individual columns
+  eff_results_v3_edited <- eff_results_v3 %>%
+    mutate(
+      neg_pos = ifelse(pan_result == 'Negative' & pf_result == 'Positive', 1, 0),
+      pos_neg = ifelse(pan_result == 'Positive' & pf_result == 'Negative', 1, 0),
+      pos_pos = ifelse(pan_result == 'Positive' & pf_result == 'Positive', 1, 0),
+      neg_neg = ifelse(pan_result == 'Negative' & pf_result == 'Negative', 1, 0)
+    )
+  
+  # Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
+  eff_cluster_rdt_results_v3 <- eff_results_v3_edited %>%
+    group_by(cluster) %>%
+    summarise('pan+ pf+' = sum(pos_pos),
+              'pan+ pf-' = sum(pos_neg),
+              'pan- pf+' = sum(neg_pos),
+              'pan- pf-' = sum(neg_neg)) %>%
+    rename(Cluster = cluster)
+
+# we want to see the rates of malaria. So create a table of totals (all clusters) of the proportions of the four ways using (pan+/-;pf+/-). Include percentages of each for the entire study.
+  eff_results_v3_clean <- eff_results_v3 %>%
+    filter(combination != 'blank test responses')
+  
+  eff_rdt_prop_totals_v3 <- eff_results_v3_clean %>%
+    group_by(combination) %>%
+    summarise('Count' = n()) %>%
+    add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
+    mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results_v3_clean)) * 100) %>%
+    mutate(Percent = round(Percent, 2)) %>%
+    mutate(Percent = paste0(Percent, '%')) %>%
+    rename('Combination type' = combination)
+  
+  
+## V4 ##############################
+
+  eff_results_v4 <- eff_results %>%
+    filter(visit == 'V4', 
+           efficacy_status == 'in')
+  
+  # make combination into individual columns
+  eff_results_v4_edited <- eff_results_v4 %>%
+    mutate(
+      neg_pos = ifelse(pan_result == 'Negative' & pf_result == 'Positive', 1, 0),
+      pos_neg = ifelse(pan_result == 'Positive' & pf_result == 'Negative', 1, 0),
+      pos_pos = ifelse(pan_result == 'Positive' & pf_result == 'Positive', 1, 0),
+      neg_neg = ifelse(pan_result == 'Negative' & pf_result == 'Negative', 1, 0)
+    )
+  
+  # Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
+  eff_cluster_rdt_results_v4 <- eff_results_v4_edited %>%
+    group_by(cluster) %>%
+    summarise('pan+ pf+' = sum(pos_pos),
+              'pan+ pf-' = sum(pos_neg),
+              'pan- pf+' = sum(neg_pos),
+              'pan- pf-' = sum(neg_neg)) %>%
+    rename(Cluster = cluster)
+
+# we want to see the rates of malaria. So create a table of totals (all clusters) of the proportions of the four ways using (pan+/-;pf+/-). Include percentages of each for the entire study.
+  eff_results_v4_clean <- eff_results_v4 %>%
+    filter(combination != 'blank test responses')
+  
+  eff_rdt_prop_totals_v4 <- eff_results_v4_clean %>%
+    group_by(combination) %>%
+    summarise('Count' = n()) %>%
+    add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
+    mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results_v4_clean)) * 100) %>%
+    mutate(Percent = round(Percent, 2)) %>%
+    mutate(Percent = paste0(Percent, '%')) %>%
+    rename('Combination type' = combination)
+  
+  
+## V5 ##############################
+
+  eff_results_v5 <- eff_results %>%
+    filter(visit == 'V5', 
+           efficacy_status == 'in')
+  
+  # make combination into individual columns
+  eff_results_v5_edited <- eff_results_v5 %>%
+    mutate(
+      neg_pos = ifelse(pan_result == 'Negative' & pf_result == 'Positive', 1, 0),
+      pos_neg = ifelse(pan_result == 'Positive' & pf_result == 'Negative', 1, 0),
+      pos_pos = ifelse(pan_result == 'Positive' & pf_result == 'Positive', 1, 0),
+      neg_neg = ifelse(pan_result == 'Negative' & pf_result == 'Negative', 1, 0)
+    )
+  
+  # Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
+  eff_cluster_rdt_results_v5 <- eff_results_v5_edited %>%
+    group_by(cluster) %>%
+    summarise('pan+ pf+' = sum(pos_pos),
+              'pan+ pf-' = sum(pos_neg),
+              'pan- pf+' = sum(neg_pos),
+              'pan- pf-' = sum(neg_neg)) %>%
+    rename(Cluster = cluster)
+
+# we want to see the rates of malaria. So create a table of totals (all clusters) of the proportions of the four ways using (pan+/-;pf+/-). Include percentages of each for the entire study.
+  eff_results_v5_clean <- eff_results_v5 %>%
+    filter(combination != 'blank test responses')
+  
+  eff_rdt_prop_totals_v5 <- eff_results_v5_clean %>%
+    group_by(combination) %>%
+    summarise('Count' = n()) %>%
+    add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
+    mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results_v5_clean)) * 100) %>%
+    mutate(Percent = round(Percent, 2)) %>%
+    mutate(Percent = paste0(Percent, '%')) %>%
+    rename('Combination type' = combination)
+  
+  
+## V6 ##############################
+
+  eff_results_v6 <- eff_results %>%
+    filter(visit == 'V6', 
+           efficacy_status == 'in')
+  
+  # make combination into individual columns
+  eff_results_v6_edited <- eff_results_v6 %>%
+    mutate(
+      neg_pos = ifelse(pan_result == 'Negative' & pf_result == 'Positive', 1, 0),
+      pos_neg = ifelse(pan_result == 'Positive' & pf_result == 'Negative', 1, 0),
+      pos_pos = ifelse(pan_result == 'Positive' & pf_result == 'Positive', 1, 0),
+      neg_neg = ifelse(pan_result == 'Negative' & pf_result == 'Negative', 1, 0)
+    )
+  
+  # Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
+  eff_cluster_rdt_results_v6 <- eff_results_v6_edited %>%
+    group_by(cluster) %>%
+    summarise('pan+ pf+' = sum(pos_pos),
+              'pan+ pf-' = sum(pos_neg),
+              'pan- pf+' = sum(neg_pos),
+              'pan- pf-' = sum(neg_neg)) %>%
+    rename(Cluster = cluster)
+
+# we want to see the rates of malaria. So create a table of totals (all clusters) of the proportions of the four ways using (pan+/-;pf+/-). Include percentages of each for the entire study.
+  eff_results_v6_clean <- eff_results_v6 %>%
+    filter(combination != 'blank test responses')
+  
+  eff_rdt_prop_totals_v6 <- eff_results_v6_clean %>%
+    group_by(combination) %>%
+    summarise('Count' = n()) %>%
+    add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
+    mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results_v6_clean)) * 100) %>%
+    mutate(Percent = round(Percent, 2)) %>%
+    mutate(Percent = paste0(Percent, '%')) %>%
+    rename('Combination type' = combination)
+  
+  
+## V7 ##############################
+
+  eff_results_v7 <- eff_results %>%
+    filter(visit == 'V7', 
+           efficacy_status == 'in')
+  
+  # make combination into individual columns
+  eff_results_v7_edited <- eff_results_v7 %>%
+    mutate(
+      neg_pos = ifelse(pan_result == 'Negative' & pf_result == 'Positive', 1, 0),
+      pos_neg = ifelse(pan_result == 'Positive' & pf_result == 'Negative', 1, 0),
+      pos_pos = ifelse(pan_result == 'Positive' & pf_result == 'Positive', 1, 0),
+      neg_neg = ifelse(pan_result == 'Negative' & pf_result == 'Negative', 1, 0)
+    )
+  
+  # Using the four combinations of test possibilities (pan+/-;pf+/-), create a table by cluster which is downloadable.
+  eff_cluster_rdt_results_v7 <- eff_results_v7_edited %>%
+    group_by(cluster) %>%
+    summarise('pan+ pf+' = sum(pos_pos),
+              'pan+ pf-' = sum(pos_neg),
+              'pan- pf+' = sum(neg_pos),
+              'pan- pf-' = sum(neg_neg)) %>%
+    rename(Cluster = cluster)
+
+# we want to see the rates of malaria. So create a table of totals (all clusters) of the proportions of the four ways using (pan+/-;pf+/-). Include percentages of each for the entire study.
+  eff_results_v7_clean <- eff_results_v7 %>%
+    filter(combination != 'blank test responses')
+  
+  eff_rdt_prop_totals_v7 <- eff_results_v7_clean %>%
+    group_by(combination) %>%
+    summarise('Count' = n()) %>%
+    add_row(combination = 'total children', 'Count' = sum(.$'Count')) %>%
+    mutate(Percent = (as.numeric(`Count`)) / as.numeric(nrow(eff_results_v7_clean)) * 100) %>%
+    mutate(Percent = round(Percent, 2)) %>%
+    mutate(Percent = paste0(Percent, '%')) %>%
+    rename('Combination type' = combination)
+
 ```
 
 ## Efficacy targets
 ```{r target_show}
 reactable(target_table, columns = list(), pagination = FALSE)
 ```
+
+## V3 Numbers
+```{r v3_total_show}
+reactable(total_efficacy_status_v3, columns = list(
+  `Percent complete` = colDef(align = 'right')
+))
+
+# make a note of duplicates
+if (any(duplicated(total_efficacy_v3$extid))) {
+  cat('Note: Excluding the duplicates, the real total number of people visited is',
+      length(unique(total_efficacy_v3$extid)), '.\n')
+} else {
+  cat("Note: There are no duplicates based on extid in the data.")
+}
+```
+
+### in
+```{r v3_in_show}
+reactable(in_type_v3, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+```
+
+### eos
+```{r v3_eos_show}
+reactable(eos_reasons_v3, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# generate a message that says which reasons do not appear
+# Specify the names you want to check for
+names_to_check <- c('decline participation', 
+                    'not agree to efficacy procedures', 
+                    'not a resident', 
+                    'enrolled in other trials')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_eos_v3$efficacy_reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for eos:", paste0(not_found_names, collapse = " / ", "."))
+}
+```
+
+#### follow up visit
+```{r v3_eos_followup_show}
+
+reactable(eos_reasons_followup_v3, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+```
+
+#### enrolment visit
+```{r v3_eos_enrolment}
+
+reactable(eos_reasons_enrolment_v3, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+```
+
+
+### out
+```{r v3_out_show}
+reactable(out_reasons_v3, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# generate a message that says which reasons do not appear
+# Specify the names you want to check for
+names_to_check <- c('migrated', 
+                    'died', 
+                    'absent',
+                    'not enrolled yet')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_out_v3$efficacy_reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for out status:", paste0(not_found_names, collapse = " / ", "."))
+}
+```
+
+### refusal
+```{r v3_refusal_show}
+reactable(refusal_reasons_v3, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# generate a message that says which reasons do not appear
+# Specify the names you want to check for
+names_to_check <- c('thumbprint status', 
+                    'sign icf status', 
+                    'minor assent status')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_refusal_v3$efficacy_reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for refusals:", paste0(not_found_names, collapse = "/ ", "."))
+}
+```
+
+###  rdt results
+#### total rdt results in v3
+```{r rdt-results-totals-v3}
+reactable(eff_rdt_prop_totals_v3, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# make a note of blank test responses
+if (sum(eff_results_v3$combination == 'blank test responses') >= 1) {
+  cat('Note:', sum(eff_results_v3$combination == 'blank test responses'), 'blank test responses have been excluded from this table.\n')
+} else {
+  cat('Note: No blank test responses were recorded.\n')
+}
+```
+
+#### rdt results by cluster in v3
+```{r rdt-results-by-cluster-v3}
+element_id <- 'efficacy-rdt-results-by-cluster-v3'
+
+v3_eff_cluster_rdt_results_readable <- reactable(eff_cluster_rdt_results_v3, columns = list(), 
+                                              highlight = TRUE,
+                                              resizable = TRUE,
+                                              bordered = TRUE,
+                                              striped = TRUE,
+                                              filterable=TRUE,
+                                              elementId = element_id
+                                              )
+
+wrap_download(
+  v3_eff_cluster_rdt_results_readable, 
+  element_id,
+  'efficacy_rdt_results_by_cluster.csv')
+```
+
+
 
 ## V2 Numbers
 ```{r v2_total_show}
@@ -766,7 +1447,7 @@ if (sum(eff_results_v1$combination == 'blank test responses') >= 1) {
 ```{r rdt-results-by-cluster-v1}
 element_id <- 'efficacy-rdt-results-by-cluster-v1'
 
-eff_cluster_rdt_results_readable <- reactable(eff_cluster_rdt_results_v1, columns = list(), 
+v2_eff_cluster_rdt_results_readable <- reactable(eff_cluster_rdt_results_v1, columns = list(), 
                                               highlight = TRUE,
                                               resizable = TRUE,
                                               bordered = TRUE,
@@ -778,7 +1459,7 @@ eff_cluster_rdt_results_readable <- reactable(eff_cluster_rdt_results_v1, column
 wrap_download(
   eff_cluster_rdt_results_readable, 
   element_id,
-  'efficacy_rdt_results_by_cluster.csv')
+  'v2_efficacy_rdt_results_by_cluster.csv')
 ```
 
 ## extid explorer
