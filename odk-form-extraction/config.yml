@@ -2,13 +2,16 @@ default:
   bucket: 'databrew.org'
   server_name: 'https://databrew.org'
   output_folder: 'raw-form'
+develop:
+  secret_name: 'test/odk-credentials'
   odk_projects:
     - 'kwale'
     - 'Kwale Ento Testing'
     - 'kwale_testing'
     - 'test_of_test'
-    - 'health_economics_testing'
-develop:
-  secret_name: 'test/odk-credentials'
+    - 'kwale_training'
 production:
   secret_name: 'prod/odk-credentials'
+  odk_projects:
+    - 'kwale'
+    - 'kwale_training'
