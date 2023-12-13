@@ -1,0 +1,302 @@
+---
+title: "Monitoring Issues Tracking Report"
+description: |
+  Reporting used to track Issues for Monitoring
+date: "`r Sys.time()`"
+output:
+  html_document:
+    toc: yes
+    theme: cerulean
+  pdf_document:
+    toc: yes
+---
+
+## Getting Started
+
+This report is used for monitoring issue opening and resolving
+
+#### Bug Reports
+
+Please report bug to `e.elobolobo@gmail.com` / `atediarjo@gmail.com`
+
+```{r, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  comment = '', 
+  echo = FALSE,
+  message = FALSE,
+  cache=FALSE,
+  warning=FALSE
+)
+```
+
+```{r, echo=FALSE, message=FALSE}
+library(reactable)
+library(data.table)
+library(dplyr)
+library(htmltools)
+library(glue)
+library(fontawesome)
+library(ggplot2)
+library(plotly)
+library(formattable)
+library(lubridate)
+```
+
+```{r}
+# STATIC VARIABLES FOR I/O
+ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
+DATA_STAGING_BUCKET_NAME <- 'databrew.org'
+DATA_LAKE_BUCKET_NAME <- 'bohemia-lake-db'
+PROJECT_SOURCE <- 'kwale'
+SE_FOLDER_TARGET <- glue::glue('{PROJECT_SOURCE}/clean-form')
+MIN_DATE <- lubridate::date('2023-11-05')
+```
+
+
+```{r}
+INPUT_KEY <- 
+  list(
+    craremotemonitoring = glue::glue('kwale_training/craremotemonitoring/craremotemonitoring.csv'),
+    siteremotemonitoring = glue::glue('kwale_training/siteremotemonitoring/siteremotemonitoring.csv')
+  )
+
+
+tryCatch({
+  logger::log_info('Attempt AWS login')
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = 'cloudbrewr-aws-role',
+    profile_name =  'cloudbrewr-aws-role',
+    pipeline_stage = ENV_PIPELINE_STAGE)
+
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+```
+
+```{r}
+wrap_download <- function(reactable_obj, element_id, output_filename){
+  onclick_command <- glue::glue(
+    "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
+  htmltools::browsable(
+    tagList(
+      tags$button(
+        tagList(fontawesome::fa("download"), "Download as CSV"),
+        onclick = onclick_command),
+      reactable_obj
+    ))
+}
+
+create_snapshot_tbl <- function(data){
+  min_date <- lubridate::floor_date(
+    (data$SubmissionDate %>% lubridate::date() %>% min()),
+    unit = 'weeks'
+  )
+  max_date <- lubridate::floor_date(
+    lubridate::today(),
+    unit = 'weeks'
+  )
+  date_list <- seq.Date(min_date, max_date, "weeks")
+  data_hist <- purrr::map_dfr(date_list, function(d){
+    data %>% 
+      dplyr::mutate(run_date = d) %>% 
+      dplyr::filter(SubmissionDate <= d)
+  })
+  
+  return(data_hist)
+}
+
+pad_hhid <- function(data){
+  if('hhid' %in% names(data)){
+    data %>%
+      dplyr::mutate(hhid = stringr::str_pad(hhid, 5, pad = "0"))
+  }else{
+    data
+  }
+}
+
+#' @description clean column names
+#' @param data dataset to clean
+clean_column_names <- function(data){
+  names(data) <- unlist(lapply(strsplit(names(data), '-'), function(a){a[length(a)]}))
+  return(data)
+}
+```
+
+
+
+```{r}
+# get data from AWS
+craremotemonitoring <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = INPUT_KEY$craremotemonitoring
+) %>% clean_column_names()
+
+siteremotemonitoring <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = INPUT_KEY$siteremotemonitoring
+) %>% clean_column_names()
+```
+
+
+```{r}
+
+cra_url_access <- 'https://databrew.org/-/single/CLd8IzvVNB5pfAm8QZ6aIftTt5r2IO9?st=D9fnhK7iSUaYIhf5$sTRmQS8xmAjnZr2ouvz!45FgU4OjrXLiC4sSyidRjaXjwry'
+
+site_url_access <- 'https://databrew.org/-/single/wERhS1e7pcpTeqnEpicAWuj3INuKQuC?st=xE5KvLpmFFtQ8dgK6sk3jggvnYaXyF5xn7WL7oxTcWoLH5$n6Z10!pLzORGQuNBU'
+
+# string template for resolution
+cra_resolve_link <- '{cra_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Resolve&d%5B/data/group_indentifier/issue_id%5D={instanceID}'
+
+site_resolve_link <- '{site_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Resolve&d%5B/data/group_indentifier/issue_id%5D={instanceID}'
+```
+
+
+## CRA Open Issues
+```{r}
+resolved_issue <- craremotemonitoring %>% 
+    dplyr::filter(issue_type == 'Resolve') %>% 
+    dplyr::arrange(desc(SubmissionDate)) %>%
+    dplyr::distinct(issue_id) %>%
+    dplyr::pull(issue_id)
+
+
+tbl <- craremotemonitoring %>% 
+    dplyr::filter(issue_type == 'Open', !instanceID %in% resolved_issue) %>% 
+    dplyr::mutate(resolve_link = glue::glue(cra_resolve_link)) %>%
+    dplyr::select(SubmissionDate, 
+                  `Issue ID` = instanceID,
+                  `Report ID` = report_id, 
+                  resolve_link,
+                  issue,
+                  `Does it Impact Participant Safety? (Y/N)` = impact_to_participant_safety_yn,
+                  `Does it Impact Participant Safety?` = impact_to_participant_safety)
+
+
+element_id <- 'cra_open_issues'
+tbl <- reactable(
+        tbl,
+        columns = list(
+                  SubmissionDate = colDef(
+                    name = 'SubmissionDate',
+                    minWidth = 200
+                  ),
+                  `Issue ID` = colDef(
+                    name = 'Issue ID',
+                    minWidth = 200
+                  ),
+                  `Report ID` = colDef(
+                    name = 'Report ID',
+                    minWidth = 200
+                  ),
+                  resolve_link = colDef(name = 'Resolve Link',
+                         cell = function(value, index) {
+                           url <- sprintf("%s", 
+                                          tbl[index, "resolve_link"], value)
+                           htmltools::tags$a(href = url, target = "_blank", 'URL')
+                        })
+        ),
+        highlight = TRUE,
+        resizable = TRUE,
+        bordered = TRUE,
+        striped = TRUE,
+        filterable =TRUE,
+        elementId = element_id)
+
+
+wrap_download(tbl,  
+              element_id,
+              'cra_open_issues.csv')
+```
+
+
+## CRA Closed Issues
+
+```{r}
+tbl <- craremotemonitoring %>% 
+    dplyr::filter(issue_type == 'Resolve', issue_id %in% resolved_issue) %>% 
+    dplyr::select(SubmissionDate, 
+                  `Issue ID` = issue_id,
+                  `Report ID` = report_id, 
+                  `Appropriately Reported` = appropriately_reported,
+                  `Appropriately Reported Describe` = appropriately_reported_describe,
+                  `Documentation Filed (Y/N)` = documentation_filed_yn,
+                  `Documentation Filed` = documentation_filed,
+                  `Follow up` = followup)
+
+
+element_id <- 'cra_closed_issues'
+tbl <- reactable(
+        tbl,
+        highlight = TRUE,
+        resizable = TRUE,
+        bordered = TRUE,
+        striped = TRUE,
+        filterable =TRUE,
+        elementId = element_id)
+
+wrap_download(tbl,  
+              element_id,
+              'cra_closed_issues.csv')
+```
+
+
+## Site Monitoring Open Issues
+
+```{r}
+resolved_issue <- siteremotemonitoring %>% 
+    dplyr::filter(issue_type == 'Resolve') %>% 
+    dplyr::arrange(desc(SubmissionDate)) %>%
+    dplyr::distinct(issue_id) %>%
+    dplyr::pull(issue_id)
+
+
+tbl <- siteremotemonitoring %>% 
+    dplyr::filter(issue_type == 'Open', !instanceID %in% resolved_issue) %>% 
+    dplyr::mutate(resolve_link = glue::glue(site_resolve_link)) %>%
+    dplyr::select(SubmissionDate, 
+                  `Issue ID` = instanceID,
+                  `Report ID` = report_id, 
+                  resolve_link,
+                  issue,
+                  `Affect Participant Safety` = affect_participant_safety,
+                  `Affected Participant ID` = affected_participant_id)
+
+
+element_id <- 'site_monitoring_open_issues'
+tbl <- reactable(
+        tbl,
+        columns = list(
+                  SubmissionDate = colDef(
+                    name = 'SubmissionDate',
+                    minWidth = 200
+                  ),
+                  `Issue ID` = colDef(
+                    name = 'Issue ID',
+                    minWidth = 200
+                  ),
+                  `Report ID` = colDef(
+                    name = 'Report ID',
+                    minWidth = 200
+                  ),
+                  resolve_link = colDef(name = 'Resolve Link',
+                         cell = function(value, index) {
+                           url <- sprintf("%s", 
+                                          tbl[index, "resolve_link"], value)
+                           htmltools::tags$a(href = url, target = "_blank", 'URL')
+                        })
+        ),
+        highlight = TRUE,
+        resizable = TRUE,
+        bordered = TRUE,
+        striped = TRUE,
+        filterable =TRUE,
+        elementId = element_id)
+
+wrap_download(tbl,  
+              element_id,
+              'site_monitoring_open_issues.csv')
+```
+
+## Site Monitoring Closed Issues
