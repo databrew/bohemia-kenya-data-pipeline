@@ -16,7 +16,7 @@ source('R/anomalies_utils.R')
 tic()
 
 # create log message
-logger::log_info('Starting Anomaly Detection for safety')
+logger::log_info('Starting Anomaly Detection for PK')
 
 # variables / creds
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
@@ -53,7 +53,7 @@ pad_hhid <- function(data){
 }
 
 ##############################
-## Fetch Safety
+## Fetch PK
 ##############################
 
 pkday0 <- cloudbrewr::aws_s3_get_table(
