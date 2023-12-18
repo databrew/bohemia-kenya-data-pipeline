@@ -143,17 +143,16 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
       not_agree_efficacy_procedures_eos == '1' ~ 'not agree to efficacy procedures',
       non_resident_eos == '1' ~ 'not a resident',
       other_trials_eos == '1' ~ 'enrolled in other trials',
-      person_absent_reason_eos == '1' | person_absent == '1' ~ 'absent',
-      person_unenrolled_migrated == '1' ~ 'migrated',
+      second_consecutive_absence_eos == '1' ~ 'second consecutive absence',
+      person_absent == '1' ~ 'absent',
+      person_migrated_eos == '1' |
+        person_unenrolled_migrated == '1' ~ 'migrated',
       person_unenrolled_died == '1' ~ 'died',
       thumbprint_status == '0' ~ 'thumbprint status',
       sign_icf_status == '0' ~ 'sign icf status',
-      minor_assent_status == '0' ~ 'minor assent status',
-      starting_efficacy_status == 'eos' ~ 'previously eos',
-      ltfu_eos == '1' ~ 'ltfu: 2 consecutive absences',
+      minor_assent_status == '0' ~ 'minor assent',
       TRUE ~ NA_character_  # To handle cases that don't match any condition
-    )) #%>%
-    #select(visit, extid, efficacy_status, dob_efficacy, todays_date_efficacy, sex_efficacy, efficacy_reason)
+    ))
   
 # create the dataset that will be used for this script
   # this will exclude the people who were manually removed
