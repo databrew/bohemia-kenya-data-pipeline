@@ -153,12 +153,12 @@ target_table <- left_join(target_table, total_pfu, by=('Visit'))
 
   pfu_totals_v2 <- pfu_v2 %>%
       group_by(pregnancy_status) %>%
-      summarise('Number of people visited in V2 (target: ?)' = n()) %>%
+      summarise('number of people visited' = n()) %>%
       arrange(pregnancy_status) %>%
       rename('PFU status' = pregnancy_status) %>%
       add_row('PFU status' = 'total people visited', 
-              'Number of people visited in V2 (target: ?)' = sum(.$'Number of people visited in V2 (target: ?)')) %>%
-      mutate('Percent complete' = (as.numeric(`Number of people visited in V2 (target: ?)`)) / as.numeric(nrow(pfu_v2)) * 100) %>%
+              'number of people visited' = sum(.$'number of people visited')) %>%
+      mutate('Percent complete' = (as.numeric(`number of people visited`)) / as.numeric(nrow(pfu_v2)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
   
@@ -172,12 +172,12 @@ target_table <- left_join(target_table, total_pfu, by=('Visit'))
 
   pfu_totals_v3 <- pfu_v3 %>%
       group_by(pregnancy_status) %>%
-      summarise('Number of people visited in V3 (target: ?)' = n()) %>%
+      summarise('number of people visited' = n()) %>%
       arrange(pregnancy_status) %>%
       rename('PFU status' = pregnancy_status) %>%
       add_row('PFU status' = 'total people visited', 
-              'Number of people visited in V3 (target: ?)' = sum(.$'Number of people visited in V3 (target: ?)')) %>%
-      mutate('Percent complete' = (as.numeric(`Number of people visited in V3 (target: ?)`)) / as.numeric(nrow(pfu_v3)) * 100) %>%
+              'number of people visited' = sum(.$'number of people visited')) %>%
+      mutate('Percent complete' = (as.numeric(`number of people visited`)) / as.numeric(nrow(pfu_v3)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
   
@@ -411,8 +411,55 @@ pfu_reason <- pfu %>%
 reactable(target_table, columns = list(), pagination = FALSE)
 ```
 
+## V3 Numbers
+```{r v3_table_status}
+reactable(pfu_totals_v3, columns = list(
+  `Percent complete` = colDef(align = "right")
+))
+
+# make a note of the real total number of people visited without repeats
+if (any(duplicated(pfu_totals_v3$extid))) {
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(pfu_totals_v2$extid)), "\n.")
+} else {
+  cat("Note: There are no duplicates based on extid in the data.")
+}
+```
+
+### eos
+```{r v3_table_eos_reason}
+reactable(eos_reasons_v3, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# write which reasons do not appear in the table
+# Specify the names you want to check for
+names_to_check <- c('died',
+                    'migrated',
+                    'not wish to continue',
+                    'no longer pregnant - baby born alive',
+                    'no longer pregnant - miscarriage',
+                    'no longer pregnant - abortion (self-induced)',
+                    'no longer pregnant - baby was born dead',
+                    'no longer pregnant - prefer not to answer')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% eos_reasons_v3$reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following reasons are not shown: ", paste0(not_found_names, collapse = " / "))
+}
+```
+
 ## V2 Numbers
-```{r table_status}
+```{r v2_table_status}
 reactable(pfu_totals_v2, columns = list(
   `Percent complete` = colDef(align = "right")
 ))
@@ -426,15 +473,14 @@ if (any(duplicated(pfu_totals_v2$extid))) {
 ```
 
 ### eos
-```{r table_eos_reason}
+```{r v2_table_eos_reason}
 reactable(eos_reasons_v2, columns = list(
   `Percent complete` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 
 # write which reasons do not appear in the table
 # Specify the names you want to check for
-names_to_check <- c('absent 4 times in a row: ltfu',
-                    'died',
+names_to_check <- c('died',
                     'migrated',
                     'not wish to continue',
                     'no longer pregnant - baby born alive',
@@ -458,6 +504,7 @@ if (length(not_found_names) > 0) {
   cat("The following reasons are not shown: ", paste0(not_found_names, collapse = " / "))
 }
 ```
+
 ## PFU extid explorer
 ```{r pfu-explorer}
 element_id <- 'extid-explorerer'
