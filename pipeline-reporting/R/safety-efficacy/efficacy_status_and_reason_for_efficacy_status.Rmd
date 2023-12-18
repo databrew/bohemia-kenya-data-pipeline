@@ -150,6 +150,7 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
       sign_icf_status == '0' ~ 'sign icf status',
       minor_assent_status == '0' ~ 'minor assent status',
       starting_efficacy_status == 'eos' ~ 'previously eos',
+      ltfu_eos == '1' ~ 'ltfu: 2 consecutive absences',
       TRUE ~ NA_character_  # To handle cases that don't match any condition
     )) #%>%
     #select(visit, extid, efficacy_status, dob_efficacy, todays_date_efficacy, sex_efficacy, efficacy_reason)

@@ -409,15 +409,15 @@ v0_merged_tbl <- v0 %>%
   dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY'))  %>%
   dplyr::inner_join(
     assignment,
-    by = c('cluster' = 'cluster_number')) %>%
-  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)
+    by = c('geo_cluster_num' = 'cluster_number')) %>%
+  dplyr::filter(!geo_cluster_num %in% CLUSTER_TO_REMOVE)
 
 # prep safety table
 safety_merged_tbl <- safety %>%
   dplyr::inner_join(safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
-  dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>%
+  dplyr::left_join(assignment, by = c('geo_cluster_num' = 'cluster_number')) %>%
   dplyr::left_join(village_mapping, by = 'hhid')  %>%
-  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE) %>%
+  dplyr::filter(!geo_cluster_num %in% CLUSTER_TO_REMOVE) %>%
   # get most recent submission
   dplyr::group_by(visit, extid) %>%
   dplyr::mutate(max_time = max(end_time)) %>%
@@ -428,9 +428,9 @@ safety_merged_tbl <- safety %>%
 # prep safety new
 safetynew_merged_tbl <- safetynew %>%
   dplyr::inner_join(safetynew_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
-  dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>%
+  dplyr::left_join(assignment, by = c('geo_cluster_num' = 'cluster_number')) %>%
   dplyr::left_join(village_mapping, by = 'hhid') %>%
-  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE) %>%
+  dplyr::filter(!geo_cluster_num %in% CLUSTER_TO_REMOVE) %>%
   # get most recent submission
   dplyr::group_by(visit, extid) %>%
   dplyr::mutate(max_time = max(end_time)) %>%
@@ -443,8 +443,8 @@ safetynew_merged_tbl <- safetynew %>%
 efficacy_merged_tbl <- efficacy %>%
   dplyr::inner_join(assignment %>%
                       dplyr::select(cluster_number, assignment),
-                    by = c('cluster' = 'cluster_number')) %>%
-  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE) %>%
+                    by = c('geo_cluster_num' = 'cluster_number')) %>%
+  dplyr::filter(!geo_cluster_num %in% CLUSTER_TO_REMOVE) %>%
   # get most recent submission
   dplyr::group_by(visit, extid) %>%
   dplyr::mutate(max_time = max(end_time)) %>%
