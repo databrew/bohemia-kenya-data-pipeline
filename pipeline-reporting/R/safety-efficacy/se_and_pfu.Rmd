@@ -283,25 +283,26 @@ target_efficacy_by_cluster_and_village = efficacy_targets %>%
 ```{r}
 #### DATA PREP
 
-# village mapping
-village_mapping <- v0 %>% 
-    dplyr::select(hhid, village) %>% 
-    unique()
 
 # v0 merged_tbl
 v0_merged_tbl <- v0 %>% 
       dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY'))  %>%
       dplyr::inner_join(
         assignment, 
-        by = c('cluster' = 'cluster_number')) %>% 
+        by = c('geo_cluster_num' = 'cluster_number')) %>% 
   dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)
+
+
+# village mapping
+v0_mapping <- v0_merged_tbl %>% 
+    dplyr::select(hhid, cluster = geo_cluster_num, assignment, village) %>% 
+    distinct()
 
 # prep safety table
 safety_merged_tbl <- safety %>% 
+  dplyr::select(-cluster) %>% 
   dplyr::inner_join(safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>% 
-  dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>% 
-  dplyr::left_join(village_mapping, by = 'hhid')  %>% 
-  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)  %>%
+  dplyr::inner_join(v0_mapping, by = 'hhid') %>% 
   # special categories for "refusal"
   mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
              ind_icf_thumbprint == 'no' |
@@ -310,10 +311,9 @@ safety_merged_tbl <- safety %>%
 
 # prep safety new
 safetynew_merged_tbl <- safetynew %>% 
+  dplyr::select(-cluster) %>% 
   dplyr::inner_join(safetynew_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>% 
-  dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>% 
-  dplyr::left_join(village_mapping, by = 'hhid') %>% 
-  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)  %>%
+  dplyr::inner_join(v0_mapping, by = 'hhid') %>% 
   # special categories for "refusal"
   dplyr::mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
              ind_icf_thumbprint == 'no' |
@@ -322,10 +322,8 @@ safetynew_merged_tbl <- safetynew %>%
 
 # efficacy df
 efficacy_df <-  efficacy %>% 
-    dplyr::inner_join(assignment %>% 
-                          dplyr::select(cluster_number, assignment), 
-                      by = c('cluster' = 'cluster_number')) %>% 
-  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)
+  dplyr::select(-cluster, -village) %>% 
+  dplyr::inner_join(v0_mapping, by = 'hhid')
 
 
 # goals after v1
