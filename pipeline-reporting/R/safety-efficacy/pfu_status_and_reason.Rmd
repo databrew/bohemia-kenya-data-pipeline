@@ -89,6 +89,11 @@ v0_demography <- cloudbrewr::aws_s3_get_table(
     key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography.csv')) %>%
     pad_hhid()
 
+pfu_targets <- cloudbrewr::aws_s3_get_table(
+  bucket ='bohemia-lake-db',
+  key = glue::glue('bohemia_prod/dwh/goal_pfu_targets/goal_pfu_targets.csv')) %>%
+  pad_hhid()
+
 # this is a function to create a download csv button
 wrap_download <- function(reactable_obj, element_id, output_filename){
   onclick_command <- glue::glue(
@@ -104,41 +109,28 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
 ```
 
 ```{r targets}
-# make a table of people visited, households visited, and targets
-
-# these numbers are determined from the efficacy target csvs sent by Joe
-target_table <- rbind(data.frame(
-  Visit = c('PFU V2', 'PFU V3'),
-  'Child target' = c('TBD', 'TBD'),
-  'HH target' = c('TBD', 'TBD')))
+# these numbers are determined by Aryton based on Joe's logic and are stored in AWS
+  target_table <- pfu_targets %>%
+    group_by(visit) %>%
+    summarise(hh_target = sum(hh_target),
+              ind_target = sum(ind_target))
 
 # identify how many households were visited in V1 and V2
-pfu_v2 <- pfu %>%
-  filter(visit == 'V2') %>%
-  group_by(hhid) %>%
-  summarise(count = n()) %>%
-  mutate(
-    Visit = 'PFU V2',
-    `HH visited` = n() # Replace nrow(hhid) with n() to count the households visited
-  ) %>%
-  select(Visit, `HH visited`) %>% # Selecting only the required columns %>%
-  distinct(Visit, .keep_all = TRUE)
-
-pfu_v3 <- pfu %>%
-  filter(visit == 'V3') %>%
-  group_by(hhid) %>%
-  summarise(count = n()) %>%
-  mutate(
-    Visit = 'PFU V3',
-    `HH visited` = n() # Replace nrow(hhid) with n() to count the households visited
-  ) %>%
-  select(Visit, `HH visited`) %>% # Selecting only the required columns %>%
-  distinct(Visit, .keep_all = TRUE)
-
-total_pfu <- rbind(pfu_v2, pfu_v3)
+visited <- pfu %>%
+  group_by(visit) %>%
+  summarise(hh_visited = n_distinct(hhid),
+            ind_visited = n_distinct(extid))
 
 # join the number of households visited and targets
-target_table <- left_join(target_table, total_pfu, by=('Visit'))
+target_table <- left_join(target_table, visited, by = c('visit'))
+
+target_table <- target_table %>%
+  select(visit, ind_target, ind_visited, hh_target, hh_visited) %>%
+  rename(Visit = visit,
+         'Individual target' = ind_target,
+         'Individual visited' = ind_visited,
+         'HH target' = hh_target,
+         'HH visited' = hh_visited)
 ```
 
 ```{r status}
