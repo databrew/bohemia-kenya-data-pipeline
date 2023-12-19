@@ -155,7 +155,7 @@ anomalies_list$mapping_mismatch_pkdays123 <- pkdays123 %>%
   dplyr::filter(n > 1) %>%
   dplyr::mutate(form_id = 'pkdays123',
                 anomalies_id = glue::glue('pkdays123_mapping_mistmach'),
-                anomalies_description = glue::glue('pk_id:{pk_id} has mapping mismatches, please check these keys {key_list}'),
+                anomalies_description = glue::glue('pk_id:{pk_id} is mapped to different extids:{extid.x} and {extid.y}, please check these keys {key_list}'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
   dplyr::ungroup() %>%
   dplyr::select(all_of(final_col_list))
@@ -172,7 +172,7 @@ anomalies_list$mapping_mismatch_pkfollowup <- pkfollowup %>%
   dplyr::filter(n > 1) %>%
   dplyr::mutate(form_id = 'pkfollowup',
                 anomalies_id = glue::glue('pkdfollowup_mapping_mistmach'),
-                anomalies_description = glue::glue('pk_id:{pk_id} has mapping mismatches, please check these keys {key_list}'),
+                anomalies_description = glue::glue('pk_id:{pk_id} is mapped to different extids:{extid.x} and {extid.y}, please check these keys {key_list}'),
                 anomalies_reports_to_wid = glue::glue('{wid}')) %>%
   dplyr::ungroup() %>%
   dplyr::select(all_of(final_col_list))
