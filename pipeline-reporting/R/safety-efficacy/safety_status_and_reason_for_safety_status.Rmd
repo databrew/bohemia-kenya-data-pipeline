@@ -586,14 +586,14 @@ total_safety_status_v4 <- total_safety_v4 %>%
     filter(visit == 'V1',
            safetystatus == 'out')
   
-  # make a table of why people are eos
+  # make a table of why people are out
   out_reasons_v1 <- safety_out_v1 %>%
     group_by(safety_reason) %>%
-    summarise('Number of eos people' = n()) %>%
+    summarise('Number of out people' = n()) %>%
     arrange(safety_reason) %>%
-    rename('Reason for eos' = safety_reason) %>%
-    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_out_v1)) * 100) %>%
+    rename('Reason for out' = safety_reason) %>%
+    add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(safety_out_v1)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
   
@@ -603,14 +603,14 @@ total_safety_status_v4 <- total_safety_v4 %>%
     filter(visit == 'V2',
            safetystatus == 'out')
   
-  # make a table of why people are eos
+  # make a table of why people are out
   out_reasons_v2 <- safety_out_v2 %>%
     group_by(safety_reason) %>%
-    summarise('Number of eos people' = n()) %>%
+    summarise('Number of out people' = n()) %>%
     arrange(safety_reason) %>%
-    rename('Reason for eos' = safety_reason) %>%
-    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_out_v2)) * 100) %>%
+    rename('Reason for out' = safety_reason) %>%
+    add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(safety_out_v2)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
   
@@ -620,14 +620,14 @@ total_safety_status_v4 <- total_safety_v4 %>%
     filter(visit == 'V3',
            safetystatus == 'out')
   
-  # make a table of why people are eos
+  # make a table of why people are out
   out_reasons_v3 <- safety_out_v3 %>%
     group_by(safety_reason) %>%
-    summarise('Number of eos people' = n()) %>%
+    summarise('Number of out people' = n()) %>%
     arrange(safety_reason) %>%
-    rename('Reason for eos' = safety_reason) %>%
-    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_out_v3)) * 100) %>%
+    rename('Reason for out' = safety_reason) %>%
+    add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(safety_out_v3)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
   
@@ -638,14 +638,14 @@ total_safety_status_v4 <- total_safety_v4 %>%
     filter(visit == 'V4',
            safetystatus == 'out')
   
-  # make a table of why people are eos
+  # make a table of why people are out
   out_reasons_v4 <- safety_out_v4 %>%
     group_by(safety_reason) %>%
-    summarise('Number of eos people' = n()) %>%
+    summarise('Number of out people' = n()) %>%
     arrange(safety_reason) %>%
-    rename('Reason for eos' = safety_reason) %>%
-    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_out_v4)) * 100) %>%
+    rename('Reason for out' = safety_reason) %>%
+    add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(safety_out_v4)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
   
@@ -660,14 +660,14 @@ total_safety_status_v4 <- total_safety_v4 %>%
     filter(visit == 'V1',
            safetystatus == 'refusal')
   
-  # make a table of why people are eos
+  # make a table of why people are refusal
   refusal_reasons_v1 <- safety_refusal_v1 %>%
     group_by(safety_reason) %>%
-    summarise('Number of eos people' = n()) %>%
+    summarise('Number of refusal people' = n()) %>%
     arrange(safety_reason) %>%
-    rename('Reason for eos' = safety_reason) %>%
-    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_refusal_v1)) * 100) %>%
+    rename('Reason for refusal' = safety_reason) %>%
+    add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(safety_refusal_v1)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
@@ -677,14 +677,14 @@ total_safety_status_v4 <- total_safety_v4 %>%
     filter(visit == 'V2',
            safetystatus == 'refusal')
   
-  # make a table of why people are eos
+  # make a table of why people are refusal
   refusal_reasons_v2 <- safety_refusal_v2 %>%
     group_by(safety_reason) %>%
-    summarise('Number of eos people' = n()) %>%
+    summarise('Number of refusal people' = n()) %>%
     arrange(safety_reason) %>%
-    rename('Reason for eos' = safety_reason) %>%
-    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_refusal_v2)) * 100) %>%
+    rename('Reason for refusal' = safety_reason) %>%
+    add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(safety_refusal_v2)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
   
@@ -694,14 +694,14 @@ total_safety_status_v4 <- total_safety_v4 %>%
     filter(visit == 'V3',
            safetystatus == 'refusal')
   
-  # make a table of why people are eos
+  # make a table of why people are refusal
   refusal_reasons_v3 <- safety_refusal_v3 %>%
     group_by(safety_reason) %>%
-    summarise('Number of eos people' = n()) %>%
+    summarise('Number of refusal people' = n()) %>%
     arrange(safety_reason) %>%
-    rename('Reason for eos' = safety_reason) %>%
-    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_refusal_v3)) * 100) %>%
+    rename('Reason for refusal' = safety_reason) %>%
+    add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(safety_refusal_v3)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
   
@@ -712,14 +712,14 @@ total_safety_status_v4 <- total_safety_v4 %>%
     filter(visit == 'V4',
            safetystatus == 'refusal')
   
-  # make a table of why people are eos
+  # make a table of why people are refusal
   refusal_reasons_v4 <- safety_refusal_v4 %>%
     group_by(safety_reason) %>%
-    summarise('Number of eos people' = n()) %>%
+    summarise('Number of refusal people' = n()) %>%
     arrange(safety_reason) %>%
-    rename('Reason for eos' = safety_reason) %>%
-    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_refusal_v4)) * 100) %>%
+    rename('Reason for refusal' = safety_reason) %>%
+    add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(safety_refusal_v4)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
@@ -1014,4 +1014,3 @@ wrap_download(
   element_id,
   'efficacy_extid_explorer.csv')
 ```
-
