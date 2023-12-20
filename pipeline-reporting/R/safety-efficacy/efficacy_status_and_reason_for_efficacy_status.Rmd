@@ -143,7 +143,7 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
       not_agree_efficacy_procedures_eos == '1' ~ 'not agree to efficacy procedures',
       non_resident_eos == '1' ~ 'not a resident',
       other_trials_eos == '1' ~ 'enrolled in other trials',
-      second_consecutive_absence_eos == '1' ~ 'second consecutive absence',
+      second_consecutive_absence_eos == '1' ~ 'ltfu: second consecutive absence',
       person_absent == '1' ~ 'absent',
       person_migrated_eos == '1' |
         person_unenrolled_migrated == '1' ~ 'migrated',
@@ -151,6 +151,7 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
       thumbprint_status == '0' ~ 'thumbprint status',
       sign_icf_status == '0' ~ 'sign icf status',
       minor_assent_status == '0' ~ 'minor assent',
+      ltfu_eos == '1' ~ 'ltfu: > 60 days',
       TRUE ~ NA_character_  # To handle cases that don't match any condition
     ))
   
