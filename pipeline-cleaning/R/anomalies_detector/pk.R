@@ -111,7 +111,7 @@ anomalies_list$duplicate_pkday0_pkid <- pkday0 %>%
 anomalies_list$duplicate_pkdays123_pkid <- pkdays123 %>%
   dplyr::mutate(`KEY` = as.character(`KEY`)) %>%
   tidyr::drop_na(pk_id) %>%
-  dplyr::group_by(pk_id) %>%
+  dplyr::group_by(pk_id,visit_day) %>%
   dplyr::mutate(n = n(),
                 key_list = paste0(KEY, collapse = ',')) %>%
   dplyr::filter(n > 1) %>%
