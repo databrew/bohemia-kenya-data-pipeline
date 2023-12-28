@@ -37,6 +37,20 @@ pad_hhid <- function(data){
   }
 }
 
+get_safety_nobody_in <- function() {
+  dplyr::bind_rows(
+    safetynew_merged_tbl  %>%
+      dplyr::select(visit, start_time, extid, hhid, safety_status),
+    safety_merged_tbl  %>%
+      dplyr::select(visit, start_time, extid, hhid, safety_status)) %>%
+    dplyr::filter(visit == 'V3') %>%
+    group_by(hhid) %>%
+    summarise(n_members = n(),
+              n_in = length(which(safety_status == 'in'))) %>%
+    filter(n_in == 0) %>%
+    dplyr::mutate(visit = 'V4') %>%
+    dplyr::select(hhid, visit)
+}
 
 get_ever_pregnant <- function(){
   ever_pregnant <-
@@ -189,7 +203,8 @@ get_safety_targets <- function(){
     dplyr::ungroup() %>%
     dplyr::mutate(visit = 'V1')
 
-  master_list$cascade_target <- dplyr::bind_rows(
+
+  curated_data <- dplyr::bind_rows(
     safetynew_merged_tbl  %>%
       dplyr::select(visit, start_time, extid, hhid, safety_status),
     safety_merged_tbl  %>%
@@ -211,6 +226,15 @@ get_safety_targets <- function(){
     dplyr::filter(start_time < departure_time | is.na(departure_time)) %>%
     dplyr::left_join(all_refusals) %>%
     dplyr::filter(is.na(is_refusal)) %>%
+    dplyr::anti_join(get_nobody_in(), by = c('visit', 'hhid'))
+
+
+  # add in skipped visits manually
+  manual_adjustment <- curated_data %>%
+    dplyr::filter(extid %in% c('95001-61', '90079-04')) %>%
+    dplyr::mutate(visit = 'V4')
+
+  master_list$cascade_target <- dplyr::bind_rows(curated_data, manual_adjustment) %>%
     dplyr::group_by(visit, assignment, cluster, village) %>%
     dplyr::summarise(
       hh_target = n_distinct(hhid),
@@ -412,8 +436,8 @@ v0_merged_tbl <- v0 %>%
   dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY'))  %>%
   dplyr::inner_join(
     assignment,
-    by = c('geo_cluster_num' = 'cluster_number')) %>%
-  dplyr::filter(!geo_cluster_num %in% CLUSTER_TO_REMOVE)
+    by = c('cluster' = 'cluster_number')) %>%
+  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)
 
 # prep safety table
 safety_merged_tbl <- safety %>%
