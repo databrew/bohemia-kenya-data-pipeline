@@ -147,9 +147,9 @@ cra_url_access <- 'https://databrew.org/-/single/CLd8IzvVNB5pfAm8QZ6aIftTt5r2IO9
 site_url_access <- 'https://databrew.org/-/single/wERhS1e7pcpTeqnEpicAWuj3INuKQuC?st=xE5KvLpmFFtQ8dgK6sk3jggvnYaXyF5xn7WL7oxTcWoLH5$n6Z10!pLzORGQuNBU'
 
 # string template for resolution
-cra_resolve_link <- '{cra_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Resolve&d%5B/data/group_indentifier/issue_id%5D={instanceID}'
+cra_resolve_link <- '{cra_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Resolve&d%5B/data/group_resolve/issue_id%5D={instanceID}'
 
-site_resolve_link <- '{site_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Resolve&d%5B/data/group_indentifier/issue_id%5D={instanceID}'
+site_resolve_link <- '{site_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Resolve&d%5B/data/group_resolve/issue_id%5D={instanceID}'
 ```
 
 
@@ -223,7 +223,8 @@ tbl <- craremotemonitoring %>%
                   `Appropriately Reported Describe` = appropriately_reported_describe,
                   `Documentation Filed (Y/N)` = documentation_filed_yn,
                   `Documentation Filed` = documentation_filed,
-                  `Follow up` = followup)
+                  `Follow up` = followup,
+                  `Resolver Name` = resolver_name)
 
 
 element_id <- 'cra_closed_issues'
@@ -300,3 +301,32 @@ wrap_download(tbl,
 ```
 
 ## Site Monitoring Closed Issues
+
+```{r}
+tbl <- siteremotemonitoring %>% 
+    dplyr::filter(issue_type == 'Resolve', issue_id %in% resolved_issue) %>% 
+    dplyr::select(SubmissionDate, 
+                  `Issue ID` = issue_id,
+                  `Report ID` = report_id,
+                  issue,
+                  `Affect Participant Safety` = affect_participant_safety,
+                  `Reviewer Name` = resolver_name,
+                  `Team Members Informed` = team_members_informed,
+                  `Actions Taken` = actions_taken)
+
+
+element_id <- 'cra_closed_issues'
+tbl <- reactable(
+        tbl,
+        highlight = TRUE,
+        resizable = TRUE,
+        bordered = TRUE,
+        striped = TRUE,
+        filterable =TRUE,
+        elementId = element_id)
+
+wrap_download(tbl,  
+              element_id,
+              'cra_closed_issues.csv')
+```
+
