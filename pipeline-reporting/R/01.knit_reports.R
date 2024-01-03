@@ -65,28 +65,24 @@ entry <- glue::glue('R/{index}')
 version <- format(floor_date(lubridate::today(), 'week'), "%Y%m%d")
 purrr::map(list.files(entry, pattern = '*.Rmd'), function(rmd){
   tryCatch({
-    if(rmd != "R/monitoring/issue_ui.Rmd") {
-      logger::log_info(glue::glue("Knitting {rmd}"))
-      basename <- glue::glue('{file_path_sans_ext(basename(rmd))}')
-      dir.create(
-        glue::glue('{entry}/html_report/{basename}'),
-        recursive = TRUE,
-        showWarnings = FALSE)
-      output_file <- glue::glue("html_report/{basename}/{toupper(basename)}-{version}.html")
-      markdown_loc <- glue::glue("{entry}/{rmd}")
-      rmarkdown::render(
-        markdown_loc,
-        output_file = output_file)
-    }else{
-      logger::log_info('skipping issues')
-    }
+    logger::log_info(glue::glue("Knitting {rmd}"))
+    basename <- glue::glue('{file_path_sans_ext(basename(rmd))}')
+    dir.create(
+      glue::glue('{entry}/html_report/{basename}'),
+      recursive = TRUE,
+      showWarnings = FALSE)
+    output_file <- glue::glue("html_report/{basename}/{toupper(basename)}-{version}.html")
+    markdown_loc <- glue::glue("{entry}/{rmd}")
+    rmarkdown::render(
+      markdown_loc,
+      output_file = output_file)
   }, error = function(e){
     err_msg <- glue::glue('Report: {rmd} is throwing an error: {e$message}')
     log_error(err_msg)
   })
 })
 
-index <- 'monitoring'
+index <- 'monitoring-issues-ui'
 entry <- glue::glue('R/{index}')
 purrr::map(list.files(entry, pattern = 'issue_ui.Rmd'), function(rmd){
   tryCatch({
@@ -95,7 +91,7 @@ purrr::map(list.files(entry, pattern = 'issue_ui.Rmd'), function(rmd){
       recursive = TRUE,
       showWarnings = FALSE)
     logger::log_info(glue::glue("Knitting {rmd}"))
-    output_file <- glue::glue("html_report/issue_ui/{file_path_sans_ext(basename(rmd))}.html")
+    output_file <- glue::glue("html_report/{file_path_sans_ext(basename(rmd))}.html")
     markdown_loc <- glue::glue("{entry}/{rmd}")
     rmarkdown::render(
       markdown_loc,

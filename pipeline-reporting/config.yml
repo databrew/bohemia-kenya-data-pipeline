@@ -9,6 +9,7 @@ default:
     - anomalies
     - lab
     - monitoring
+    - monitoring-issues-ui
 develop:
   report_index:
     - v0
@@ -20,3 +21,4 @@ develop:
     - anomalies
     - lab
     - monitoring
+    - monitoring-issues-ui
