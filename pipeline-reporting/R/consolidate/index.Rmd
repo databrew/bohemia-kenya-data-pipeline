@@ -147,11 +147,11 @@ data <- cloudbrewr::aws_s3_get_catalog(bucket = bucket_lake_db) %>%
     dplyr::ungroup() %>% 
     dplyr::mutate(
       cra_url_key = glue::glue(
-        '{cra_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}',
+        '{cra_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Open',
         url_access = url_access,
         report_id = file_path_sans_ext(basename(report_name))),
       site_url_key = glue::glue(
-        '{site_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}',
+        '{site_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Open',
         url_access = url_access,
         report_id = file_path_sans_ext(basename(report_name)))
   )
