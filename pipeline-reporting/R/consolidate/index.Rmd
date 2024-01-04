@@ -114,6 +114,8 @@ reactable(
 
 This catalog covers all reports for CRA monitoring. **Reports are refreshed every Sunday 12.00AM EAT**, each report will be snapshotted into a corresponding report ID where user will be able to point to a specific ID for review. Please drill-down to check all the report snapshots
 
+[PLEASE CHECK THIS REPORT FOR ISSUE TRACKING](https://d27fg4iv55pk9u.cloudfront.net/monitoring-issues-ui/issue_ui.html)
+
 #### Guideline:
 
 1. Expand drop-down in the interactive table by clicking on the `Topic` field in the table
