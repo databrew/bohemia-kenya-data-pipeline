@@ -161,6 +161,7 @@ absence1stattempt <- absence1stattempt %>%
              safety_status == 'in' ~ 'in',
              starting_safety_status == 'eos' ~ 'previously eos',
              starting_safety_status == 'refusal' ~ 'previously refusal',
+             starting_safety_status == 'out' ~ 'previously out',
              non_resident_eos == '1' ~ 'not resident',
              weight_eos == '1' |
                weight_eos_short == '1' ~ 'under weight',
@@ -190,7 +191,6 @@ absence1stattempt <- absence1stattempt %>%
              person_migrated == '1' & 
                starting_safety_status == 'in' |
                person_out_migrated == '1' ~ 'migrated',
-             starting_safety_status == 'eos' ~ 'previously eos',
              obvious_screening == 'ineligible' ~ 'Ineligible at obvious reasoning',
              obvious_screening == 'Baby' ~ 'A baby that cannot walk yet',
              obvious_screening == 'Witness' |
@@ -201,7 +201,6 @@ absence1stattempt <- absence1stattempt %>%
              ind_thumbprint_status == '0' ~ 'not consented or provided their thumbprint',
              ind_sign_icf_status == '0' ~ 'not agree or sign informed consent',
              minor_assent_status == '0' ~ 'minor not sign assent',
-             starting_safety_status == 'refusal' ~ 'previously refusal',
              TRUE ~ NA_character_  # To handle cases that don't match any condition
            ))  
   
@@ -542,11 +541,22 @@ total_safety_status_v4 <- total_safety_v4 %>%
   safety_eos_v4 <- safety_v4 %>%
     filter(v4_safetystatus == 'eos') # remove people who were eos in V1
 
+  # a table of specific reasons for eos
+  eos_reasons_followup_v4 <- safety_eos_v4 %>%
+    group_by(v4_safety_reason) %>%
+    summarise('Number of eos people' = n()) %>%
+    rename('Reason for eos' = v4_safety_reason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent of eos' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_eos_v4)) * 100) %>%
+    mutate('Percent of eos' = round(`Percent of eos`, 2)) %>%
+    mutate('Percent of eos' = paste0(`Percent of eos`, '%')) # Replace zero values with NA
+  
+  # a table of when they became eos (in the current visit or previously)
   eos_reasons_v4 <- safety_eos_v4 %>%
     group_by(visit_type) %>%
     summarise('Number of eos people' = n()) %>%
-    rename('Reason for eos' = visit_type) %>%
-    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    rename('Visit type' = visit_type) %>%
+    add_row('Visit type' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent of eos' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_eos_v4)) * 100) %>%
     mutate('Percent of eos' = round(`Percent of eos`, 2)) %>%
     mutate('Percent of eos' = paste0(`Percent of eos`, '%')) # Replace zero values with NA
@@ -609,7 +619,20 @@ total_safety_status_v4 <- total_safety_v4 %>%
   
 ## V4 #####################
   
-  # people cannot become out in V4 only eos or completion
+    safety_out_v4 <- data %>%
+    filter(visit == 'V4',
+           safetystatus == 'out')
+  
+  # make a table of why people are out
+  out_reasons_v4 <- safety_out_v4 %>%
+    group_by(safety_reason) %>%
+    summarise('Number of out people' = n()) %>%
+    arrange(safety_reason) %>%
+    rename('Reason for out' = safety_reason) %>%
+    add_row('Reason for out' = 'total visited', 'Number of out people' = sum(.$'Number of out people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of out people`)) / as.numeric(nrow(safety_out_v4)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
   
 ```
 
@@ -671,6 +694,22 @@ total_safety_status_v4 <- total_safety_v4 %>%
 ## V4 #####################
 
   # people cannot become refusal in V4 only eos or completion
+  # but we will show previous refusals
+  
+    safety_refusal_v4 <- data %>%
+    filter(visit == 'V4',
+           safetystatus == 'refusal')
+  
+  # make a table of why people are refusal
+  refusal_reasons_v4 <- safety_refusal_v4 %>%
+    group_by(safety_reason) %>%
+    summarise('Number of refusal people' = n()) %>%
+    arrange(safety_reason) %>%
+    rename('Reason for refusal' = safety_reason) %>%
+    add_row('Reason for refusal' = 'total visited', 'Number of refusal people' = sum(.$'Number of refusal people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of refusal people`)) / as.numeric(nrow(safety_refusal_v4)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
 ```
 
@@ -695,10 +734,27 @@ if (any(duplicated(total_safety_v4$extid))) {
 ```
 
 ### eos
-```{r v4_eos}
+```{r v4_wheneos}
 reactable(eos_reasons_v4, columns = list(
   `Percent of eos` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
+```
+
+#### follow up visit
+```{r v4_eos}
+reactable(eos_reasons_followup_v4, columns = list(
+  `Percent of eos` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+```
+
+### out
+``` {r v4_out_show}
+reactable(out_reasons_v4, columns = list(`Percent complete` = colDef(align = 'right')))
+```
+
+### refusal
+``` {r v4_refusal_show}
+reactable(refusal_reasons_v4, columns = list(`Percent complete` = colDef(align = 'right')))
 ```
 
 ## V3 Numbers
