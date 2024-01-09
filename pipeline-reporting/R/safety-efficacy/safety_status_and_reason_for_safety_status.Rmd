@@ -135,7 +135,7 @@ absence1stattempt <- absence1stattempt %>%
   
 # create the merged safety data
   clean_safety_repeat <- safety_repeat_individual %>%
-    select(PARENT_KEY, extid, safety_status, starting_safety_status, dob_string, sex, participant_take_drug, participant_take_drug_2, non_resident_eos, weight_eos, weight_eos_short, study_drug_eos, concom_meds_eos, concom_meds_eos_short, severe_illness_eos, severe_illness_eos_short, obvious_screening, baby_not_week_old_eos, pregnant_eos, pregnancy_section_eos, pregnancy_section_eos_short, preg_test_pos_eos_short, preg_test_2_eos_short, obvious_screening, preg_test_refuse_eos_short, other_trials_eos, loa_loa_eos, sum_night_hospital_eos, not_agree_safety_procedures_eos, refuse_drug_eos, refuse_drug_eos_2, not_continue_eos, person_died_eos, person_out_died, person_migrated, person_out_migrated, ind_witness_present, person_absent, obvious_screening, ind_thumbprint_status, ind_sign_icf_status, minor_assent_status, starting_safety_status) %>%
+    select(PARENT_KEY, extid, safety_status, starting_safety_status, dob_string, sex, participant_take_drug, participant_take_drug_2, non_resident_eos, weight_eos, weight_eos_short, study_drug_eos, concom_meds_eos, concom_meds_eos_short, severe_illness_eos, severe_illness_eos_short, obvious_screening, baby_not_week_old_eos, pregnant_eos, pregnancy_section_eos, pregnancy_section_eos_short, preg_test_pos_eos_short, preg_test_2_eos_short, obvious_screening, preg_test_refuse_eos_short, other_trials_eos, loa_loa_eos, sum_night_hospital_eos, not_agree_safety_procedures_eos, refuse_drug_eos, refuse_drug_eos_2, not_continue_eos, person_died_eos, person_out_died, person_migrated, person_out_migrated, ind_witness_present, person_absent, obvious_screening, ind_thumbprint_status, ind_sign_icf_status, minor_assent_status, starting_safety_status, out_v4, preg_test_refuse_eos_v4, preg_test_2_refuse_eos_v4, pregnancy_section_eos_v4, pregnant_yn_v4, preg_test_pos_v4, pregnancy_status_v4, v4_migrate_absent_eos, v4_absent_eos) %>%
     rename(dob = dob_string)
   clean_safetynew_repeat <- safetynew_repeat_individual %>%
     select(PARENT_KEY, extid, safety_status, dob, sex, participant_take_drug, participant_take_drug_2, non_resident_eos, weight_eos, study_drug_eos, concom_meds_eos, severe_illness_eos, obvious_screening, baby_not_week_old_eos, pregnant_eos, pregnancy_section_eos, obvious_screening, other_trials_eos, loa_loa_eos, not_agree_safety_procedures_eos, refuse_drug_eos, refuse_drug_eos_2, ind_witness_present, obvious_screening, ind_thumbprint_status, ind_sign_icf_status, minor_assent_status) %>%
@@ -161,7 +161,8 @@ absence1stattempt <- absence1stattempt %>%
              safety_status == 'in' ~ 'in',
              starting_safety_status == 'eos' ~ 'previously eos',
              starting_safety_status == 'refusal' ~ 'previously refusal',
-             starting_safety_status == 'out' ~ 'previously out',
+             starting_safety_status == 'out' |
+              out_v4 == '1' ~ 'previously out',
              non_resident_eos == '1' ~ 'not resident',
              weight_eos == '1' |
                weight_eos_short == '1' ~ 'under weight',
@@ -172,13 +173,19 @@ absence1stattempt <- absence1stattempt %>%
                severe_illness_eos_short == '1' |
                obvious_screening == 'Ill' ~ 'severe illness',
              baby_not_week_old_eos == '1' ~ 'baby under 1 week',
-             preg_test_refuse_eos_short == '1' ~ 'pregnancy test refusal',
+             preg_test_refuse_eos_short == '1' |
+               preg_test_refuse_eos_v4 == '1' |
+               preg_test_2_refuse_eos_v4 == '1' |
+               pregnancy_section_eos_v4 == '1' ~ 'pregnancy test refusal',
              pregnant_eos == '1' |
                preg_test_pos_eos_short == '1' |
                preg_test_2_eos_short == '1' |
                obvious_screening == 'Pregnant' |
                pregnancy_section_eos_short == '1' |
-               pregnancy_section_eos == '1' ~ 'pregnant',
+               pregnancy_section_eos == '1' |
+               pregnant_yn_v4 == 'yes' |
+               preg_test_pos_v4 == '1' |
+               pregnancy_status_v4 == '1' ~ 'pregnant',
              other_trials_eos == '1' ~ 'other trials',
              loa_loa_eos == '1' ~ 'visited loa loa',
              sum_night_hospital_eos >= '1' ~ 'spent night at the hospital',
@@ -190,12 +197,14 @@ absence1stattempt <- absence1stattempt %>%
                person_out_died == '1' ~ 'died',
              person_migrated == '1' & 
                starting_safety_status == 'in' |
-               person_out_migrated == '1' ~ 'migrated',
+               person_out_migrated == '1' |
+               v4_migrate_absent_eos == '1' ~ 'migrated',
              obvious_screening == 'ineligible' ~ 'Ineligible at obvious reasoning',
              obvious_screening == 'Baby' ~ 'A baby that cannot walk yet',
              obvious_screening == 'Witness' |
                ind_witness_present == '1 ' ~ 'no witness',
-             person_absent == '1' ~ 'absent',
+             person_absent == '1' |
+               v4_absent_eos == '1' ~ 'absent',
              obvious_screening == 'Refusal' ~ 'a person who does not want to participate',
              obvious_screening == 'Language' ~ 'does not speak English or Swahili',
              ind_thumbprint_status == '0' ~ 'not consented or provided their thumbprint',
@@ -540,27 +549,29 @@ total_safety_status_v4 <- total_safety_v4 %>%
   
   safety_eos_v4 <- safety_v4 %>%
     filter(v4_safetystatus == 'eos') # remove people who were eos in V1
+  
+  total_safe_eos_followup_v4 <- safety_eos_v4 %>%
+    filter(visit_type == 'follow up')
 
-  # a table of specific reasons for eos
-  eos_reasons_followup_v4 <- safety_eos_v4 %>%
-    group_by(v4_safety_reason) %>%
+  eos_reasons_v4 <- safety_eos_v4 %>%
+    group_by(visit_type) %>%
     summarise('Number of eos people' = n()) %>%
-    rename('Reason for eos' = v4_safety_reason) %>%
+    rename('Reason for eos' = visit_type) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent of eos' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_eos_v4)) * 100) %>%
     mutate('Percent of eos' = round(`Percent of eos`, 2)) %>%
     mutate('Percent of eos' = paste0(`Percent of eos`, '%')) # Replace zero values with NA
-  
-  # a table of when they became eos (in the current visit or previously)
-  eos_reasons_v4 <- safety_eos_v4 %>%
-    group_by(visit_type) %>%
-    summarise('Number of eos people' = n()) %>%
-    rename('Visit type' = visit_type) %>%
-    add_row('Visit type' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent of eos' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(safety_eos_v4)) * 100) %>%
-    mutate('Percent of eos' = round(`Percent of eos`, 2)) %>%
-    mutate('Percent of eos' = paste0(`Percent of eos`, '%')) # Replace zero values with NA
 
+# make a table of reasons follow up people are eos #
+  eos_reasons_followup_v4 <- total_safe_eos_followup_v4 %>%
+    group_by(v4_safety_reason) %>%
+    summarise('Number of eos people' = n()) %>%
+    arrange(v4_safety_reason) %>%
+    rename('Reason for eos' = v4_safety_reason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_followup_v4)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 ```
 
 ```{r v1_out}
@@ -743,7 +754,7 @@ reactable(eos_reasons_v4, columns = list(
 #### follow up visit
 ```{r v4_eos}
 reactable(eos_reasons_followup_v4, columns = list(
-  `Percent of eos` = colDef(align = 'right')
+  `Percent complete` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
