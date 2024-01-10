@@ -10,15 +10,8 @@ default:
     - lab
     - monitoring
     - monitoring-issues-ui
-develop:
+  invalidation_endpoint: "/*"
+endpoint_issues_ui:
   report_index:
-    - v0
-    - icf
-    - ento
-    - anomalies-detection
-    - safety-efficacy
-    - pharmacy
-    - anomalies
-    - lab
-    - monitoring
     - monitoring-issues-ui
+  invalidation_endpoint: "/monitoring-issues-ui/*"
