@@ -58,7 +58,7 @@ tryCatch({
       Paths = list(
         Quantity = 1,
         Items = list(
-          "/*"
+          config::get('invalidation_endpoint')
         )
       ),
       CallerReference = format(lubridate::now(), "%Y%m%d%H%M%s")
