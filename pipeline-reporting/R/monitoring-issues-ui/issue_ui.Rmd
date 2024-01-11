@@ -56,8 +56,8 @@ MIN_DATE <- lubridate::date('2023-11-05')
 ```{r}
 INPUT_KEY <- 
   list(
-    craremotemonitoring = glue::glue('kwale_training/raw-form/craremotemonitoring/craremotemonitoring.csv'),
-    siteremotemonitoring = glue::glue('kwale_training/raw-form/siteremotemonitoring/siteremotemonitoring.csv')
+    craremotemonitoring = glue::glue('kwale/raw-form/craremotemonitoring/craremotemonitoring.csv'),
+    siteremotemonitoring = glue::glue('kwale/raw-form/siteremotemonitoring/siteremotemonitoring.csv')
   )
 
 
