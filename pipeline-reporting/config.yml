@@ -11,7 +11,3 @@ default:
     - monitoring
     - monitoring-issues-ui
   invalidation_endpoint: "/*"
-endpoint_issues_ui:
-  report_index:
-    - monitoring-issues-ui
-  invalidation_endpoint: "/monitoring-issues-ui/*"
