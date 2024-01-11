@@ -142,9 +142,9 @@ siteremotemonitoring <- cloudbrewr::aws_s3_get_table(
 
 ```{r}
 
-cra_url_access <- 'https://databrew.org/-/single/CLd8IzvVNB5pfAm8QZ6aIftTt5r2IO9?st=D9fnhK7iSUaYIhf5$sTRmQS8xmAjnZr2ouvz!45FgU4OjrXLiC4sSyidRjaXjwry'
+cra_url_access <- 'https://databrew.org/-/single/5M6LxeNOWaQaN16yS3ogBwHCscYMY6Q?st=X2LIvoLTAALVcZXzEKNXvSJcURAaC23smaqRNzWOqQY1AguC1qlLP8yNPwVJHb18'
 
-site_url_access <- 'https://databrew.org/-/single/wERhS1e7pcpTeqnEpicAWuj3INuKQuC?st=xE5KvLpmFFtQ8dgK6sk3jggvnYaXyF5xn7WL7oxTcWoLH5$n6Z10!pLzORGQuNBU'
+site_url_access <- 'https://databrew.org/-/single/D9ov8lUub0z7qSQcvh0UnvsdQp0RZ9f?st=zzJvtpFqy6yVYtjWRxBhDpIlAlmOhdYBIFODslI8jI3Zx0kHygHHZV3LZ9cSTrVU'
 
 # string template for resolution
 cra_resolve_link <- '{cra_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Resolve&d%5B/data/group_resolve/issue_id%5D={instanceID}'

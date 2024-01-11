@@ -316,18 +316,28 @@ get_efficacy_targets <- function(){
   # 2. Remove individual if EOS
   # 3. If a household have all EOS, don't remove it since there can be new members
   # create targets coming from safety new
-  master_list$cascade_target <- dplyr::bind_rows(
+  curated_data <- dplyr::bind_rows(
     efficacy_merged_tbl  %>%
       dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, efficacy_status)
-  )  %>%
-    dplyr::left_join(get_departures() %>% dplyr::select(departure_visit = visit,
-                                                        departure_time = start_time,
-                                                        extid) %>% dplyr::mutate(is_departure = TRUE) %>% distinct(),
-                     by = c('extid')) %>%
-    dplyr::mutate(is_departure = tidyr::replace_na(is_departure, FALSE)) %>%
-    dplyr::filter(start_time < departure_time | is.na(departure_time)) %>%
-    dplyr::left_join(all_refusals) %>%
-    dplyr::filter(is.na(is_refusal)) %>%
+  )
+
+  # add in skipped visits manually
+  v3_manual_adjustment <- curated_data %>%
+    dplyr::filter(extid %in% c('68013-04')) %>%
+    dplyr::mutate(visit = 'V3') %>%
+    dplyr::group_by(visit, assignment, cluster, village, extid, hhid) %>%
+    dplyr::summarise(start_time = max(start_time)) %>% dplyr::ungroup()
+
+  # remove v3 out
+  v3_remove_out <- curated_data %>%
+    dplyr::filter(visit == 'V3', efficacy_status != 'in') %>%
+    dplyr::distinct(visit,extid)
+
+
+  master_list$cascade_target <- dplyr::bind_rows(
+    curated_data,
+    v3_manual_adjustment) %>%
+    dplyr::anti_join(v3_remove_out) %>%
     dplyr::group_by(visit, assignment, cluster, village) %>%
     dplyr::summarise(
       hh_target = n_distinct(hhid),
