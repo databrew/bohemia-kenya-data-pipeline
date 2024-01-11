@@ -185,7 +185,7 @@ absence1stattempt <- absence1stattempt %>%
                pregnancy_section_eos == '1' |
                pregnant_yn_v4 == 'yes' |
                preg_test_pos_v4 == '1' |
-               pregnancy_status_v4 == '1' ~ 'pregnant',
+               pregnancy_status_v4 == 'in' ~ 'pregnant',
              other_trials_eos == '1' ~ 'other trials',
              loa_loa_eos == '1' ~ 'visited loa loa',
              sum_night_hospital_eos >= '1' ~ 'spent night at the hospital',
@@ -210,6 +210,7 @@ absence1stattempt <- absence1stattempt %>%
              ind_thumbprint_status == '0' ~ 'not consented or provided their thumbprint',
              ind_sign_icf_status == '0' ~ 'not agree or sign informed consent',
              minor_assent_status == '0' ~ 'minor not sign assent',
+             safety_status == 'completion' ~ 'completion',
              TRUE ~ NA_character_  # To handle cases that don't match any condition
            ))  
   
@@ -332,6 +333,24 @@ total_safety_status_v4 <- total_safety_v4 %>%
   mutate('Percent complete' = (as.numeric(`Number of people visited in V4`)) / as.numeric(nrow(total_safety_v4)) * 100) %>%
   mutate('Percent complete' = round(`Percent complete`, 2)) %>%
   mutate('Percent complete' = paste0(`Percent complete`, '%'))
+```
+
+```{r pregnant}
+  safety_pregnant_v4 <- data %>%
+  filter(safety_reason == 'pregnant',
+         visit == 'V4')
+
+  safety_completion_v4 <- data %>%
+    filter(safety_status == 'completion',
+           visit == 'V4')
+
+  pregnant_completion_v4 <- safety_pregnant_v4 %>%
+    group_by(safety_reason) %>%
+    summarise('Number of pregnant' = n()) %>%
+    rename('Outcome in Safety' = safety_reason) %>%
+    mutate('Percent of completion people' = (as.numeric(`Number of pregnant`)) / as.numeric(nrow(safety_completion_v4)) * 100) %>%
+    mutate('Percent of completion people' = round(`Percent of completion people`, 2)) %>%
+    mutate('Percent of completion people' = paste0(`Percent of completion people`, '%')) # Replace zero values with NA
 ```
 
 ```{r in}
@@ -532,6 +551,7 @@ total_safety_status_v4 <- total_safety_v4 %>%
     mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_safe_eos_enrolment_v3)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+
 
 # make a table of reasons follow up people are eos #
   eos_reasons_followup_v3 <- total_safe_eos_followup_v3 %>%
@@ -742,6 +762,13 @@ if (any(duplicated(total_safety_v4$extid))) {
 } else {
   "Note: There are no duplicates based on extid in the data."
 }
+```
+
+### pregnancies
+```{r v4_pregnant}
+reactable(pregnant_completion_v4, columns = list(
+  `Percent of completion people` = colDef(align = 'right')
+), pagination = FALSE)
 ```
 
 ### eos
