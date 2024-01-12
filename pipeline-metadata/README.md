@@ -22,4 +22,6 @@ For each scheduled runs, versioning will be based on `YYMMDD01` (for manual upda
 
 1. 12/8/2023: [Make changes to PK Individuals](https://bohemiakenya.slack.com/archives/C059Q4RU2CA/p1702015098497179?thread_ts=1702014794.698659&cid=C059Q4RU2CA)
 
-1. 12/14/2023: Start date for pk typecast
+2. 12/14/2023: Start date for pk typecast
+
+3. Pivot longer on pk samples: https://github.com/databrew/bk/pull/20
