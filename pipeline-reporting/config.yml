@@ -10,4 +10,23 @@ default:
     - lab
     - monitoring
     - monitoring-issues-ui
-  invalidation_endpoint: "/*"
+  monitoring:
+    - endpoint: icf
+      bucket: bohemia-reporting-icf-monitoring
+      fp: R/monitoring/html_report/icf/
+      index: R/monitoring-issues-ui/html_report/icf/
+    - endpoint: pharmacy
+      bucket: bohemia-reporting-pharmacy-monitoring
+      fp: R/monitoring/html_report/pharmacy/
+      index: R/monitoring-issues-ui/html_report/pharmacy/
+    - endpoint: lab
+      bucket: bohemia-reporting-lab-monitoring
+      fp: R/monitoring/html_report/lab/
+      index: R/monitoring-issues-ui/html_report/lab/
+  invalidation:
+    endpoint: "/*"
+    id:
+      - ER6IOZOKZRVSJ
+      - EK1LNGKMI4N77
+      - E1JTD23AHOZFKG
+      - E1WGEK3QGJ4O2

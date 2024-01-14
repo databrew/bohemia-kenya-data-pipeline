@@ -32,19 +32,29 @@ tryCatch({
 })
 
 
-purrr::map(config::get('report_index'), function(index){
-  entry <- as.character(glue::glue('R/{index}/html_report'))
-  prefix <- as.character(glue::glue('/{index}'))
-  cloudbrewr::aws_s3_bulk_store(
-    bucket = report_bucket_name,
-    target_dir = entry,
-    prefix = prefix
-  )
-})
+if(env_pipeline_stage == 'production'){
+  purrr::map(config::get('invalidation')$id, function(id){
+    # invalidate cloudfront cache
+    tryCatch({
+      logger::log_info('Invalidating html report in cloudfront cache')
+      cf$create_invalidation(
+        DistributionId = id,
+        InvalidationBatch = list(
+          Paths = list(
+            Quantity = 1,
+            Items = list(
+              "/*"
+            )
+          ),
+          CallerReference = format(lubridate::now(), "%Y%m%d%H%M%s")
+        )
+      )
+      logger::log_success('Success invalidating report in cache')
+    }, error = function(e){
+      logger::log_error(e$message)
+      stop()
+    })
+  })
+}
 
-index <- 'consolidate'
-entry <- as.character(glue::glue('R/{index}/html_report'))
-cloudbrewr::aws_s3_bulk_store(
-  bucket = report_bucket_name,
-  target_dir = entry
-)
+
