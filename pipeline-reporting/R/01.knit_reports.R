@@ -84,15 +84,16 @@ purrr::map(list.files(entry, pattern = '*.Rmd'), function(rmd){
 
 index <- 'monitoring-issues-ui'
 entry <- glue::glue('R/{index}')
-purrr::map(list.files(entry, pattern = 'issue_ui.Rmd'), function(rmd){
+endpoint_list <- config::get('monitoring') %>% purrr::map(function(x){x$endpoint}) %>% unlist()
+purrr::map(endpoint_list, function(rmd){
   tryCatch({
     dir.create(
-      glue::glue('{entry}/html_report'),
+      glue::glue('{entry}/html_report/{rmd}'),
       recursive = TRUE,
       showWarnings = FALSE)
     logger::log_info(glue::glue("Knitting {rmd}"))
-    output_file <- glue::glue("html_report/{file_path_sans_ext(basename(rmd))}.html")
-    markdown_loc <- glue::glue("{entry}/{rmd}")
+    output_file <- glue::glue("html_report/{rmd}/index.html")
+    markdown_loc <- glue::glue("{entry}/{rmd}_site_ui.rmd")
     rmarkdown::render(
       markdown_loc,
       output_file = output_file)
@@ -101,8 +102,6 @@ purrr::map(list.files(entry, pattern = 'issue_ui.Rmd'), function(rmd){
     stop("")
   })
 })
-
-
 
 
 index <- 'consolidate'
