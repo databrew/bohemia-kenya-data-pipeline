@@ -93,7 +93,7 @@ purrr::map(endpoint_list, function(rmd){
       showWarnings = FALSE)
     logger::log_info(glue::glue("Knitting {rmd}"))
     output_file <- glue::glue("html_report/{rmd}/index.html")
-    markdown_loc <- glue::glue("{entry}/{rmd}_site_ui.rmd")
+    markdown_loc <- glue::glue("{entry}/{rmd}_site_ui.Rmd")
     rmarkdown::render(
       markdown_loc,
       output_file = output_file)
