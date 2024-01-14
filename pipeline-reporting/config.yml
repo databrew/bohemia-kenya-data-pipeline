@@ -23,4 +23,10 @@ default:
       bucket: bohemia-reporting-lab-monitoring
       fp: R/monitoring/html_report/lab/
       index: R/monitoring-issues-ui/html_report/lab/
-  invalidation_endpoint: "/*"
+  invalidation:
+    endpoint: "/*"
+    id:
+      - ER6IOZOKZRVSJ
+      - EK1LNGKMI4N77
+      - E1JTD23AHOZFKG
+      - E1WGEK3QGJ4O2
