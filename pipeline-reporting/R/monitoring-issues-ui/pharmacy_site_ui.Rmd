@@ -134,14 +134,14 @@ siteremotemonitoring <- cloudbrewr::aws_s3_get_table(
 site_url_access <- 'https://databrew.org/-/single/D9ov8lUub0z7qSQcvh0UnvsdQp0RZ9f?st=zzJvtpFqy6yVYtjWRxBhDpIlAlmOhdYBIFODslI8jI3Zx0kHygHHZV3LZ9cSTrVU'
 
 site_resolve_link <- '{site_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Resolve&d%5B/data/group_resolve/issue_id%5D={instanceID}'
+
+prod_cloudfront_url <- 'd39n8njpjuwclj.cloudfront.net'
 ```
 
 
 ## Pharmacy Monitoring Reports
 
 This catalog covers all reports for CRA monitoring. **Reports are refreshed every Sunday 12.00AM EAT**, each report will be snapshotted into a corresponding report ID where user will be able to point to a specific ID for review. Please drill-down to check all the report snapshots
-
-[PLEASE CHECK THIS REPORT FOR ISSUE TRACKING](https://d27fg4iv55pk9u.cloudfront.net/monitoring-issues-ui/issue_ui.html)
 
 #### Guideline:
 
