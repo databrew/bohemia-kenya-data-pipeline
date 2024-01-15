@@ -134,7 +134,7 @@ cra_url_access <- 'https://databrew.org/-/single/5M6LxeNOWaQaN16yS3ogBwHCscYMY6Q
 
 cra_resolve_link <- '{cra_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Resolve&d%5B/data/group_resolve/issue_id%5D={instanceID}'
 
-prod_cloudfront_url <- 'd2x4i6sj6nrqsn.cloudfront.net'
+prod_cloudfront_url <- 'https://d2x4i6sj6nrqsn.cloudfront.net'
 ```
 
 
@@ -174,14 +174,15 @@ data <- cloudbrewr::aws_s3_get_catalog(bucket = REPORTING_BUCKET_NAME) %>%
       cra_url_key = glue::glue(
         '{cra_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Open',
         url_access = url_access,
-        report_id = file_path_sans_ext(basename(report_name))))
+        report_id = file_path_sans_ext(basename(report_name)))) %>% 
+    dplyr::select(-topic) %>% 
+    tidyr::separate(report_name, sep = "-", into = c('identifier','snap'), remove = FALSE)
   
 ```
 
 ```{r}
 reactable(
-    data %>% dplyr::select(-topic)  %>% 
-    tidyr::separate(report_name, sep = "-", into = c('identifier','snap'), remove = FALSE),
+    data,
     columns = list(
         identifier = colDef(name = 'Identifier Group', minWidth = 200, filterable =TRUE),
         report_name = colDef(name = 'Report Name', minWidth = 200),
@@ -197,7 +198,7 @@ reactable(
                          cell = function(value, index) {
                            url <- sprintf("%s", 
                                           data[index, "cra_url_key"], value)
-                           htmltools::tags$a(href = url, target = "_blank", 'URL')
+                           htmltools::tags$a(href = as.character(url), target = "_blank", 'URL')
                         })
     ),
     groupBy = 'identifier',
