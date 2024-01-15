@@ -132,8 +132,30 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
            todays_date_v0 = todays_date,
            sex_v0 = sex)
 
+# Remove those who are in but haven't been contacted in 60 days; they are "lost to follow-up"
+last_non_absent_visit <- efficacy %>%
+  # remove absences / keep only presences
+  filter(person_absent == 0) %>%
+  # arrange from most recent
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, last_non_absent_visit = start_time) %>%
+  mutate(last_non_absent_visit = as.Date(last_non_absent_visit))
+
+individuals <- efficacy %>%
+  left_join(last_non_absent_visit) %>%
+  mutate(days_since_last_non_absent_visit = Sys.Date() - last_non_absent_visit) %>%
+  mutate(ltfu = days_since_last_non_absent_visit >= 90)
+
+# individuals <- individuals %>% filter(!ltfu | is.na(ltfu))
+# # remove unnecessary columns
+# individuals <- individuals %>%
+#   dplyr::select(-last_non_absent_visit,
+#                 -days_since_last_non_absent_visit,
+#                 -ltfu)
+
 # include efficacy information
-  eff <- efficacy %>%
+  eff <- individuals %>%
     rename(dob_efficacy = dob,
            sex_efficacy = sex, 
            todays_date_efficacy = todays_date) %>%
@@ -151,9 +173,11 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
       thumbprint_status == '0' ~ 'thumbprint status',
       sign_icf_status == '0' ~ 'sign icf status',
       minor_assent_status == '0' ~ 'minor assent',
-      ltfu_eos == '1' ~ 'ltfu: > 60 days',
+      ltfu == 'TRUE' ~ 'ltfu: > 60 days',
+      #ltfu_eos == '1' ~ 'ltfu: > 60 days',
       TRUE ~ NA_character_  # To handle cases that don't match any condition
     ))
+  
   
 # create the dataset that will be used for this script
   # this will exclude the people who were manually removed
@@ -309,7 +333,39 @@ total_efficacy_v7 <- data %>%
 ```
 
 ```{r in}
-## create a table of how many people are in as enrolment and in as follow up in Efficacy V3
+## create a table of how many people are in as enrolment and in as follow up in Efficacy
+
+
+## V4 #########################
+  efficacy_v4 <- total_efficacy_v4 %>%
+    rename(v4_efficacystatus = efficacy_status,
+           v4_efficacyreason = efficacy_reason) %>%
+    select(extid, v4_efficacystatus, v4_efficacyreason) # get the v2 'in' people
+  
+  efficacy_v4 <- left_join(efficacy_v4, total_efficacy_v3, by=c('extid')) %>%
+    select(extid, efficacy_status, v4_efficacystatus, v4_efficacyreason) %>%
+    rename(v3_efficacystatus = efficacy_status) %>% # join the v2 'in' people with their v1 statuses
+    mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
+      v3_efficacystatus == 'in' ~ 'follow up',
+      v3_efficacystatus == 'out' |
+        is.na(v3_efficacystatus) ~ 'enrolment'
+    ))
+  
+  efficacy_v4_in <- efficacy_v4 %>%
+    filter(v4_efficacystatus == 'in')
+
+  in_type_v4 <- efficacy_v4_in %>%
+    group_by(visit_type) %>%
+    summarise('Number of in people' = n()) %>%
+    arrange(visit_type) %>%
+    rename('Visit type' = visit_type) %>%
+    add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
+    mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v4_in)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+
+
+
 # create a dataset with the in efficacy status people from Efficacy V3 and then joining Efficacy V2 and V3 (total_safety_v2 and total_safety_v3)
   efficacy_v3 <- total_efficacy_v3 %>%
     rename(v3_efficacystatus = efficacy_status,
@@ -477,6 +533,51 @@ total_efficacy_v7 <- data %>%
     rename('Reason for eos' = v3_efficacyreason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_followup_v3)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+
+  
+## V4 ###########################
+  
+  efficacy_eos_v4 <- efficacy_v4 %>%
+    filter(v4_efficacystatus == 'eos')
+  
+  # make a table of why people are eos
+  eos_reasons_v4 <- efficacy_eos_v4 %>%
+    group_by(v4_efficacyreason) %>%
+    summarise('Number of eos people' = n()) %>%
+    arrange(v4_efficacyreason) %>%
+    rename('Reason for eos' = v4_efficacyreason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos_v4)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+
+# create datasets to make an enrolment and follow up eos table
+  total_eff_eos_enrolment_v4 <- efficacy_eos_v4 %>%
+    filter(visit_type == 'enrolment')
+  total_eff_eos_followup_v4 <- efficacy_eos_v4 %>%
+    filter(visit_type == 'follow up')
+  
+# make a table of enrolment people who are eos
+  eos_reasons_enrolment_v4 <- total_eff_eos_enrolment_v4 %>%
+    group_by(v4_efficacyreason) %>%
+    summarise('Number of eos people' = n()) %>%
+    arrange(v4_efficacyreason) %>%
+    rename('Reason for eos' = v4_efficacyreason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_enrolment_v4)) * 100) %>%
+    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+
+# make a table of reasons follow up people are eos #
+  eos_reasons_followup_v4 <- total_eff_eos_followup_v4 %>%
+    group_by(v4_efficacyreason) %>%
+    summarise('Number of eos people' = n()) %>%
+    arrange(v4_efficacyreason) %>%
+    rename('Reason for eos' = v4_efficacyreason) %>%
+    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_followup_v4)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
@@ -1010,6 +1111,160 @@ total_efficacy_v7 <- data %>%
 ```{r target_show}
 reactable(target_table, columns = list(), pagination = FALSE)
 ```
+
+## V4 Numbers
+```{r v4_total_show}
+reactable(total_efficacy_status_v4, columns = list(
+  `Percent complete` = colDef(align = 'right')
+))
+
+# make a note of duplicates
+if (any(duplicated(total_efficacy_v4$extid))) {
+  cat('Note: Excluding the duplicates, the real total number of people visited is',
+      length(unique(total_efficacy_v4$extid)), '.\n')
+} else {
+  cat("Note: There are no duplicates based on extid in the data.")
+}
+```
+
+### in
+```{r v4_in_show}
+reactable(in_type_v4, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+```
+
+### eos
+```{r v4_eos_show}
+reactable(eos_reasons_v4, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# generate a message that says which reasons do not appear
+# Specify the names you want to check for
+names_to_check <- c('decline participation', 
+                    'not agree to efficacy procedures', 
+                    'not a resident', 
+                    'enrolled in other trials')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_eos_v4$efficacy_reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for eos:", paste0(not_found_names, collapse = " / ", "."))
+}
+```
+
+#### follow up visit
+```{r v4_eos_followup_show}
+
+reactable(eos_reasons_followup_v4, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+```
+
+
+### out
+```{r v4_out_show}
+reactable(out_reasons_v4, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# generate a message that says which reasons do not appear
+# Specify the names you want to check for
+names_to_check <- c('migrated', 
+                    'died', 
+                    'absent',
+                    'not enrolled yet')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_out_v4$efficacy_reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for out status:", paste0(not_found_names, collapse = " / ", "."))
+}
+```
+
+### refusal
+```{r v4_refusal_show}
+reactable(refusal_reasons_v4, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# generate a message that says which reasons do not appear
+# Specify the names you want to check for
+names_to_check <- c('thumbprint status', 
+                    'sign icf status', 
+                    'minor assent status')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_refusal_v4$efficacy_reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for refusals:", paste0(not_found_names, collapse = "/ ", "."))
+}
+```
+
+###  rdt results
+#### total rdt results in v4
+```{r rdt-results-totals-v4}
+reactable(eff_rdt_prop_totals_v4, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# make a note of blank test responses
+if (sum(eff_results_v4$combination == 'blank test responses') >= 1) {
+  cat('Note:', sum(eff_results_v4$combination == 'blank test responses'), 'blank test responses have been excluded from this table.\n')
+} else {
+  cat('Note: No blank test responses were recorded.\n')
+}
+```
+
+#### rdt results by cluster in v4
+```{r rdt-results-by-cluster-v4}
+element_id <- 'efficacy-rdt-results-by-cluster-v4'
+
+v4_eff_cluster_rdt_results_readable <- reactable(eff_cluster_rdt_results_v4, columns = list(), 
+                                              highlight = TRUE,
+                                              resizable = TRUE,
+                                              bordered = TRUE,
+                                              striped = TRUE,
+                                              filterable=TRUE,
+                                              elementId = element_id
+                                              )
+
+wrap_download(
+  v4_eff_cluster_rdt_results_readable, 
+  element_id,
+  'efficacy_rdt_results_by_cluster.csv')
+```
+
+
 
 ## V3 Numbers
 ```{r v3_total_show}
