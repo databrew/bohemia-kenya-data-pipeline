@@ -373,8 +373,8 @@ total_safety_status_v4 <- total_safety_v4 %>%
     mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
       v3_safetystatus == 'in' ~ 'follow up',
       v3_safetystatus == 'eos' ~ 'previously eos',
-      v3_safetystatus == 'out' |
-        is.na(v3_safetystatus) ~ 'enrolment'
+      v3_safetystatus == 'out' ~ 'enrolment',
+      is.na(v3_safetystatus) ~ 'NA in previous visit'
     )) 
   
   # # create a table that shows how many people are follow up and enrolment in V2
@@ -407,8 +407,8 @@ total_safety_status_v4 <- total_safety_v4 %>%
     mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
       v2_safetystatus == 'in' ~ 'follow up',
       v2_safetystatus == 'eos' ~ 'previously eos',
-      v2_safetystatus == 'out' |
-        is.na(v2_safetystatus) ~ 'enrolment'
+      v2_safetystatus == 'out' ~ 'enrolment',
+      is.na(v2_safetystatus) ~ 'NA in previous visit'
     )) 
   
   # create a table that shows how many people are follow up and enrolment in V2
@@ -441,8 +441,8 @@ total_safety_status_v4 <- total_safety_v4 %>%
     mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
       v1_safetystatus == 'in' ~ 'follow up',
       v1_safetystatus == 'eos' ~ 'previously eos',
-      v1_safetystatus == 'out' |
-        is.na(v1_safetystatus) ~ 'enrolment'
+      v1_safetystatus == 'out' ~ 'enrolment',
+      is.na(v1_safetystatus) ~ 'NA in previous visit'
     ))
   
   # create a table that shows how many people are follow up and enrolment in V2
