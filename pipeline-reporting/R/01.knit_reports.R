@@ -84,7 +84,7 @@ purrr::map(list.files(entry, pattern = '*.Rmd'), function(rmd){
 
 index <- 'monitoring-issues-ui'
 entry <- glue::glue('R/{index}')
-endpoint_list <- config::get('monitoring') %>% purrr::map(function(x){x$endpoint}) %>% unlist()
+endpoint_list <- c(config::get('monitoring') %>% purrr::map(function(x){x$endpoint}) %>% unlist(), 'cra')
 purrr::map(endpoint_list, function(rmd){
   tryCatch({
     dir.create(

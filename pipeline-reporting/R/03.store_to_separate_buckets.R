@@ -33,4 +33,16 @@ purrr::map(config::get('monitoring'), function(l){
     bucket = l$bucket,
     target_dir = l$index
   )
+
+  cloudbrewr::aws_s3_bulk_store(
+    bucket = config::get('cra')$bucket,
+    prefix = '/report',
+    target_dir = l$fp
+  )
 })
+
+
+cloudbrewr::aws_s3_bulk_store(
+  bucket = config::get('cra')$bucket,
+  target_dir = config::get('cra')$fp
+)
