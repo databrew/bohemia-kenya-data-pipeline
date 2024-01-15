@@ -37,6 +37,7 @@ if(env_pipeline_stage == 'production'){
     # invalidate cloudfront cache
     tryCatch({
       logger::log_info('Invalidating html report in cloudfront cache')
+      Sys.sleep(15)
       cf$create_invalidation(
         DistributionId = id,
         InvalidationBatch = list(
