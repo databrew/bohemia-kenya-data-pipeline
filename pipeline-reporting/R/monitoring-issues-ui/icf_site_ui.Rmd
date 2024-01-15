@@ -135,7 +135,7 @@ site_url_access <- 'https://databrew.org/-/single/D9ov8lUub0z7qSQcvh0UnvsdQp0RZ9
 
 site_resolve_link <- '{site_url_access}&d%5B/data/group_indentifier/report_id%5D={report_id}&d%5B/data/group_indentifier/issue_type%5D=Resolve&d%5B/data/group_resolve/issue_id%5D={instanceID}'
 
-prod_cloudfront_url <- 'd3uelmvt33f8hw.cloudfront.net'
+prod_cloudfront_url <- 'https://d3uelmvt33f8hw.cloudfront.net'
 ```
 
 
