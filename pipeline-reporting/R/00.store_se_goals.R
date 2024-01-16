@@ -226,7 +226,7 @@ get_safety_targets <- function(){
     dplyr::filter(start_time < departure_time | is.na(departure_time)) %>%
     dplyr::left_join(all_refusals) %>%
     dplyr::filter(is.na(is_refusal)) %>%
-    dplyr::anti_join(get_nobody_in(), by = c('visit', 'hhid'))
+    dplyr::anti_join(get_safety_nobody_in(), by = c('visit', 'hhid'))
 
 
   # add in skipped visits manually
