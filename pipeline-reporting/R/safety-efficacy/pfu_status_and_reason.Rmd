@@ -183,12 +183,12 @@ target_table <- target_table %>%
 
   pfu_totals_v4 <- pfu_v4 %>%
       group_by(pregnancy_status) %>%
-      summarise('Number of people visited in V4 (target: ?)' = n()) %>%
+      summarise('Number of people visited' = n()) %>%
       arrange(pregnancy_status) %>%
       rename('PFU status' = pregnancy_status) %>%
       add_row('PFU status' = 'total people visited', 
-              'Number of people visited in V4 (target: ?)' = sum(.$'Number of people visited in V4 (target: ?)')) %>%
-      mutate('Percent complete' = (as.numeric(`Number of people visited in V4 (target: ?)`)) / as.numeric(nrow(pfu_v4)) * 100) %>%
+              'Number of people visited' = sum(.$'Number of people visited')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited`)) / as.numeric(nrow(pfu_v4)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
   
@@ -202,12 +202,12 @@ target_table <- target_table %>%
 
   pfu_totals_v5 <- pfu_v5 %>%
       group_by(pregnancy_status) %>%
-      summarise('Number of people visited in V5 (target: ?)' = n()) %>%
+      summarise('Number of people visited' = n()) %>%
       arrange(pregnancy_status) %>%
       rename('PFU status' = pregnancy_status) %>%
       add_row('PFU status' = 'total people visited', 
-              'Number of people visited in V5 (target: ?)' = sum(.$'Number of people visited in V5 (target: ?)')) %>%
-      mutate('Percent complete' = (as.numeric(`Number of people visited in V5 (target: ?)`)) / as.numeric(nrow(pfu_v5)) * 100) %>%
+              'Number of people visited' = sum(.$'Number of people visited')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited`)) / as.numeric(nrow(pfu_v5)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
   
@@ -221,12 +221,12 @@ target_table <- target_table %>%
 
   pfu_totals_v6 <- pfu_v6 %>%
       group_by(pregnancy_status) %>%
-      summarise('Number of people visited in V6 (target: ?)' = n()) %>%
+      summarise('Number of people visited' = n()) %>%
       arrange(pregnancy_status) %>%
       rename('PFU status' = pregnancy_status) %>%
       add_row('PFU status' = 'total people visited', 
-              'Number of people visited in V6 (target: ?)' = sum(.$'Number of people visited in V6 (target: ?)')) %>%
-      mutate('Percent complete' = (as.numeric(`Number of people visited in V6 (target: ?)`)) / as.numeric(nrow(pfu_v6)) * 100) %>%
+              'Number of people visited' = sum(.$'Number of people visited)')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited`)) / as.numeric(nrow(pfu_v6)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
   
@@ -240,12 +240,12 @@ target_table <- target_table %>%
 
   pfu_totals_v7 <- pfu_v7 %>%
       group_by(pregnancy_status) %>%
-      summarise('Number of people visited in V7 (target: ?)' = n()) %>%
+      summarise('Number of people visited' = n()) %>%
       arrange(pregnancy_status) %>%
       rename('PFU status' = pregnancy_status) %>%
       add_row('PFU status' = 'total people visited', 
-              'Number of people visited in V7 (target: ?)' = sum(.$'Number of people visited in V7 (target: ?)')) %>%
-      mutate('Percent complete' = (as.numeric(`Number of people visited in V7 (target: ?)`)) / as.numeric(nrow(pfu_v7)) * 100) %>%
+              'Number of people visited' = sum(.$'Number of people visited')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited`)) / as.numeric(nrow(pfu_v7)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
 ```
@@ -283,13 +283,70 @@ pfu_reason <- pfu %>%
 
 # create the dataset that will be used for this script
   # this will exclude the people who were manually removed
-  data <- left_join(v0dem, pfu_reason, by = c('extid')) # add manual changes with filter function here 
+  data <- merge(pfu_reason, v0dem, by = c('extid'), all = TRUE) # add manual changes with filter function here 
   
 # create the dataset for the extid explorer
   data_investigation <- data %>%
     filter(!is.na(visit)) %>% # removes extids not in Efficacy
     select(visit, extid, pregnancy_status, pregnancy_status_reason, sex_v0, sex_pregnancy, dob_v0, dob_pregnancy, todays_date_v0, todays_date_pregnancy)
 
+```
+
+```{r enrolment_followup}
+## create dataset to determine if it was an enrolment or follow up visit
+visit_type <- data %>%
+    pivot_wider(
+    id_cols = extid,  # Incorrect column name
+    names_from = visit,
+    values_from = pregnancy_status
+  ) %>% 
+  select(extid, V2, V3) %>% # add V4, etc.
+  filter(!is.na(V2) | !is.na(V3)) # add V4, etc.
+
+# add the visit type column to data
+# need to make the visit type show and need to break up eos into visit type options
+
+# ## V4 #########################
+# 
+# visit_type_v4 <- visit_type %>%
+#   filter(!is.na(V4)) %>%
+#   mutate(visit_type = case_when(
+#     V3 == 'in' ~ 'follow up',
+#     V3 == 'out' |
+#       is.na(V3) ~ 'enrolment',
+#     V2 == 'eos' |
+#       V3 == 'eos' ~ 'previously eos'
+#   ))
+# 
+#   table_visit_type_v4 <- visit_type_v4 %>%
+#       group_by(visit_type) %>%
+#       summarise('Number of people' = n()) %>%
+#       arrange(visit_type) %>%
+#       rename('Visit type' = visit_type) %>%
+#       add_row('Visit type' = 'total visited', 'Number of people' = sum(.$'Number of people')) %>%
+#       mutate('Percent complete' = (as.numeric(`Number of people`)) / as.numeric(nrow(visit_type_v4)) * 100) %>%
+#       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+#       mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+
+## V3 ######################### 
+  visit_type_v3 <- visit_type %>%
+      filter(!is.na(V3)) %>%
+      mutate(visit_type = case_when(
+        V2 == 'in' ~ 'follow up',
+        V2 == 'out' |
+          is.na(V2) ~ 'enrolment',
+        V2 == 'eos' ~ 'previously eos'
+    ))
+  
+    table_visit_type_v3 <- visit_type_v3 %>%
+      group_by(visit_type) %>%
+      summarise('Number of people' = n()) %>%
+      arrange(visit_type) %>%
+      rename('Visit type' = visit_type) %>%
+      add_row('Visit type' = 'total visited', 'Number of people' = sum(.$'Number of people')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people`)) / as.numeric(nrow(visit_type_v3)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 ```
 
 ```{r eos_reason}
@@ -327,6 +384,7 @@ pfu_reason <- pfu %>%
       mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(pfu_eos_v3)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+    
   
   
 ## V4 ####################
@@ -403,6 +461,61 @@ pfu_reason <- pfu %>%
 reactable(target_table, columns = list(), pagination = FALSE)
 ```
 
+## V4 Numbers
+```{r v4_table_status}
+reactable(pfu_totals_v4, columns = list(
+  `Percent complete` = colDef(align = "right")
+))
+
+# make a note of the real total number of people visited without repeats
+if (any(duplicated(pfu_totals_v4$extid))) {
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(pfu_totals_v2$extid)), "\n.")
+} else {
+  cat("Note: There are no duplicates based on extid in the data.")
+}
+```
+
+<!-- ### Visit type -->
+<!-- ```{r v4_visit_type} -->
+<!-- reactable(table_visit_type_v4, columns = list( -->
+<!--   `Percent complete` = colDef(align = 'right') -->
+<!-- ), pagination = FALSE) #pagination makes the entire table show on one page -->
+<!-- ``` -->
+
+### eos
+```{r v4_table_eos_reason}
+reactable(eos_reasons_v4, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# write which reasons do not appear in the table
+# Specify the names you want to check for
+names_to_check <- c('died',
+                    'migrated',
+                    'not wish to continue',
+                    'no longer pregnant - baby born alive',
+                    'no longer pregnant - miscarriage',
+                    'no longer pregnant - abortion (self-induced)',
+                    'no longer pregnant - baby was born dead',
+                    'no longer pregnant - prefer not to answer')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% eos_reasons_v4$reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following reasons are not shown: ", paste0(not_found_names, collapse = " / "))
+}
+```
+
+
 ## V3 Numbers
 ```{r v3_table_status}
 reactable(pfu_totals_v3, columns = list(
@@ -415,6 +528,13 @@ if (any(duplicated(pfu_totals_v3$extid))) {
 } else {
   cat("Note: There are no duplicates based on extid in the data.")
 }
+```
+
+### Visit type
+```{r v3_visit_type}
+reactable(table_visit_type_v3, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
 ### eos
