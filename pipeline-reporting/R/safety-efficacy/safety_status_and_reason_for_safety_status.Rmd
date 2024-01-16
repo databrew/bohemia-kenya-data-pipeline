@@ -373,8 +373,8 @@ total_safety_status_v4 <- total_safety_v4 %>%
     mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
       v3_safetystatus == 'in' ~ 'follow up',
       v3_safetystatus == 'eos' ~ 'previously eos',
-      v3_safetystatus == 'out' |
-        is.na(v3_safetystatus) ~ 'enrolment'
+      v3_safetystatus == 'out' ~ 'enrolment',
+      is.na(v3_safetystatus) ~ 'missed V3 visit'
     )) 
   
   # # create a table that shows how many people are follow up and enrolment in V2
