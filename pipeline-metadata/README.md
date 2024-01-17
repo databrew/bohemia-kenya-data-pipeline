@@ -25,3 +25,5 @@ For each scheduled runs, versioning will be based on `YYMMDD01` (for manual upda
 2. 12/14/2023: Start date for pk typecast
 
 3. Pivot longer on pk samples fix removal of duplicates and some code chunks: https://github.com/databrew/bk/pull/23
+
+4. Fix sample time collection: https://github.com/databrew/bk/pull/24
