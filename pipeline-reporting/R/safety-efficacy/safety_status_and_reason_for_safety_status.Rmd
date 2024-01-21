@@ -183,7 +183,6 @@ absence1stattempt <- absence1stattempt %>%
                obvious_screening == 'Pregnant' |
                pregnancy_section_eos_short == '1' |
                pregnancy_section_eos == '1' |
-               pregnant_yn_v4 == 'yes' |
                preg_test_pos_v4 == '1' |
                pregnancy_status_v4 == 'in' ~ 'pregnant',
              other_trials_eos == '1' ~ 'other trials',
