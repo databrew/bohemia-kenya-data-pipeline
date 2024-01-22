@@ -40,6 +40,7 @@ library(glue)
 library(fontawesome)
 library(ggplot2)
 library(plotly)
+library(stringr)
 ```
 
 ```{r, echo = FALSE, message=FALSE}
@@ -54,6 +55,36 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
       onclick = onclick_command),
     reactable_obj
   ))
+}
+
+pad_hhid <- function(data){
+  if('hhid' %in% names(data)){
+    data %>%
+      dplyr::mutate(hhid = case_when(stringr::str_count(hhid) > 0 ~ stringr::str_pad(hhid, 5, pad = "0"),
+                                     TRUE ~ NA_character_))
+  }else{
+    data
+  }
+}
+
+add_cluster_and_arm_info <- function(data, v0) {
+  if(all(c('hhid','leid') %in% names(data))){
+    return(data %>%
+             dplyr::select(-starts_with('cluster')) %>%
+             dplyr::mutate(instance_label = coalesce(hhid, leid)) %>%
+             dplyr::left_join(v0 %>% dplyr::distinct(hhid, cluster), by = 'hhid') %>%
+             dplyr::mutate(cluster = case_when(
+        site != 'Household' ~ as.integer(str_match(instance_label, "L\\s*(.*?)\\s*-")[,2]), 
+        TRUE ~ cluster)) %>%
+      dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')))
+  } else if ('hhid' %in% names(data)){
+        return(data %>%
+             dplyr::select(-starts_with('cluster')) %>%
+             dplyr::left_join(v0 %>% dplyr::distinct(hhid, cluster), by = 'hhid') %>%
+             dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')))
+  } else{
+    return(data)
+  }
 }
 ```
 
@@ -95,47 +126,71 @@ tryCatch({
 
 ```{r}
 
+v0 <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = glue::glue('kwale/clean-form/v0demography/v0demography.csv')) %>%
+  pad_hhid()
+
+assignment <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = glue::glue('bohemia_ext_data/assignments/assignments.csv')) %>%
+  pad_hhid()
+
 entostoragebox<- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entostoragebox) %>% mutate(across(matches("date"), lubridate::date))
+  key = input_key$entostoragebox) %>% mutate(across(matches("date"), lubridate::date)) %>% 
+  pad_hhid() %>% 
+  add_cluster_and_arm_info(v0)
 
 entoltfield <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entoltfield) %>% mutate(across(matches("date"), lubridate::date))
+  key = input_key$entoltfield) %>% mutate(across(matches("date"), lubridate::date)) %>% 
+  pad_hhid() %>%
+  add_cluster_and_arm_info(v0)
 
 entoltparitywing <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entoltparitywing) %>% mutate(across(matches("date"), lubridate::date))
+  key = input_key$entoltparitywing) %>% mutate(across(matches("date"), lubridate::date)) %>% 
+  pad_hhid() %>%
+  add_cluster_and_arm_info(v0)
 
 entorcmorphid <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entorcmorphid) %>% mutate(across(matches("date"), lubridate::date))
+  key = input_key$entorcmorphid) %>% mutate(across(matches("date"), lubridate::date)) %>% 
+  pad_hhid() %>%
+  add_cluster_and_arm_info(v0)
 
 entoltmorphid <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entoltmorphid) %>% mutate(across(matches("date"), lubridate::date))
+  key = input_key$entoltmorphid) %>% mutate(across(matches("date"), lubridate::date)) %>% 
+  pad_hhid() %>%
+  add_cluster_and_arm_info(v0)
 
 entorcfield <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entorcfield) %>% mutate(across(matches("date"), lubridate::date))
+  key = input_key$entorcfield) %>% mutate(across(matches("date"), lubridate::date)) %>% 
+  pad_hhid() %>%
+  add_cluster_and_arm_info(v0)
 
 entorcoviposition <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entorcoviposition) %>% mutate(across(matches("date"), lubridate::date))
-
+  key = input_key$entorcoviposition) %>% mutate(across(matches("date"), lubridate::date)) %>% 
+  pad_hhid() %>%
+  add_cluster_and_arm_info(v0)
 
 entohhfirstvisitke <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entohhfirstvisitke) %>% mutate(across(matches("date"), lubridate::date))
-
+  key = input_key$entohhfirstvisitke) %>% mutate(across(matches("date"), lubridate::date)) %>% 
+  pad_hhid() %>%
+  add_cluster_and_arm_info(v0)
 
 entolefirstvisitke <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
-  key = input_key$entolefirstvisitke) %>% mutate(across(matches("date"), lubridate::date))
+  key = input_key$entolefirstvisitke) %>% mutate(across(matches("date"), lubridate::date)) %>% 
+  pad_hhid() %>%
+  add_cluster_and_arm_info(v0)
 
 ```
-
-
 
 
 ```{r}
@@ -221,20 +276,28 @@ entoltmorpid_tubes <- lt_morph_df  %>%
 
 
 light_trap_df <- entoltmorpid_tubes %>%
-  left_join(entoltfield %>% 
-              dplyr::select(todays_date,site,instance_label,trap_success), by = c("instance_label","date"="todays_date"))%>%
-  left_join(entoltparitywing %>% select(tube_id_select, wing_length, parity_status), by = c("Sample tube ID"= "tube_id_select"))%>%
-  mutate(Cluster = NA,
-         Arm = NA,
-         `Storage Box ID` = NA,
-         `Box position` = NA)%>%
+    left_join(entoltfield %>% 
+                  dplyr::select(todays_date,
+                                instance_label,
+                                trap_success,
+                                hhid,
+                                cluster, 
+                                assignment), 
+              by = c("instance_label","date"="todays_date")) %>%
+  left_join(entoltparitywing %>% select(tube_id_select, wing_length, parity_status), 
+            by = c("Sample tube ID"= "tube_id_select")) %>%
+  mutate(
+    Cluster = cluster,
+    Arm = assignment,
+    `Storage Box ID` = NA,
+    `Box position` = NA)%>%
   select(`Sample tube ID`,
          Species,
          `Sent to Storage or Dissected`,
          `Number of mosquitos in tube`,
          `A3 Morph ID date`,
          `Collection date` = date,
-         `Collection location` = site.y,
+         `Collection location` = site,
          `HHID / LEID` = instance_label,
          `Trap Success` = trap_success,
          Cluster,
@@ -242,15 +305,17 @@ light_trap_df <- entoltmorpid_tubes %>%
          `Wing length` = wing_length,
          `Parity Status` = parity_status,
          `Storage Box ID`,
-         `Box position`)%>%
-  mutate(`HHID / LEID` = case_when(
-           nchar(`HHID / LEID`) == 4 ~ glue::glue('0{`HHID / LEID`}'),
-           TRUE                      ~ `HHID / LEID`))
+         `Box position`)
 
   
 light_trap_df <- light_trap_df[!duplicated(light_trap_df),] 
 
-wrap_download(reactable(light_trap_df, filterable = TRUE, elementId = "ltt"), element_id = "ltt" ,output_filename = "light_trap_table.csv")
+wrap_download(
+  reactable(light_trap_df, 
+            filterable = TRUE, 
+            elementId = "ltt"), 
+  element_id = "ltt" ,
+output_filename = "light_trap_table.csv")
 
 ```
 
@@ -271,10 +336,12 @@ df <- entoltmorphid %>%
          gravid_funestus = num_gravid_funestus,
          total_anopheles_funestus_female = num_anophelese_funestus_female,
          female_other_anopheles = num_females_other_species,
-         male_other_anopheles = num_males_other_species_total)%>%
+         male_other_anopheles = num_males_other_species_total,
+         cluster,
+         assignment)%>%
   mutate(total_other_anopheles = rowSums(.[,c("female_other_anopheles","male_other_anopheles")], na.rm = T),
-         cluster = NA,
-         arm = NA,
+         cluster = cluster,
+         arm = assignment,
          site_id = as.character(site_id),
          site_id = case_when(
            nchar(site_id) == 4 ~ glue::glue('0{site_id}'),
@@ -370,22 +437,19 @@ wrap_download(reactable(df, filterable = TRUE, elementId = "cdc_c"), element_id 
 ```{r}
 
 parity_n_dissection <- entoltparitywing %>% 
-  select(tube_id, wing_length, parity_status)%>%
+  select(tube_id, wing_length, parity_status,)%>%
   left_join(entoltmorpid_tubes, by = c("tube_id" = "Sample tube ID"))%>%
-  mutate(Cluster = NA,
-         Arm = NA)%>%
+  left_join(entoltmorphid %>% 
+              dplyr::distinct(instance_label, cluster, assignment), by = 'instance_label')%>%
   select(`Sample tube ID` = tube_id,
          Species,
          `A3 Morph ID date`,
          `Collection location` = site,
          `HHID / LEID` = instance_label,
-         Cluster,
-         Arm,
+         Cluster = cluster,
+         Arm = assignment,
          `Wing Length` = wing_length,
-         `Parity Status` = parity_status)%>%
-  mutate(`HHID / LEID` = case_when(
-           nchar(`HHID / LEID`) == 4 ~ glue::glue('0{`HHID / LEID`}'),
-           TRUE                      ~ `HHID / LEID`))
+         `Parity Status` = parity_status)
 
 p_n_d <- parity_n_dissection[!duplicated(parity_n_dissection),]
 
@@ -467,15 +531,19 @@ entorcmorpid_tubes <- rc_df %>%
          `Sent to storage or Gonotrophic cycle` = store_or_gonotrophic,
          `Number of mosquitos in tube` = num_stored)%>%
   left_join(entorcfield %>% 
-              select(`Collection date` = todays_date,`Collection location` = hh_or_pit,hhid)%>%
+              select(`Collection date` = todays_date,
+                     `Collection location` = hh_or_pit, 
+                     hhid,
+                     cluster,
+                     assignment)%>%
               mutate(
                 hhid = as.character(hhid),
                 hhid = case_when(
                   nchar(hhid) == 4 ~ glue::glue('0{hhid}'),
                   TRUE             ~ hhid)), by = c("instance_label"="hhid", "todays_date" = "Collection date"))%>%
   left_join(entorcoviposition %>% select(tube_id, species_complex), by=c("Sample tube ID"="tube_id"))%>%
-  mutate(Cluster = NA,
-         Arm = NA,
+  mutate(Cluster = cluster,
+         Arm = assignment,
          `Storage Box ID` = NA,
          `Box position` = NA)%>%
   select(`Sample tube ID`,
@@ -501,6 +569,7 @@ wrap_download(
 ```
 
 
+
 ### Resting Collections
 ```{r}
 
@@ -516,7 +585,9 @@ df <- entorcmorphid %>%
          female_other_anopheles = num_females_other_species,
          male_other_anopheles = num_males_other_species_total,
          num_male_gambiae,
-         num_male_funestus) %>%
+         num_male_funestus,
+         cluster,
+         assignment) %>%
   dplyr::mutate(
     female_other_anopheles = tidyr::replace_na(female_other_anopheles, 0),
     male_other_anopheles = tidyr::replace_na(male_other_anopheles, 0)
@@ -524,8 +595,8 @@ df <- entorcmorphid %>%
   dplyr::mutate(
     total_other_anopheles = rowSums(
       .[,c("female_other_anopheles","male_other_anopheles")], na.rm = T),
-         cluster = NA,
-         arm = NA,
+         cluster = cluster,
+         arm = assignment,
          site_id = as.character(site_id),
          site_id = case_when(
            nchar(site_id) == 4 ~ glue::glue('0{site_id}'),
@@ -607,7 +678,7 @@ df <- entorcmorphid %>%
 
 df <- df[!duplicated(df),]
 
-wrap_download(reactable(df, filterable = TRUE, elementId = "rc_t2"), element_id = "rc_t2" ,output_filename = "resting_collection_tubes.csv")
+wrap_download(reactable(df, filterable = TRUE, elementId = "rc_t2"), element_id = "rc_t2" ,output_filename = "resting_collection.csv")
 
 ```
 
@@ -674,6 +745,6 @@ rest_tube <- entorcoviposition %>%
 
 rest_tube <- rest_tube[!duplicated(rest_tube),]
 
-wrap_download(reactable(rest_tube, filterable = TRUE, elementId = "o_n_s"), element_id = "o_n_s" ,output_filename = "resting_collection_tubes.csv")
+wrap_download(reactable(rest_tube, filterable = TRUE, elementId = "o_n_s"), element_id = "o_n_s" ,output_filename = "oviposition_and_survival.csv")
 
 ```
