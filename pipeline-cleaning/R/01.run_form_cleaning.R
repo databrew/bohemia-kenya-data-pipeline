@@ -169,6 +169,21 @@ purrr::map(config::get('odk_projects'), function(project_name){
                                          })
                                        })
 
+  # create zip file
+  if(project_name == 'kwale'){
+    tryCatch({
+      folders <- tbl_final_mapping %>%
+        dplyr::mutate(target_folder = dirname(clean_file_path)) %>%
+        distinct(target_folder) %>% .$target_folder
+
+      purrr::map(folders, function(x){
+        zip_name = glue::glue('{x}/{basename(x)}.zip')
+        zip(zipfile = zip_name, files = dir(x, full.names = TRUE))
+      })
+    })
+  }
+
+
   # save object to s3
   tryCatch({
     # do bulk store for speed
@@ -184,6 +199,7 @@ purrr::map(config::get('odk_projects'), function(project_name){
     logger::log_error('Error storing to AWS S3')
     stop(e$message)
   })
+
 
 })
 

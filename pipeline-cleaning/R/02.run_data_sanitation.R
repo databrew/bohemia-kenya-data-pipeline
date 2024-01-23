@@ -113,6 +113,21 @@ tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
 
                                      })
 
+# create zip file
+if(project_name == 'kwale'){
+  tryCatch({
+    folders <- tbl_final_mapping %>%
+      dplyr::mutate(target_folder = dirname(sanitized_file_path)) %>%
+      distinct(target_folder) %>% .$target_folder
+
+    purrr::map(folders, function(x){
+      zip_name = glue::glue('{x}/{basename(x)}.zip')
+      zip(zipfile = zip_name, files = dir(x, full.names = TRUE))
+    })
+  })
+}
+
+
 
 # save object to s3
 tryCatch({
