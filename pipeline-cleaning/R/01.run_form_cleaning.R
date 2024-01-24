@@ -178,7 +178,7 @@ purrr::map(config::get('odk_projects'), function(project_name){
 
       purrr::map(folders, function(x){
         zip_name = glue::glue('{x}/{basename(x)}.zip')
-        zip(zipfile = zip_name, files = dir(x, full.names = TRUE))
+        zip(zipfile = zip_name, files = dir(x, full.names = TRUE), flags = '-r9Xj')
       })
     })
   }
