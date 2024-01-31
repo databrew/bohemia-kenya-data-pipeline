@@ -54,21 +54,17 @@ get_safety_nobody_in <- function() {
 
 get_ever_pregnant <- function(){
   ever_pregnant <-
-    bind_rows(
-      safety %>%
-        dplyr::inner_join(safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
-        filter(!is.na(pregnancy_status)) %>%
-        filter(pregnancy_status == 'in') %>%
-        dplyr::mutate(is_pregnant = TRUE) %>%
-        dplyr::select(visit, start_time, extid, is_pregnant),
-      pfu %>%
-        dplyr::select(visit, start_time, extid) %>%
-        dplyr::mutate(is_pregnant = TRUE) %>%
-        dplyr::select(visit, start_time, extid, is_pregnant)
-      ) %>%
-    dplyr::arrange(desc(start_time)) %>%
-    dplyr::distinct(visit, extid, .keep_all = TRUE) %>%
-    dplyr::select(-start_time)
+    safety %>%
+    dplyr::inner_join(safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
+    filter(!is.na(pregnancy_status)) %>%
+    filter(pregnancy_status == 'in') %>%
+    dplyr::mutate(is_pregnant = TRUE) %>%
+    dplyr::select(visit, start_time, extid, is_pregnant,pregnancy_status) %>%
+    dplyr::left_join(pfu %>%
+                       dplyr::filter(pregnancy_status == 'eos') %>%
+                       dplyr::select(extid, eos_time = start_time),
+                     by = c('extid')) %>%
+    dplyr::filter(is.na(eos_time) | start_time < eos_time)
   return(ever_pregnant)
 }
 
@@ -264,7 +260,7 @@ get_pfu_targets <- function(){
     safety_merged_tbl  %>%
       dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, safety_status),
   )  %>%
-    dplyr::left_join(get_ever_pregnant(),
+    dplyr::left_join(get_ever_pregnant() %>% dplyr::select(-start_time),
                      by = c('visit', 'extid')) %>%
     dplyr::mutate(is_pregnant = tidyr::replace_na(is_pregnant, FALSE)) %>%
     dplyr::left_join(get_departures() %>% dplyr::select(departure_visit = visit,
