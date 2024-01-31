@@ -396,11 +396,11 @@ df <- entoltmorphid %>%
          `Children under 5`,
          `Children 5-17yrs`,
          `Adults above 17`,
-         Everyone_sleep_under_mosquito_net,
-         No_sleep_under_mosquito_net,
+         `Everyone sleep under mosquito net` = Everyone_sleep_under_mosquito_net,
+         `No sleep under mosquito net` = No_sleep_under_mosquito_net,
          `No of nets`,
-         animals_kept_indoors,
-         animals_indoors,
+         `Animals kept indoors` = animals_kept_indoors,
+         `Animal indoors` = animals_indoors,
          wall,
          roof,
          eaves,
@@ -413,18 +413,18 @@ df <- entoltmorphid %>%
          `LE cover`,
          `LE fence`,
          `LE screened`,
-         Trap_function = trap_success,
-         unfed_gambiae,
-         fed_gambiae,
-         gravid_gambiae,
-         total_anophelese_gambiae_female,
-         unfed_funestus,
-         fed_funestus,
-         gravid_funestus,
-         total_anopheles_funestus_female,
-         female_other_anopheles,
-         male_other_anopheles,
-         total_other_anopheles)
+         `Trap function` = trap_success,
+         `Unfed gambiae` = unfed_gambiae,
+         `Fed gambiae` = fed_gambiae,
+         `Gravid gambiae` = gravid_gambiae,
+         `Total anophelese gambiae female` = total_anophelese_gambiae_female,
+         `Unfed funestus` = unfed_funestus,
+         `Fed funestus` = fed_funestus,
+         `Gravid funestus` = gravid_funestus,
+         `Total anopheles funestus female` = total_anopheles_funestus_female,
+         `Female other anopheles` = female_other_anopheles,
+         `Male other anopheles`  = male_other_anopheles,
+         `Total other anopheles` = total_other_anopheles)
 
 
 df <- df[!duplicated(df),]
@@ -587,24 +587,32 @@ df <- entorcmorphid %>%
          num_male_gambiae,
          num_male_funestus,
          cluster,
-         assignment) %>%
+         assignment,
+         todays_date) %>%
   dplyr::mutate(
     female_other_anopheles = tidyr::replace_na(female_other_anopheles, 0),
     male_other_anopheles = tidyr::replace_na(male_other_anopheles, 0)
   ) %>% 
   dplyr::mutate(
-    total_other_anopheles = rowSums(
-      .[,c("female_other_anopheles","male_other_anopheles")], na.rm = T),
-         cluster = cluster,
-         arm = assignment,
-         site_id = as.character(site_id),
-         site_id = case_when(
-           nchar(site_id) == 4 ~ glue::glue('0{site_id}'),
-           TRUE                ~ site_id),
-         total_anophelese_gambiae = rowSums(.[,c("unfed_gambiae","fed_gambiae","gravid_gambiae")],na.rm = T),
-         total_anophelese_gambiae_female = ifelse(as.numeric(num_male_gambiae) > total_anophelese_gambiae,0,(as.numeric(total_anophelese_gambiae) - as.numeric(num_male_gambiae))),
-         total_anophelese_funestus = rowSums(.[,c("unfed_funestus","fed_funestus","gravid_funestus")],na.rm = T),
-         total_funestus_fem = ifelse(as.numeric(num_male_funestus) > total_anophelese_funestus,0,(as.numeric(total_anophelese_funestus) - as.numeric(num_male_funestus))))%>%
+    total_other_anopheles = female_other_anopheles + male_other_anopheles,
+    cluster = cluster,
+    arm = assignment,
+    site_id = as.character(site_id),
+    site_id = case_when(
+      nchar(site_id) == 4 ~ glue::glue('0{site_id}'),
+      TRUE ~ site_id),
+    total_anophelese_gambiae = unfed_gambiae + fed_gambiae + gravid_gambiae,
+    total_anophelese_gambiae_female = 
+      ifelse(
+        as.numeric(num_male_gambiae) > total_anophelese_gambiae,
+        0,(as.numeric(total_anophelese_gambiae) - as.numeric(num_male_gambiae))
+      ),
+    total_anophelese_funestus = unfed_funestus + fed_funestus + gravid_funestus,
+    total_funestus_fem = 
+      ifelse(
+        as.numeric(num_male_funestus) > total_anophelese_funestus,
+        0,(as.numeric(total_anophelese_funestus) - as.numeric(num_male_funestus)))
+      ) %>%
   left_join(entohhfirstvisitke %>%
               select(instance_label,
                      `Children under 5` = num_children_under_5,
@@ -634,54 +642,57 @@ df <- entorcmorphid %>%
                                           roof_specify,glue::glue('{roof},{roof_specify}',.na=''))),
                      instance_label = case_when(
                        nchar(instance_label) == 4 ~ glue::glue('0{instance_label}'),
-                       TRUE                ~ instance_label)), by = c("site_id"="instance_label"))%>%
+                       TRUE                ~ instance_label)), 
+            by = c("site_id"="instance_label")) %>%
   left_join(entorcfield %>% 
               select(hhid,todays_date,trap_success)%>%
               mutate(hhid = as.character(hhid),
                      hhid = case_when(
                        nchar(hhid) == 4 ~ glue::glue('0{hhid}'),
-                       TRUE             ~ hhid)), by = c("site_id"="hhid"))%>%
+                       TRUE             ~ hhid)), 
+            by = c("site_id"="hhid", 'todays_date')) %>%
   select(-c(wall_specify,roof_specify))%>%
   select(`collection site`,
-         date = todays_date,
-         site_id,
-         cluster,
-         arm,
+         `Date` = todays_date,
+         `HHID` = site_id,
+         `Cluster` = cluster,
+         `Arm` = arm,
          `Children under 5`,
          `Children 5-17yrs`,
          `Adults above 17`,
-         Everyone_sleep_under_mosquito_net,
-         No_sleep_under_mosquito_net,
+         `Everyone sleep under mosquito net` = Everyone_sleep_under_mosquito_net,
+         `No sleep under mosquito net` = No_sleep_under_mosquito_net,
          `No of nets`,
-         animals_kept_indoors,
-         animals_indoors,
-         wall,
-         roof,
-         eaves,
-         window,
+         `Animales Kept Indoors` = animals_kept_indoors,
+         `Animals Indoors` = animals_indoors,
+         `Wall` = wall,
+         `Roof` = roof,
+         `Eaves` = eaves,
+         `Window` = window,
          `No of rooms`,
-         width,
-         length,
-         `Trap_function` = trap_success,
-         unfed_gambiae,
-         fed_gambiae,
-         gravid_gambiae,
-         total_anophelese_gambiae_female,
-         unfed_funestus,
-         fed_funestus,
-         gravid_funestus,
-         `total_anopheles_funestus_female` = total_funestus_fem,
-         female_other_anopheles,
-         male_other_anopheles,
-         total_other_anopheles)
+         `Width` = width,
+         `Length` = length,
+         `Trap Function` = trap_success,
+         `Unfed Gambiae` = unfed_gambiae,
+         `Fed Gambiae` = fed_gambiae,
+         `Gravid Gambiae` = gravid_gambiae,
+         `Total Anophelese Gambiae Female` = total_anophelese_gambiae_female,
+         `Unfed Funestus` = unfed_funestus,
+         `Fed Funestus` = fed_funestus,
+         `Gravid Funestus` = gravid_funestus,
+         `Total Anopheles Funestus Female` = total_funestus_fem,
+         `Female Other Anopheles` = female_other_anopheles,
+         `Male Other Anopheles` = male_other_anopheles,
+         `Total Other Anopheles` = total_other_anopheles)
 
 
 df <- df[!duplicated(df),]
 
-wrap_download(reactable(df, filterable = TRUE, elementId = "rc_t2"), element_id = "rc_t2" ,output_filename = "resting_collection.csv")
-
+wrap_download(
+  reactable(df, filterable = TRUE, elementId = "rc_t2"), 
+  element_id = "rc_t2" ,
+  output_filename = "resting_collection.csv")
 ```
-
 
 
 ### Oviposition and Survival
