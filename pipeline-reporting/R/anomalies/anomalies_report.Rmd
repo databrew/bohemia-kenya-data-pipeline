@@ -123,15 +123,16 @@ pending_resolution <- resolution %>%
 ```{r}
 data_list <- list()
 data_list$total <- anomalies %>% 
-  dplyr::summarise(anomalies = n_distinct(resolution_id))
+  dplyr::summarise(`Anomalies Remaining` = n_distinct(resolution_id))
 
 data_list$resolved <- fully_resolved %>% 
   dplyr::summarise(`Resolved` = n_distinct(resolution_id))
 
-data_list$pending <- pending_resolution %>% 
-  dplyr::summarise(`Pending Resolution` = n_distinct(resolution_id))
 
-reactable(data_list %>% purrr::reduce(dplyr::bind_cols))
+reactable(data_list %>% 
+            purrr::reduce(dplyr::bind_cols) %>%
+            dplyr::mutate(`Anomalies Total` = `Anomalies Remaining` + `Resolved`) %>% 
+            dplyr::select(`Anomalies Total`, `Anomalies Remaining`, `Resolved`))
 ```
 
 ```{r}
@@ -296,7 +297,7 @@ wrap_download(tbl,
               'anomalies_list_reso.csv')
 ```
 
-### Pending Resolution
+### Resolved but Still Requires Action
 
 This is the list of anomalies that has been marked as resolved, but still detected in the anomalies detection pipeline
 

@@ -244,8 +244,7 @@ report_list$smpl_by_status <- incidences_mapping %>%
     dplyr::group_by(study, sample_status) %>% 
     dplyr::summarise(val = n_distinct(sample)) %>% 
     dplyr::ungroup() %>%
-    dplyr::mutate(metric = glue::glue('Samples {sample_status}'),
-                  study = 'efficacy') %>% 
+    dplyr::mutate(metric = glue::glue('Samples {sample_status}')) %>% 
     dplyr::select(study, metric, val)
 
 
