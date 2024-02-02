@@ -162,23 +162,28 @@ individuals <- efficacy %>%
     rename(dob_efficacy = dob,
            sex_efficacy = sex, 
            todays_date_efficacy = todays_date) %>%
-    mutate(efficacy_reason = case_when(
-      efficacy_status == 'in' ~ 'in',
-      not_continue_eos == '1' ~ 'decline participation',
-      not_agree_efficacy_procedures_eos == '1' ~ 'not agree to efficacy procedures',
-      non_resident_eos == '1' ~ 'not a resident',
-      other_trials_eos == '1' ~ 'enrolled in other trials',
-      second_consecutive_absence_eos == '1' ~ 'ltfu: second consecutive absence',
-      person_absent == '1' ~ 'absent',
-      person_migrated_eos == '1' |
-        person_unenrolled_migrated == '1' ~ 'migrated',
-      person_unenrolled_died == '1' ~ 'died',
-      thumbprint_status == '0' ~ 'thumbprint status',
-      sign_icf_status == '0' ~ 'sign icf status',
-      minor_assent_status == '0' ~ 'minor assent',
-      ltfu == 'TRUE' ~ 'ltfu: > 60 days',
-      #ltfu_eos == '1' ~ 'ltfu: > 60 days',
-      TRUE ~ NA_character_  # To handle cases that don't match any condition
+    mutate(enrolment = case_when(
+      starting_efficacy_status == 'out' &
+        efficacy_status != 'out' ~ 'enrolment',
+      TRUE ~ 'follow up'
+    ),
+          efficacy_reason = case_when(
+            efficacy_status == 'in' ~ 'in',
+            not_continue_eos == '1' ~ 'decline participation',
+            not_agree_efficacy_procedures_eos == '1' ~ 'not agree to efficacy procedures',
+            non_resident_eos == '1' ~ 'not a resident',
+            other_trials_eos == '1' ~ 'enrolled in other trials',
+            second_consecutive_absence_eos == '1' ~ 'ltfu: second consecutive absence',
+            person_absent == '1' ~ 'absent',
+            person_migrated_eos == '1' |
+              person_unenrolled_migrated == '1' ~ 'migrated',
+            person_unenrolled_died == '1' ~ 'died',
+            thumbprint_status == '0' ~ 'thumbprint status',
+            sign_icf_status == '0' ~ 'sign icf status',
+            minor_assent_status == '0' ~ 'minor assent',
+            ltfu == 'TRUE' ~ 'ltfu: > 60 days',
+            #ltfu_eos == '1' ~ 'ltfu: > 60 days',
+            TRUE ~ NA_character_  # To handle cases that don't match any condition
     ))
   
   
@@ -195,7 +200,7 @@ individuals <- efficacy %>%
 # create the dataset for the extid explorer
   data_investigation <- data %>%
     filter(!is.na(visit)) %>% # removes extids not in Efficacy
-    select(visit, extid, efficacy_status, efficacy_reason, sex_v0, sex_efficacy, dob_v0, dob_efficacy, todays_date_v0, todays_date_efficacy)
+    select(visit, extid, efficacy_status, enrolment, efficacy_reason, sex_v0, sex_efficacy, dob_v0, dob_efficacy, todays_date_v0, todays_date_efficacy)
 ```
 
 ```{r targets}
@@ -335,136 +340,125 @@ total_efficacy_v7 <- data %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
 ```
 
-```{r}
-data_visit_type <- data_investigation %>%
-  pivot_wider(
-    id_cols = extid,
-    names_from = visit,
-    values_from = efficacy_status
-  ) %>%
-  select(extid, V1, V2, V3, V4) 
-```
 
 ```{r in}
 ## create a table of how many people are in as enrolment and in as follow up in Efficacy
 
-## V5 #########################
-  efficacy_v5 <- total_efficacy_v5 %>%
-    rename(v5_efficacystatus = efficacy_status,
-           v5_efficacyreason = efficacy_reason) %>%
-    select(extid, v5_efficacystatus, v5_efficacyreason) # get the v2 'in' people
-  
-  efficacy_v5 <- left_join(efficacy_v5, total_efficacy_v4, by=c('extid')) %>%
-    select(extid, efficacy_status, v5_efficacystatus, v5_efficacyreason) %>%
-    rename(v4_efficacystatus = efficacy_status) %>% # join the v2 'in' people with their v1 statuses
-    mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
-      v4_efficacystatus == 'in' ~ 'follow up',
-      v4_efficacystatus == 'out' ~ 'enrolment',
-        is.na(v4_efficacystatus) ~ 'follow up but missed previous visit'
-    ))
-  
-  efficacy_v5_in <- efficacy_v5 %>%
-    filter(v5_efficacystatus == 'in')
+## V1 was checked for all enrolment
 
-  in_type_v5 <- efficacy_v5_in %>%
-    group_by(visit_type) %>%
+## V2 ##########################
+
+efficacy_v2_in <- eff %>%
+    filter(visit == 'V2',
+           efficacy_status == 'in')
+  
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  in_type_v2 <- efficacy_v2_in %>%
+    group_by(enrolment) %>%
     summarise('Number of in people' = n()) %>%
-    arrange(visit_type) %>%
-    rename('Visit type' = visit_type) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
     add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
-    mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v5_in)) * 100) %>%
+    mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v2_in)) * 100) %>%
     mutate('Percent' = round(`Percent`, 2)) %>%
     mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
-
-## V4 #########################
-  efficacy_v4 <- total_efficacy_v4 %>%
-    rename(v4_efficacystatus = efficacy_status,
-           v4_efficacyreason = efficacy_reason) %>%
-    select(extid, v4_efficacystatus, v4_efficacyreason) # get the v2 'in' people
   
-  efficacy_v4 <- left_join(efficacy_v4, total_efficacy_v3, by=c('extid')) %>%
-    select(extid, efficacy_status, v4_efficacystatus, v4_efficacyreason) %>%
-    rename(v3_efficacystatus = efficacy_status) %>% # join the v2 'in' people with their v1 statuses
-    mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
-      v3_efficacystatus == 'in' ~ 'follow up',
-      v3_efficacystatus == 'out' ~ 'enrolment',
-        is.na(v3_efficacystatus) ~ 'follow up but missed previous visit'
-    ))
   
-  efficacy_v4_in <- efficacy_v4 %>%
-    filter(v4_efficacystatus == 'in')
-
-  in_type_v4 <- efficacy_v4_in %>%
-    group_by(visit_type) %>%
+## V3 #######################
+  
+  efficacy_v3_in <- eff %>%
+    filter(visit == 'V3',
+           efficacy_status == 'in')
+  
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  in_type_v3 <- efficacy_v3_in %>%
+    group_by(enrolment) %>%
     summarise('Number of in people' = n()) %>%
-    arrange(visit_type) %>%
-    rename('Visit type' = visit_type) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
+    add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
+    mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v3_in)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+  
+  
+## V4 #####################
+  
+  efficacy_v4_in <- eff %>%
+    filter(visit == 'V4',
+           efficacy_status == 'in')
+  
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  in_type_v4 <- efficacy_v4_in %>%
+    group_by(enrolment) %>%
+    summarise('Number of in people' = n()) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
     add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
     mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v4_in)) * 100) %>%
     mutate('Percent' = round(`Percent`, 2)) %>%
     mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
 
 
-
-# create a dataset with the in efficacy status people from Efficacy V3 and then joining Efficacy V2 and V3 (total_safety_v2 and total_safety_v3)
-  efficacy_v3 <- total_efficacy_v3 %>%
-    rename(v3_efficacystatus = efficacy_status,
-           v3_efficacyreason = efficacy_reason) %>%
-    select(extid, v3_efficacystatus, v3_efficacyreason) # get the v2 'in' people
+## V5 #########################
   
-  efficacy_v3 <- left_join(efficacy_v3, total_efficacy_v2, by=c('extid')) %>%
-    select(extid, efficacy_status, v3_efficacystatus, v3_efficacyreason) %>%
-    rename(v2_efficacystatus = efficacy_status) %>% # join the v2 'in' people with their v1 statuses
-    mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
-      v2_efficacystatus == 'in' ~ 'follow up',
-      v2_efficacystatus == 'out' |
-        is.na(v2_efficacystatus) ~ 'enrolment'
-    ))
-  
-  efficacy_v3_in <- efficacy_v3 %>%
-    filter(v3_efficacystatus == 'in')
-
-  in_type_v3 <- efficacy_v3_in %>%
-    group_by(visit_type) %>%
-    summarise('Number of in people' = n()) %>%
-    arrange(visit_type) %>%
-    rename('Visit type' = visit_type) %>%
-    add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
-    mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v3_in)) * 100) %>%
-    mutate('Percent' = round(`Percent`, 2)) %>%
-    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
-
-  
-## V2 #########################
-  
-  efficacy_v2 <- total_efficacy_v2 %>%
-    rename(v2_efficacystatus = efficacy_status,
-           v2_efficacyreason = efficacy_reason) %>%
-    select(extid, v2_efficacystatus, v2_efficacyreason) # get the v2 'in' people
-  
-  efficacy_v2 <- left_join(efficacy_v2, total_efficacy_v1, by=c('extid')) %>%
-    select(extid, efficacy_status, v2_efficacystatus, v2_efficacyreason) %>%
-    rename(v1_efficacystatus = efficacy_status) %>% # join the v2 'in' people with their v1 statuses
-    mutate(visit_type = case_when( # create a column that says whether the safety people are follow up or enrolment.
-      v1_efficacystatus == 'in' ~ 'follow up',
-      v1_efficacystatus == 'out' |
-        is.na(v1_efficacystatus) ~ 'enrolment'
-    ))
-  
-  efficacy_v2_in <- efficacy_v2 %>%
-    filter(v2_efficacystatus == 'in')
+  efficacy_v5_in <- eff %>%
+    filter(visit == 'V5',
+           efficacy_status == 'in')
   
   # create a table that shows how many people are follow up and enrolment in V2
   # make a table of reasons people are eos
-  in_type_v2 <- efficacy_v2_in %>%
-    group_by(visit_type) %>%
+  in_type_v5 <- efficacy_v5_in %>%
+    group_by(enrolment) %>%
     summarise('Number of in people' = n()) %>%
-    arrange(visit_type) %>%
-    rename('Visit type' = visit_type) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
     add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
-    mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v2_in)) * 100) %>%
+    mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v5_in)) * 100) %>%
     mutate('Percent' = round(`Percent`, 2)) %>%
     mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+  
+  
+## V6 #####################
+  
+  efficacy_v6_in <- eff %>%
+    filter(visit == 'V6',
+           efficacy_status == 'in')
+  
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  in_type_v6 <- efficacy_v6_in %>%
+    group_by(enrolment) %>%
+    summarise('Number of in people' = n()) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
+    add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
+    mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v6_in)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+  
+  
+## V7 ####################
+  
+  efficacy_v7_in <- eff %>%
+    filter(visit == 'V7',
+           efficacy_status == 'in')
+  
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  in_type_v7 <- efficacy_v7_in %>%
+    group_by(enrolment) %>%
+    summarise('Number of in people' = n()) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
+    add_row('Visit type' = 'total in', 'Number of in people' = sum(.$'Number of in people')) %>%
+    mutate('Percent' = (as.numeric(`Number of in people`)) / as.numeric(nrow(efficacy_v7_in)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+  
 ```
 
 ```{r eos}
@@ -489,15 +483,16 @@ data_visit_type <- data_investigation %>%
 
 ## V2 ###########################
   
-  efficacy_eos_v2 <- efficacy_v2 %>%
-    filter(v2_efficacystatus == 'eos')
+  efficacy_eos_v2 <- data %>%
+    filter(visit == 'V2',
+           efficacy_status == 'eos')
   
   # make a table of why people are eos
   eos_reasons_v2 <- efficacy_eos_v2 %>%
-    group_by(v2_efficacyreason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of eos people' = n()) %>%
-    arrange(v2_efficacyreason) %>%
-    rename('Reason for eos' = v2_efficacyreason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for eos' = efficacy_reason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos_v2)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
@@ -505,16 +500,16 @@ data_visit_type <- data_investigation %>%
 
 # create datasets to make an enrolment and follow up eos table
   total_eff_eos_enrolment_v2 <- efficacy_eos_v2 %>%
-    filter(visit_type == 'enrolment')
+    filter(enrolment == 'enrolment')
   total_eff_eos_followup_v2 <- efficacy_eos_v2 %>%
-    filter(visit_type == 'follow up')
+    filter(enrolment == 'follow up')
   
 # make a table of enrolment people who are eos
   eos_reasons_enrolment_v2 <- total_eff_eos_enrolment_v2 %>%
-    group_by(v2_efficacyreason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of eos people' = n()) %>%
-    arrange(v2_efficacyreason) %>%
-    rename('Reason for eos' = v2_efficacyreason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for eos' = efficacy_reason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_enrolment_v2)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
@@ -522,10 +517,10 @@ data_visit_type <- data_investigation %>%
 
 # make a table of reasons follow up people are eos #
   eos_reasons_followup_v2 <- total_eff_eos_followup_v2 %>%
-    group_by(v2_efficacyreason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of eos people' = n()) %>%
-    arrange(v2_efficacyreason) %>%
-    rename('Reason for eos' = v2_efficacyreason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for eos' = efficacy_reason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_followup_v2)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
@@ -534,15 +529,16 @@ data_visit_type <- data_investigation %>%
   
 ## V3 ###########################
   
-  efficacy_eos_v3 <- efficacy_v3 %>%
-    filter(v3_efficacystatus == 'eos')
+  efficacy_eos_v3 <- data %>%
+    filter(visit == 'V3',
+           efficacy_status == 'eos')
   
   # make a table of why people are eos
   eos_reasons_v3 <- efficacy_eos_v3 %>%
-    group_by(v3_efficacyreason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of eos people' = n()) %>%
-    arrange(v3_efficacyreason) %>%
-    rename('Reason for eos' = v3_efficacyreason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for eos' = efficacy_reason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos_v3)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
@@ -550,16 +546,16 @@ data_visit_type <- data_investigation %>%
 
 # create datasets to make an enrolment and follow up eos table
   total_eff_eos_enrolment_v3 <- efficacy_eos_v3 %>%
-    filter(visit_type == 'enrolment')
+    filter(enrolment == 'enrolment')
   total_eff_eos_followup_v3 <- efficacy_eos_v3 %>%
-    filter(visit_type == 'follow up')
+    filter(enrolment == 'follow up')
   
 # make a table of enrolment people who are eos
   eos_reasons_enrolment_v3 <- total_eff_eos_enrolment_v3 %>%
-    group_by(v3_efficacyreason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of eos people' = n()) %>%
-    arrange(v3_efficacyreason) %>%
-    rename('Reason for eos' = v3_efficacyreason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for eos' = efficacy_reason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_enrolment_v3)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
@@ -567,10 +563,10 @@ data_visit_type <- data_investigation %>%
 
 # make a table of reasons follow up people are eos #
   eos_reasons_followup_v3 <- total_eff_eos_followup_v3 %>%
-    group_by(v3_efficacyreason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of eos people' = n()) %>%
-    arrange(v3_efficacyreason) %>%
-    rename('Reason for eos' = v3_efficacyreason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for eos' = efficacy_reason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_followup_v3)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
@@ -579,90 +575,72 @@ data_visit_type <- data_investigation %>%
   
 ## V4 ###########################
   
-  efficacy_eos_v4 <- efficacy_v4 %>%
-    filter(v4_efficacystatus == 'eos')
+  efficacy_eos_v4 <- data %>%
+    filter(visit == 'V4',
+           efficacy_status == 'eos')
   
   # make a table of why people are eos
   eos_reasons_v4 <- efficacy_eos_v4 %>%
-    group_by(v4_efficacyreason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of eos people' = n()) %>%
-    arrange(v4_efficacyreason) %>%
-    rename('Reason for eos' = v4_efficacyreason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for eos' = efficacy_reason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos_v4)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
-
-# create datasets to make an enrolment and follow up eos table
-  total_eff_eos_missed_fu_v4 <- efficacy_eos_v4 %>%
-    filter(visit_type == 'follow up but missed prev visit')
-  total_eff_eos_followup_v4 <- efficacy_eos_v4 %>%
-    filter(visit_type == 'follow up')
   
-# make a table of enrolment people who are eos
-  eos_reasons_enrolment_v4 <- total_eff_eos_missed_fu_v4 %>%
-    group_by(v4_efficacyreason) %>%
-    summarise('Number of eos people' = n()) %>%
-    arrange(v4_efficacyreason) %>%
-    rename('Reason for eos' = v4_efficacyreason) %>%
-    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_missed_fu_v4)) * 100) %>%
-    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
-    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
-
-# make a table of reasons follow up people are eos #
-  eos_reasons_followup_v4 <- total_eff_eos_followup_v4 %>%
-    group_by(v4_efficacyreason) %>%
-    summarise('Number of eos people' = n()) %>%
-    arrange(v4_efficacyreason) %>%
-    rename('Reason for eos' = v4_efficacyreason) %>%
-    add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_followup_v4)) * 100) %>%
-    mutate('Percent complete' = round(`Percent complete`, 2)) %>%
-    mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
-
   
 ## V5 ###########################
   
-  efficacy_eos_v5 <- efficacy_v5 %>%
-    filter(v5_efficacystatus == 'eos')
+  efficacy_eos_v5 <- data %>%
+    filter(visit == 'V5',
+           efficacy_status == 'eos')
   
   # make a table of why people are eos
   eos_reasons_v5 <- efficacy_eos_v5 %>%
-    group_by(v5_efficacyreason) %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of eos people' = n()) %>%
-    arrange(v5_efficacyreason) %>%
-    rename('Reason for eos' = v5_efficacyreason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for eos' = efficacy_reason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
     mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos_v5)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
-
-# create datasets to make an enrolment and follow up eos table
-  total_eff_eos_missed_fu_v5 <- efficacy_eos_v5 %>%
-    filter(visit_type == 'follow up but missed prev visit')
-  total_eff_eos_followup_v5 <- efficacy_eos_v5 %>%
-    filter(visit_type == 'follow up')
   
-# make a table of enrolment people who are eos
-  eos_reasons_enrolment_v5 <- total_eff_eos_missed_fu_v5 %>%
-    group_by(v5_efficacyreason) %>%
+  
+## V6 ###########################
+  
+  efficacy_eos_v6 <- data %>%
+    filter(visit == 'V6',
+           efficacy_status == 'eos')
+  
+  # make a table of why people are eos
+  eos_reasons_v6 <- efficacy_eos_v6 %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of eos people' = n()) %>%
-    arrange(v5_efficacyreason) %>%
-    rename('Reason for eos' = v5_efficacyreason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for eos' = efficacy_reason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_missed_fu_v5)) * 100) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos_v6)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
-
-# make a table of reasons follow up people are eos #
-  eos_reasons_followup_v5 <- total_eff_eos_followup_v5 %>%
-    group_by(v5_efficacyreason) %>%
+  
+  
+## V7 ###########################
+  
+  efficacy_eos_v7 <- data %>%
+    filter(visit == 'V7',
+           efficacy_status == 'eos')
+  
+  # make a table of why people are eos
+  eos_reasons_v7 <- efficacy_eos_v7 %>%
+    group_by(efficacy_reason) %>%
     summarise('Number of eos people' = n()) %>%
-    arrange(v5_efficacyreason) %>%
-    rename('Reason for eos' = v5_efficacyreason) %>%
+    arrange(efficacy_reason) %>%
+    rename('Reason for eos' = efficacy_reason) %>%
     add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
-    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(total_eff_eos_followup_v5)) * 100) %>%
+    mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(efficacy_eos_v7)) * 100) %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
@@ -1248,15 +1226,6 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-#### follow up visit
-```{r v5_eos_followup_show}
-
-reactable(eos_reasons_followup_v5, columns = list(
-  `Percent complete` = colDef(align = 'right')
-), pagination = FALSE) #pagination makes the entire table show on one page
-
-```
-
 
 ### out
 ```{r v5_out_show}
@@ -1401,16 +1370,6 @@ if (length(not_found_names) > 0) {
   cat("The following are not reasons for eos:", paste0(not_found_names, collapse = " / ", "."))
 }
 ```
-
-#### follow up visit
-```{r v4_eos_followup_show}
-
-reactable(eos_reasons_followup_v4, columns = list(
-  `Percent complete` = colDef(align = 'right')
-), pagination = FALSE) #pagination makes the entire table show on one page
-
-```
-
 
 ### out
 ```{r v4_out_show}
