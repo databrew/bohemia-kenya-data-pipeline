@@ -88,26 +88,6 @@ efficacy <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/efficacy/efficacy.csv')) %>%
   pad_hhid()
 
-safety <- cloudbrewr::aws_s3_get_table(
-  bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safety/safety.csv')) %>%
-  pad_hhid()
-
-safetynew <- cloudbrewr::aws_s3_get_table(
-  bucket =DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safetynew/safetynew.csv')) %>%
-  pad_hhid()
-
-safety_repeat_individual <- cloudbrewr::aws_s3_get_table(
-  bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safety/safety-repeat_individual.csv')) %>%
-  pad_hhid()
-
-safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
-  bucket =DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safetynew/safetynew-repeat_individual.csv')) %>%
-  pad_hhid()
-
 efficacy_targets <- cloudbrewr::aws_s3_get_table(
   bucket ='bohemia-lake-db',
   key = glue::glue('bohemia_prod/dwh/goal_efficacy_targets/goal_efficacy_targets.csv')) %>%
@@ -165,6 +145,8 @@ individuals <- efficacy %>%
     mutate(enrolment = case_when(
       starting_efficacy_status == 'out' &
         efficacy_status != 'out' ~ 'enrolment',
+      starting_efficacy_status == 'out' &
+        efficacy_status == 'out' ~ 'not yet enrolled',
       TRUE ~ 'follow up'
     ),
           efficacy_reason = case_when(
@@ -233,7 +215,7 @@ target_table <- target_table %>%
 
 # only take the necessary columns from efficacy
 total_efficacy <- data %>%
-  select(KEY, extid, visit, safety_status, efficacy_status)
+  select(KEY, extid, visit, efficacy_status)
 
 # since this is only a table for V1 we will only keep V1 people
 total_efficacy_v1 <- total_efficacy %>%
