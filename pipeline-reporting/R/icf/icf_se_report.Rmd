@@ -146,7 +146,7 @@ sepk_icf_verification <- cloudbrewr::aws_s3_get_table(
   key = 'kwale/clean-form/sepk_icf_verification/sepk_icf_verification.csv'
 ) %>%
   pad_hhid() %>% 
-  dplyr::group_by(extid, icf_stat) %>% 
+  dplyr::group_by(extid, study_select, icf_stat) %>% 
   dplyr::mutate(max_submission_date = max(SubmissionDate)) %>% 
   dplyr::filter(SubmissionDate == max_submission_date) %>% 
   dplyr::ungroup()
@@ -156,7 +156,7 @@ sepk_icf_resolution <- cloudbrewr::aws_s3_get_table(
   key = 'kwale/clean-form/sepk_icf_resolution/sepk_icf_resolution.csv'
 ) %>%
   pad_hhid() %>% 
-  dplyr::group_by(extid, icf_stat) %>% 
+  dplyr::group_by(extid, study_select, icf_stat) %>% 
   dplyr::mutate(max_submission_date = max(SubmissionDate)) %>% 
   dplyr::filter(SubmissionDate == max_submission_date) %>% 
   dplyr::ungroup()
@@ -206,6 +206,46 @@ efficacy <- cloudbrewr::aws_s3_get_table(
 ```
 
 ```{r}
+# Get departures
+safety_departures <- safety_repeat_individual %>%
+  filter(!is.na(lastname), !is.na(dob)) %>%
+  mutate(dob = lubridate::as_datetime(dob)) %>%
+  filter(person_left_household == 1| person_migrated == 1 | person_out_migrated == 1) %>%
+  left_join(safety %>% dplyr::select(hhid, KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+  dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
+  mutate(type = 'Departure') %>%
+  mutate(start_time = lubridate::as_datetime(start_time))
+safety_deaths <- safety_repeat_individual %>%
+  left_join(safety %>% dplyr::select(KEY, start_time, hhid), by = c('PARENT_KEY' = 'KEY')) %>%
+  filter(!is.na(lastname), !is.na(dob)) %>%
+  mutate(firstname = as.character(firstname), lastname = as.character(lastname),
+         sex = as.character(sex), extid = as.character(extid)) %>%
+  mutate(start_time = as.POSIXct(start_time)) %>%
+  mutate(dob = lubridate::as_datetime(dob)) %>%
+  filter(!is.na(person_absent_reason)) %>%
+  filter(person_absent_reason %in% c('Died')) %>%
+  # filter(person_absent_reason %in% c('Died', 'Migrated')) %>%
+  dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>% mutate(type = 'Died')
+# Get efficacy departures (but ignore migrations, per project instructions)
+# https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1690186129913529?thread_ts=1689946560.024259&cid=C042KSRLYUA
+efficacy_departures <- efficacy %>%
+  filter(!is.na(lastname), !is.na(dob)) %>%
+  mutate(firstname = as.character(firstname), lastname = as.character(lastname),
+         sex = as.character(sex), extid = as.character(extid)) %>%
+  mutate(start_time = as.POSIXct(start_time)) %>%
+  mutate(dob = lubridate::as_datetime(dob)) %>%
+  filter(!is.na(person_absent_reason)) %>%
+  filter(person_absent_reason != 'Absent')
+efficacy_deaths <- efficacy_departures %>%
+  filter(person_absent_reason %in% c('Died')) %>%
+  # filter(person_absent_reason %in% c('Died', 'Migrated')) %>%
+  dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>% mutate(type = 'Died')
+# Combine safety and efficacy departures
+departures <- bind_rows(safety_departures, safety_deaths, efficacy_deaths)
+```
+
+
+```{r}
 # create initial roster
 safety_roster <- safety %>% 
     dplyr::inner_join(safety_repeat_individual, 
@@ -215,8 +255,8 @@ safety_roster <- safety %>%
     dplyr::mutate(study_select = 'safety',
                   wid = as.character(wid)) %>% 
     dplyr::group_by(extid, study_select) %>% 
-    dplyr::mutate(min_visit = min(visit)) %>% 
-    dplyr::filter(visit == min_visit) %>%
+    dplyr::mutate(max_visit = max(visit)) %>% 
+    dplyr::filter(visit == max_visit) %>%
     dplyr::select(SubmissionDate, 
                   instanceID,
                   wid,
@@ -235,8 +275,8 @@ safetynew_roster <- safetynew %>%
     dplyr::mutate(study_select = 'safety',
                   wid = as.character(wid)) %>% 
     dplyr::group_by(extid, study_select) %>% 
-    dplyr::mutate(min_visit = min(visit)) %>% 
-    dplyr::filter(visit == min_visit) %>%
+    dplyr::mutate(max_visit = max(visit)) %>% 
+    dplyr::filter(visit == max_visit) %>%
     dplyr::select(SubmissionDate, 
                   instanceID,
                   wid,
@@ -253,9 +293,11 @@ efficacy_roster <- efficacy %>%
     dplyr::filter(icf_completed == 1) %>%
     dplyr::mutate(study_select = 'efficacy',
                   wid = as.character(wid)) %>% 
+    filter(!is.na(person_absent_reason)) %>%
+    filter(person_absent_reason == '') %>%
     dplyr::group_by(extid, study_select) %>% 
-    dplyr::mutate(min_visit = min(visit)) %>% 
-    dplyr::filter(visit == min_visit) %>%
+    dplyr::mutate(max_visit = max(visit)) %>% 
+    dplyr::filter(visit == max_visit) %>%
     dplyr::select(SubmissionDate, 
                   instanceID,
                   wid,
@@ -272,7 +314,13 @@ roster <- dplyr::bind_rows(
   safetynew_roster,
   efficacy_roster) %>% 
   dplyr::ungroup() %>%
-  dplyr::filter(extid != "")
+  dplyr::filter(extid != "") %>% 
+  dplyr::filter(status %in% c('in', 'eos', 'out'),
+                !extid %in% departures$extid)
+
+# get first of occurence from distinct
+roster_hist <- roster %>% 
+  dplyr::mutate(run_date = lubridate::date(lubridate::now()))
 ```
 
 
@@ -312,40 +360,28 @@ resolution <- sepk_icf_resolution %>%
                   cl_id, 
                   archivist_select)
 
-icf_roster <- icf <- verification %>% 
-    dplyr::select(instanceID, SubmissionDate, icf_stat, extid, study_select) %>%
+icf_roster <- verification %>% 
+    dplyr::select(instanceID, SubmissionDate, icf_stat, extid, study_select, fa_id,
+                                       cl_id,
+                                       archivist_select) %>%
     dplyr::bind_rows(resolution %>% 
-                         dplyr::select(instanceID, SubmissionDate, icf_stat, extid, study_select)) %>% 
+                         dplyr::select(instanceID, 
+                                       SubmissionDate, 
+                                       icf_stat, 
+                                       extid, 
+                                       study_select,
+                                       fa_id,
+                                       cl_id,
+                                       archivist_select)) %>% 
     dplyr::group_by(extid, study_select) %>% 
     dplyr::mutate(max_submission_date = max(SubmissionDate)) %>% 
     dplyr::ungroup() %>%
-    dplyr::filter(SubmissionDate == max_submission_date) %>% 
-    dplyr::inner_join(verification %>% dplyr::select(extid, 
-                                                     safety_status, 
-                                                     efficacy_status, 
-                                                     pk_status,
-                                                     study_select,
-                                                     fa_id,
-                                                     cl_id,
-                                                     archivist_select))
-```
-
-
-
-```{r}
-# create historical table
-icf_hist <- icf_roster %>% 
-    dplyr::mutate(run_date = lubridate::date(lubridate::now())) %>%
-    dplyr::group_by(extid) %>% 
-    dplyr::mutate(max_submission_date = max(SubmissionDate)) %>%
     dplyr::filter(SubmissionDate == max_submission_date) %>%
-    dplyr::ungroup() 
+    dplyr::inner_join(roster %>% dplyr::select(extid, study_select, status), 
+                      by = c('extid', 'study_select'))
 
-# get first of occurence from distinct
-roster_hist <- roster %>% dplyr::mutate(run_date = lubridate::date(lubridate::now()))
+icf_hist <- icf_roster %>%  dplyr::mutate(run_date = lubridate::date(lubridate::now())) 
 ```
-
-
 
 
 ```{r}
@@ -376,23 +412,19 @@ data_list$safety_unresolved_icf <- icf_hist %>%
       metric_aging = as.numeric(difftime(run_date, SubmissionDate, units = "days")),
       metric = 'Safety ICF Unresolved',
       source = 'Safety ICF') %>% 
-    dplyr::select(-efficacy_status) %>%
-    dplyr::select(status = safety_status, everything()) %>%
     dplyr::select(any_of(final_col_list))
 
 data_list$efficacy_unresolved_icf <- icf_hist %>% 
     dplyr::filter(
       icf_stat == 'Rectification',
       study_select == 'efficacy',
-      efficacy_status != "") %>%
+      status != "") %>%
     dplyr::mutate(
       SubmissionDate = lubridate::date(SubmissionDate)) %>%
     dplyr::mutate(
       metric_aging = as.numeric(difftime(run_date, SubmissionDate, units = "days")),
       metric = 'Efficacy ICF Unresolved',
       source = 'Efficacy ICF') %>% 
-    dplyr::select(-safety_status) %>%
-    dplyr::select(status = efficacy_status, everything()) %>%
     dplyr::select(any_of(final_col_list))
 
 
@@ -406,23 +438,19 @@ data_list$safety_resolved_icf <- icf_hist %>%
       metric_aging = NA,
       metric = 'Safety ICF Resolved',
       source = 'Safety ICF') %>% 
-    dplyr::select(-efficacy_status) %>%
-    dplyr::select(status = safety_status, everything()) %>%
     dplyr::select(any_of(final_col_list))
 
 data_list$efficacy_resolved_icf <- icf_hist %>% 
     dplyr::filter(
       icf_stat == 'Resolved-Archived',
       study_select == 'efficacy',
-      efficacy_status != "") %>%
+      status != "") %>%
     dplyr::mutate(
       SubmissionDate = lubridate::date(SubmissionDate)) %>%
     dplyr::mutate(
       metric_aging = NA,
       metric = 'Efficacy ICF Resolved',
       source = 'Efficacy ICF') %>% 
-    dplyr::select(-safety_status) %>%
-    dplyr::select(status = efficacy_status, everything()) %>%
     dplyr::select(any_of(final_col_list))
 
 
@@ -461,23 +489,19 @@ data_list$safety_missing_icf <- icf_hist %>%
       metric_aging = as.numeric(difftime(run_date, SubmissionDate, units = "days")),
       metric = 'Safety ICF Missing',
       source = 'Safety ICF') %>% 
-    dplyr::select(-efficacy_status) %>%
-    dplyr::select(status = safety_status, everything()) %>%
     dplyr::select(any_of(final_col_list))
 
 data_list$efficacy_missing_icf <- icf_hist %>% 
     dplyr::filter(
       icf_stat == 'Lost-Not Found',
       study_select == 'efficacy',
-      efficacy_status != "") %>%
+      status != "") %>%
     dplyr::mutate(
       SubmissionDate = lubridate::date(SubmissionDate)) %>%
     dplyr::mutate(
       metric_aging = as.numeric(difftime(run_date, SubmissionDate, units = "days")),
       metric = 'Efficacy ICF Missing',
       source = 'Efficacy ICF') %>% 
-    dplyr::select(-safety_status) %>%
-    dplyr::select(status = efficacy_status, everything()) %>%
     dplyr::select(any_of(final_col_list))
 
 
@@ -578,7 +602,7 @@ data <- roster %>%
                 study = study_select, 
                `Participant Age` = age,
                `FA ID` = fa_id) %>% 
-    dplyr::left_join(icf %>% 
+    dplyr::left_join(icf_hist %>% 
                          dplyr::select(extid, 
                                        `Worker ID` = cl_id,
                                        `ICF Status` = icf_stat, 
