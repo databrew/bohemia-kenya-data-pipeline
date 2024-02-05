@@ -80,6 +80,15 @@ pad_hhid <- function(data){
   }
 }
 
+pad_samples <- function(data){
+  if('sample' %in% names(data)){
+    data %>%
+      dplyr::mutate(sample = stringr::str_pad(sample, 8, pad = "0"))
+  }else{
+    data
+  }
+}
+
 wrap_download <- function(reactable_obj, element_id, output_filename){
   onclick_command <- glue::glue(
     "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
@@ -90,6 +99,23 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
         onclick = onclick_command),
       reactable_obj
     ))
+}
+
+fix_pk_sample_id <- function(x){
+  x <- as.character(x)
+  if(length(x) < 1){
+    return(x)
+  } else if(is.na(x)){
+    return(x)
+    # detect the leading , non-0 issue
+  } else if(nchar(x) == 7 & length(unlist(strsplit(x, split = '-'))) == 3) {
+    x <- paste0('0', x)
+    x <- as.character(unlist(x))
+    names(x) <- NULL
+    return(x)
+  } else {
+    return(x)
+  }
 }
 ```
 
@@ -168,12 +194,25 @@ lab2 <- cloudbrewr::aws_s3_get_table(
 ) %>%
   pad_hhid()
 
+pkday0 <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/pkday0/pkday0.csv'
+) %>%
+  pad_hhid()
+
+pkdays123 <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/pkdays123/pkdays123.csv'
+) %>%
+  pad_hhid() %>% 
+  dplyr::mutate(pk_id = as.character(pk_id))
+
 lab_metadata_zp <- cloudbrewr::aws_s3_get_object(
   bucket = 'databrew.org',
   key = 'metadata/lab_metadata.zip'
 ) 
 
-
+# lab mapping
 lab1_incidences_mapping <- lab %>% 
     dplyr::select(sample, 
                   study,
@@ -218,6 +257,15 @@ lab2_incidences_mapping <- lab2 %>%
     dplyr::select(extid, instanceID, SubmissionDate, sample, sample_status, incidences, study) %>% 
     dplyr::mutate(source = 'lab2')
 
+
+# pk samples from field
+pk <- pkday0 %>% 
+    dplyr::select(SubmissionDate, wid, extid, ends_with('qr')) %>% 
+    dplyr::select(-wid_qr) %>%
+    tidyr::drop_na() %>% 
+    tidyr::pivot_longer(cols = !c('SubmissionDate', 'wid', 'extid'), values_to = 'sample') %>% 
+    pad_samples() %>%
+    dplyr::mutate(study = 'pk')
 ```
 
 ```{r}
@@ -264,10 +312,13 @@ grouped_lab_hist <- lab_hist %>%
     dplyr::group_by(run_date) %>% 
     dplyr::summarise(samples = list(sample))
 
+
 # create snapshot table for efficacy
 min_date <- efficacy$SubmissionDate %>% lubridate::date() %>% min()
 max_date <- lubridate::today()
 date_list <- seq.Date(min_date, max_date, "days")
+
+
 eff_hist <- purrr::map_dfr(date_list, function(d){
   efficacy %>% 
     dplyr::mutate(run_date = d) %>% 
@@ -277,12 +328,26 @@ eff_hist <- purrr::map_dfr(date_list, function(d){
   dplyr::filter(sample != "") %>% 
   dplyr::distinct()
 
+pk_hist <- purrr::map_dfr(date_list, function(d){
+  pk %>% 
+    dplyr::mutate(run_date = d) %>% 
+    dplyr::filter(SubmissionDate <= d)
+})
+
 
 
 samples_in_eff_by_run <- eff_hist %>%
     dplyr::anti_join(lab_hist, 
                      by = c('run_date', 'sample')) %>% 
   dplyr::filter(run_date >= MIN_DATE)
+
+
+samples_in_pk_by_run <- pk_hist %>%
+    dplyr::anti_join(lab_hist, 
+                     by = c('run_date', 'sample')) %>% 
+  dplyr::filter(run_date >= MIN_DATE)
+
+
 samples_in_lab_by_run <- lab_hist  %>% 
     dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
     dplyr::filter(run_date == week_start) %>%
@@ -298,28 +363,36 @@ samples_in_lab_by_run <- lab_hist  %>%
   dplyr::filter(run_date >= MIN_DATE)
 ```
 
-### a). Pending – samples pending for >10 days
+### a). Pending Samples
 ```{r}
 from_lab <- samples_in_lab_by_run %>% 
-    dplyr::group_by(run_date) %>% 
+    dplyr::group_by(run_date, study) %>% 
     dplyr::summarise(
       `Pending Samples` = n_distinct(sample[sample_status == 'Pending']),
       `Pending Samples for more than 10 days` = n_distinct(sample[age>10 & sample_status == 'Pending']))
 
 tbl <- from_lab
 
-reactable(tbl)
+reactable(tbl, 
+          groupBy = c('run_date'),
+          columns = list(
+            `Pending Samples` = colDef(aggregate = "sum"),
+            `Pending Samples for more than 10 days` = colDef(aggregate = "sum")
+          ),
+          defaultSorted=list(run_date = 'desc'))
 ```
 
 ```{r}
 from_lab <- samples_in_lab_by_run %>% 
     dplyr::filter(sample_status == 'Pending') %>% 
     dplyr::filter(run_date == curr_week) %>%
-    dplyr::select(run_date, source, 
+    dplyr::select(run_date, 
+                  source, 
                   instanceID, 
                   sample,
                   `Sample Status` = sample_status, 
                   SubmissionDate, 
+                  study,
                   extid, 
                   incidences,
                   `Query Age` = age)
@@ -335,7 +408,7 @@ tbl <- reactable(tbl,
     striped = TRUE,
     filterable = TRUE,
     elementId = element_id,
-    groupBy = c('incidences')
+    groupBy = c('study','incidences')
 )
 
 wrap_download(
@@ -348,25 +421,33 @@ wrap_download(
 
 ### b). Quarantined samples – anomaly report for each scenario:
 ```{r}
-from_lab <- samples_in_lab_by_run %>%
-    dplyr::group_by(run_date) %>% 
+tbl <- samples_in_lab_by_run %>%
+    dplyr::group_by(run_date, study) %>% 
     dplyr::summarise(`Quarantine` = n_distinct(sample[sample_status == 'Quarantine']))
 
-tbl <- from_lab
-
-reactable(tbl)
+reactable(tbl, 
+          groupBy = c('run_date'),
+          columns = list(
+            `Quarantine` = colDef(aggregate = "sum")
+          ),
+          defaultSorted=list(run_date = 'desc'))
 ```
 
 
 ```{r}
 from_lab <- samples_in_lab_by_run %>%
     dplyr::select(-week_start) %>% 
-    dplyr::select(instanceID, source, sample_status, run_date, sample, SubmissionDate, extid, age, incidences) %>% 
+    dplyr::select(instanceID, 
+                  source, sample_status, 
+                  run_date, sample, SubmissionDate, 
+                  extid, age, incidences, 
+                  study) %>% 
     dplyr::filter(sample_status == 'Quarantine')  %>% 
     dplyr::filter(run_date == curr_week) %>%
     dplyr::select(source, 
                   instanceID, 
                   sample,
+                  study,
                   `Sample Status` = sample_status, 
                   SubmissionDate, 
                   extid, 
@@ -385,7 +466,7 @@ tbl <- reactable(tbl,
     striped = TRUE,
     filterable = TRUE,
     elementId = element_id,
-    groupBy = c('incidences')
+    groupBy = c('study','incidences')
 )
 
 wrap_download(
@@ -397,7 +478,7 @@ wrap_download(
 
 ### c). Missing Samples
 ```{r}
-from_field <- samples_in_eff_by_run %>% 
+efficacy_field <- samples_in_eff_by_run %>% 
     dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
     dplyr::filter(run_date == week_start) %>%
     dplyr::mutate(age = as.numeric(difftime(lubridate::date(run_date), 
@@ -407,13 +488,36 @@ from_field <- samples_in_eff_by_run %>%
       `Missing Samples` = n_distinct(sample),
       `Missing Samples 0-10 days` = n_distinct(sample[age<=10]),
       `Missing Samples 10-20 days` = n_distinct(sample[age>10 & age<=20]),
-      `Missing Samples >20 days` = n_distinct(sample[age>20]))
+      `Missing Samples >20 days` = n_distinct(sample[age>20])) %>%
+    dplyr::mutate(study = 'efficacy')
+
+
+pk_field <- samples_in_pk_by_run %>% 
+    dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
+    dplyr::filter(run_date == week_start) %>%
+    dplyr::mutate(age = as.numeric(difftime(lubridate::date(run_date), 
+                                            lubridate::date(SubmissionDate), units = "days"))) %>% 
+    dplyr::group_by(run_date) %>% 
+    dplyr::summarise(
+      `Missing Samples` = n_distinct(sample),
+      `Missing Samples 0-10 days` = n_distinct(sample[age<=10]),
+      `Missing Samples 10-20 days` = n_distinct(sample[age>10 & age<=20]),
+      `Missing Samples >20 days` = n_distinct(sample[age>20])) %>%
+    dplyr::mutate(study = 'pk')
 
 
 
-tbl <- from_field
+tbl <- dplyr::bind_rows(efficacy_field, pk_field)
 
-reactable(tbl)
+reactable(tbl, 
+          groupBy = c('run_date'),
+          columns = list(
+            `Missing Samples` = colDef(aggregate = "sum"),
+            `Missing Samples 0-10 days` = colDef(aggregate = "sum"),
+            `Missing Samples 10-20 days` = colDef(aggregate = "sum"),
+            `Missing Samples >20 days` = colDef(aggregate = "sum")
+          ),
+          defaultSorted=list(run_date = 'desc'))
 ```
 
 ```{r}
