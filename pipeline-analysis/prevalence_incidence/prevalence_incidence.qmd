@@ -1,0 +1,274 @@
+---
+title: "Prevalence and incidence rates"
+order: 1
+execute:
+  echo: false
+  message: false
+  warning: false
+---
+
+```{r}
+#| output: FALSE
+ 
+library(tidyverse)
+library(flextable)
+
+# load data ----
+# !!! TO GET THE LATEST RESULTS, YOU MUST RUN THE SCRIPT evaluate_rdts.R TO CREATE THIS CSV !!!
+rdt_results <- read_csv("../data/incident_cases.csv", show_col_types = FALSE )
+
+# prep data for analysis ----
+
+rates_by_assignment_and_visit <- rdt_results %>% 
+  drop_na( assignment ) %>% 
+  group_by( assignment, visit_number ) %>%
+  summarize( Children = n(),
+             Cases = sum( incident_case, na.rm=TRUE ),
+             Prevalence = Cases / Children, 
+             Child_years_at_risk = ( sum( days_at_risk, na.rm = TRUE ) / 365.25 ),
+             Incidence = ifelse( Child_years_at_risk > 0, Cases / Child_years_at_risk, NA ), 
+             Incidence_SE = sqrt( Incidence / Child_years_at_risk ),
+             Incidence_lwr = Incidence - qnorm(0.975)*Incidence_SE, 
+             Incidence_upr = Incidence + qnorm(0.975)*Incidence_SE )  %>% 
+  select( -Incidence_SE ) %>% 
+  mutate( Child_years_at_risk = ifelse( Child_years_at_risk == 0, NA, Child_years_at_risk ) ) %>%
+  mutate( Change = ifelse( !is.na( lag(Prevalence) ), 
+                               paste0( round( 100*(( Prevalence - lag( Prevalence )) / lag(Prevalence) ), 2), "%" ),
+                               NA ), .after = Prevalence ) %>%
+  group_by( visit_number ) %>% 
+  mutate( irr_factor = ifelse( assignment == 1, 1/Incidence, Incidence) ) %>% 
+  mutate( IRR = prod( irr_factor), 
+          irr_se = sqrt( sum( 1/Cases ) ) ) %>%
+  mutate( irr_factor = exp( qnorm(0.975)*irr_se ) ) %>% 
+  mutate( IRR_lwr = IRR / irr_factor, 
+          IRR_upr = IRR * irr_factor ) %>% 
+  select( -irr_factor, -irr_se ) %>% 
+  ungroup() %>%
+  rename( Visit = visit_number, "Incidence rate" = Incidence ) 
+
+rates_by_assignment_and_visit <- left_join( rates_by_assignment_and_visit, 
+                                            rates_by_assignment_and_visit %>% 
+                                              filter( Visit > 1 ) %>% 
+                                              arrange( assignment, Visit ) %>% 
+                                              group_by( assignment ) %>% 
+                                              mutate( cumulative_cases = cumsum(Cases), 
+                                                      cumulative_time = cumsum(Child_years_at_risk), 
+                                                      cumulative_incidence = cumulative_cases / cumulative_time, 
+                                                      cumulative_incidence_se = sqrt( cumulative_incidence / cumulative_time ),
+                                                      cumulative_incidence_lwr = cumulative_incidence - qnorm(0.975)*cumulative_incidence_se,
+                                                      cumulative_incidence_upr = cumulative_incidence + qnorm(0.975)*cumulative_incidence_se ) %>%
+                                              select( - cumulative_incidence_se ) %>% 
+                                              group_by( Visit ) %>%
+                                              mutate( irr_factor = ifelse( assignment == 1, 1/cumulative_incidence, cumulative_incidence ) ) %>%
+                                              mutate( cumulative_IRR = prod( irr_factor ),
+                                                      irr_se = sqrt( sum( 1/cumulative_cases ) ) ) %>%
+                                              mutate( irr_factor = exp( qnorm( 0.975 )*irr_se ) ) %>%
+                                              mutate( cumulative_IRR_lwr = cumulative_IRR / irr_factor,
+                                                      cumulative_IRR_upr = cumulative_IRR * irr_factor ) %>%
+                                              ungroup() %>% 
+                                              select( assignment, Visit, starts_with("cumulative") ),
+                                            by = c("assignment", "Visit") ) %>%
+  rename( "Cumulative cases" = cumulative_cases,
+          "Cumulative child-years at risk" = cumulative_time, 
+          "Cumulative incidence" = cumulative_incidence,
+          "Cumulative IRR" = cumulative_IRR )
+
+rates_by_assignment_and_cluster <- rdt_results %>% 
+  drop_na( assignment ) %>% 
+  group_by( assignment, cluster, visit ) %>%
+  summarize( Children = n(),
+             Cases = sum( incident_case, na.rm=TRUE ),
+             Prevalence = Cases / Children, 
+             Child_years_at_risk = ( sum( days_at_risk, na.rm = TRUE ) / 365.25 ),
+             Incidence = ifelse( Child_years_at_risk > 0, Cases / Child_years_at_risk, NA ) ) %>%
+  mutate( assignment = factor(assignment),
+          cluster = factor(cluster)) %>%
+  group_by( assignment, cluster ) %>% 
+  arrange( visit ) %>% 
+  mutate( Change = ifelse( !is.na( lag( Prevalence ) ), Prevalence - lag(Prevalence ), NA ) ) %>%
+  ungroup() %>%
+  arrange( assignment, cluster, visit )
+
+```
+
+# Prevalence 
+
+## By assignment and visit
+
+<br> 
+
+```{r}
+
+assignment_1 <- rates_by_assignment_and_visit %>% 
+  filter( assignment == 1 ) %>% 
+  select( Visit, Children, Cases, Prevalence, Change ) %>% 
+  mutate( Prevalence = paste0( round( 100*Prevalence, 2 ), "%" ) )
+colnames( assignment_1 )[2:ncol(assignment_1)] <- paste0( "Assignment 1_", colnames( assignment_1 )[2:ncol(assignment_1)] )
+assignment_2 <- rates_by_assignment_and_visit %>% 
+  filter( assignment == 2 ) %>% 
+  select( Visit, Children, Cases, Prevalence, Change ) %>% 
+  mutate( Prevalence = paste0( round( 100*Prevalence, 2 ), "%" ) )
+colnames( assignment_2 )[2:ncol(assignment_2)] <- paste0( "Assignment 2_", colnames( assignment_2 )[2:ncol(assignment_2)] )
+
+regulartable( left_join( assignment_1, assignment_2, by = "Visit" ) ) %>%
+  separate_header() %>%
+  hline( i = 1, j = 2:5, part = "header") %>% 
+  hline( i = 1, j = 6:9, part = "header") %>% 
+  autofit()
+```
+
+<br>
+
+```{r}
+
+ggplot( rates_by_assignment_and_visit ) +
+  geom_line( aes(x=Visit, y=Prevalence, color = factor(assignment)), linewidth=1) +
+  expand_limits(y=0) + 
+  scale_x_continuous( breaks = unique( rates_by_assignment_and_visit$Visit ) ) +
+  labs( color = "Assignment") + 
+  theme( legend.position = "bottom" )
+
+```
+
+## By cluster and visit
+
+```{r}
+
+ggplot( rates_by_assignment_and_cluster ) + 
+  geom_boxplot( aes( x = assignment, y = Prevalence )) + 
+  geom_jitter( aes( x = assignment, y = Prevalence, color = cluster), width = 0.3 ) +
+  facet_wrap( ~visit ) +
+  labs( x = "Assignment", y = "Prevalence" ) +
+  theme( legend.position = "none")
+
+ggplot( rates_by_assignment_and_cluster %>% drop_na( Change ) %>% mutate( assignment = paste0("Assignment ", assignment) ) ) +
+  geom_histogram( aes(x=Change), color="white", binwidth = 0.025) +
+  labs( x = "Absolute difference in prevalence (Current visit minus previous visit)", 
+        y = "Number of clusters per bin") +
+  facet_grid( assignment ~ visit )
+```
+
+# Incidence rates 
+
+## By assignment and visit
+
+<br> 
+
+```{r}
+
+assignment_1 <- rates_by_assignment_and_visit %>% 
+  filter( assignment == 1, Visit > 1 ) %>% 
+  select( Visit, Children, Cases, "Child-years at risk" = Child_years_at_risk, `Incidence rate` ) 
+colnames( assignment_1 )[2:ncol(assignment_1)] <- paste0( "Assignment 1_", colnames( assignment_1 )[2:ncol(assignment_1)] )
+assignment_2 <- rates_by_assignment_and_visit %>% 
+  filter( assignment == 2, Visit > 1 ) %>% 
+  select( Visit, Children, Cases, "Child-years at risk" = Child_years_at_risk, `Incidence rate`, IRR, IRR_lwr, IRR_upr ) %>%
+  mutate( IRR = ifelse( !is.na(IRR), 
+                        paste0( round(IRR,3), " (", round(IRR_lwr,3), ",", round(IRR_upr,3), ")" ),
+                        IRR ) ) %>%
+  select( -IRR_lwr, -IRR_upr ) %>%
+  rename( "IRR (95% CI)" = IRR )
+irr <- assignment_2 %>% select( Visit, "Incidence Rate Ratio_IRR (95% CI)" = `IRR (95% CI)`)
+assignment_2 <- assignment_2 %>% select( -`IRR (95% CI)` )
+colnames( assignment_2 )[2:ncol(assignment_2)] <- paste0( "Assignment 2_", colnames( assignment_2 )[2:ncol(assignment_2)] )
+
+regulartable( left_join( assignment_1, assignment_2, by = "Visit" ) %>% left_join( irr, by = "Visit") ) %>%
+  separate_header() %>%
+  colformat_double( j = c(4,5,8,9), digits = 2 ) %>% 
+  vline( j = c(1,5,9) ) %>% 
+  # hline( i = 1, j = 2:5, part = "header") %>% 
+  # hline( i = 1, j = 6:9, part = "header") %>% 
+  autofit()
+
+```
+
+<br> 
+
+```{r}
+
+ggplot( rates_by_assignment_and_visit %>% filter( Visit > 1 )) +
+  geom_ribbon( aes(x=Visit, ymin = Incidence_lwr, ymax = Incidence_upr, fill=factor(assignment) ), alpha = 0.3 ) +
+  geom_point( aes(x=Visit, y=`Incidence rate`, color = factor(assignment) ), size=2 ) +
+  geom_line( aes(x=Visit, y=`Incidence rate`, color = factor(assignment)), linewidth=1) +
+  expand_limits(y=0) + 
+  scale_x_continuous( breaks = 2:3 ) +
+  labs( color = "Assignment", fill = "Assignment") +
+  theme( legend.position = "bottom")
+
+ggplot( rates_by_assignment_and_visit %>% filter( Visit > 1 ) ) +
+  geom_hline( yintercept = 1, linetype = "dashed", color = "tomato") +
+  geom_point( aes( x = Visit, y = IRR ), size = 2, color = "darkblue" ) +
+  geom_line( aes( x = Visit, y = IRR ), size = 1, color = "darkblue" ) +
+  geom_ribbon( aes( x = Visit, ymin = IRR_lwr, ymax = IRR_upr ), fill = "steelblue", alpha = 0.3 ) + 
+  expand_limits( y=0 ) +
+  # xlim(1.5,3.5) +
+  scale_x_continuous( breaks = 2:3 ) +
+  # theme_bw( base_size = 14 ) +
+  labs( color = "Assignment") 
+```
+
+## Cumulative incidence 
+
+<br> 
+
+```{r}
+
+assignment_1 <- rates_by_assignment_and_visit %>% 
+  filter( assignment == 1, Visit > 1 ) %>% 
+  select( Visit, Children, Cases = `Cumulative cases`, "Child-years at risk" = `Cumulative child-years at risk`, Incidence = `Cumulative incidence` ) 
+colnames( assignment_1 )[2:ncol(assignment_1)] <- paste0( "Assignment 1 (Cumulative totals)_", colnames( assignment_1 )[2:ncol(assignment_1)] )
+assignment_2 <- rates_by_assignment_and_visit %>% 
+  filter( assignment == 2, Visit > 1 ) %>% 
+  select( Visit, Children, Cases = `Cumulative cases`, "Child-years at risk" = `Cumulative child-years at risk`, Incidence = `Cumulative incidence`, `Cumulative IRR`, cumulative_IRR_lwr, cumulative_IRR_upr ) %>%
+  mutate( IRR = ifelse( !is.na(`Cumulative IRR`), 
+                        paste0( round(`Cumulative IRR`,3), " (", round(cumulative_IRR_lwr,3), ",", round(cumulative_IRR_upr,3), ")" ),
+                        `Cumulative IRR` ) ) %>%
+  select( -`Cumulative IRR`, -cumulative_IRR_lwr, -cumulative_IRR_upr ) %>%
+  rename( "Cumulative IRR (95% CI)" = IRR )
+irr <- assignment_2 %>% select( Visit, "Incidence Rate Ratio_IRR (95% CI)" = `Cumulative IRR (95% CI)`)
+assignment_2 <- assignment_2 %>% select( -`Cumulative IRR (95% CI)` )
+colnames( assignment_2 )[2:ncol(assignment_2)] <- paste0( "Assignment 2 (Cumulative totals)_", colnames( assignment_2 )[2:ncol(assignment_2)] )
+
+regulartable( left_join( assignment_1, assignment_2, by = "Visit" ) %>% left_join( irr, by = "Visit") ) %>%
+  separate_header() %>%
+  colformat_double( j = c(4,5,8,9), digits = 2 ) %>% 
+  vline( j = c(1,5,9) ) %>% 
+  # hline( i = 1, j = 2:5, part = "header") %>% 
+  # hline( i = 1, j = 6:9, part = "header") %>% 
+  autofit()
+
+```
+
+<br> 
+
+```{r}
+
+ggplot( rates_by_assignment_and_visit %>% filter( Visit > 1 ) ) + 
+  geom_ribbon( aes(x=Visit, ymin = cumulative_incidence_lwr, ymax = cumulative_incidence_upr, fill=factor(assignment) ), alpha = 0.3 ) +
+  geom_point( aes( x = Visit, y = `Cumulative incidence`, color = factor(assignment) ), size=2 ) +
+  geom_line( aes( x = Visit, y = `Cumulative incidence`, color = factor(assignment) ), linewidth=1) + 
+  expand_limits( y = 0 ) +
+  scale_x_continuous( breaks = 2:3 ) +
+  labs( color = "Assignment", fill = "Assignment") +
+  theme( legend.position = "bottom")
+
+```
+
+## By cluster and visit
+
+```{r}
+
+ggplot( rates_by_assignment_and_cluster %>% filter( visit != "V1" ) ) + 
+  geom_boxplot( aes( x = assignment, y = Incidence ) ) + 
+  geom_jitter( aes( x = assignment, y = Incidence, color = cluster), width = 0.25 ) +
+  facet_wrap( ~visit ) +
+  labs( x = "Assignment", y = "Incidence" ) +
+  theme( legend.position = "none")
+
+# ggplot( rates_by_assignment_and_cluster %>% drop_na( Change ) %>% mutate( assignment = paste0("Assignment ", assignment) ) ) +
+#   geom_histogram( aes(x=Change), color="white", binwidth = 0.025) +
+#   labs( x = "Absolute difference in prevalence (Current visit minus previous visit)", 
+#         y = "Number of clusters per bin") +
+#   facet_grid( assignment ~ visit )
+```
+
