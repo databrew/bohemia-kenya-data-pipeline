@@ -124,8 +124,17 @@ clean_column_names <- function(data){
 ```{r}
 craremotemonitoring <- cloudbrewr::aws_s3_get_table(
   bucket = 'databrew.org',
-  key = INPUT_KEY$craremotemonitoring
-) %>% clean_column_names()
+  key = INPUT_KEY$craremotemonitoring) %>% 
+  clean_column_names() %>% 
+  tidyr::separate(report_id, sep = "-", into = c('identifier','snap'), remove = FALSE)
+
+
+siteremotemonitoring <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = INPUT_KEY$siteremotemonitoring) %>% 
+  clean_column_names() %>% 
+  dplyr::filter(SubmissionDate >= '2024-01-29') %>% 
+  tidyr::separate(report_id, sep = "-", into = c('identifier','snap'), remove = FALSE)
 ```
 
 
@@ -138,9 +147,9 @@ prod_cloudfront_url <- 'https://d2x4i6sj6nrqsn.cloudfront.net'
 ```
 
 
-## Intro
+## About
 
-As a CRA, you will be able to fetch all reports coming from the site with access to the CRA forms
+CRA Reports: Monitors will be able to use this report to go through all other reports, and check on open/closed issues coming from the site
 
 
 #### Guideline:
@@ -229,13 +238,18 @@ tbl <- craremotemonitoring %>%
                   resolve_link,
                   issue,
                   `Does it Impact Participant Safety? (Y/N)` = impact_to_participant_safety_yn,
-                  `Does it Impact Participant Safety?` = impact_to_participant_safety)
+                  `Does it Impact Participant Safety?` = impact_to_participant_safety,
+                  identifier)
 
 
 element_id <- 'cra_open_issues'
 tbl <- reactable(
         tbl,
         columns = list(
+                  identifier = colDef(
+                    name = 'identifier',
+                    minWidth = 200
+                  ),
                   SubmissionDate = colDef(
                     name = 'SubmissionDate',
                     minWidth = 200
@@ -260,6 +274,8 @@ tbl <- reactable(
         bordered = TRUE,
         striped = TRUE,
         filterable =TRUE,
+        groupBy = 'identifier',
+        wrap = TRUE,
         elementId = element_id)
 
 
@@ -282,17 +298,25 @@ tbl <- craremotemonitoring %>%
                   `Documentation Filed (Y/N)` = documentation_filed_yn,
                   `Documentation Filed` = documentation_filed,
                   `Follow up` = followup,
-                  `Resolver Name` = resolver_name)
+                  `Resolver Name` = resolver_name,
+                  identifier)
 
 
 element_id <- 'cra_closed_issues'
 tbl <- reactable(
         tbl,
+        columns = list(
+          identifier = colDef(
+            name = 'identifier',
+            minWidth = 200
+        )),
         highlight = TRUE,
         resizable = TRUE,
         bordered = TRUE,
         striped = TRUE,
         filterable =TRUE,
+        groupBy = 'identifier',
+        wrap = TRUE,
         elementId = element_id)
 
 wrap_download(tbl,  
@@ -300,3 +324,108 @@ wrap_download(tbl,
               'cra_closed_issues.csv')
 ```
 
+
+## Site Open Issues
+
+```{r}
+resolved_issue <- siteremotemonitoring %>% 
+    dplyr::filter(issue_type == 'Resolve') %>% 
+    dplyr::arrange(desc(SubmissionDate)) %>%
+    dplyr::distinct(issue_id) %>%
+    dplyr::pull(issue_id)
+
+
+tbl <- siteremotemonitoring %>% 
+    dplyr::filter(issue_type == 'Open', !instanceID %in% resolved_issue) %>% 
+    dplyr::mutate(resolve_link = glue::glue(cra_resolve_link))%>%
+    dplyr::select(SubmissionDate, 
+                  `Issue ID` = instanceID,
+                  `Report ID` = report_id, 
+                  resolve_link,
+                  issue,
+                  `Affect Participant Safety` = affect_participant_safety,
+                  `Affected Participant ID` = affected_participant_id,
+                  identifier)
+
+
+element_id <- 'site_open_issues'
+tbl <- reactable(
+        tbl,
+        columns = list(
+                  identifier = colDef(
+                    name = 'identifier',
+                    minWidth = 200
+                  ),
+                  SubmissionDate = colDef(
+                    name = 'SubmissionDate',
+                    minWidth = 200
+                  ),
+                  `Issue ID` = colDef(
+                    name = 'Issue ID',
+                    minWidth = 200
+                  ),
+                  `Report ID` = colDef(
+                    name = 'Report ID',
+                    minWidth = 200
+                  ),
+                  resolve_link = colDef(name = 'Resolve Link',
+                         cell = function(value, index) {
+                           url <- sprintf("%s", 
+                                          tbl[index, "resolve_link"], value)
+                           htmltools::tags$a(href = url, target = "_blank", 'URL')
+                        })
+        ),
+        groupBy = 'identifier',
+        highlight = TRUE,
+        resizable = TRUE,
+        bordered = TRUE,
+        striped = TRUE,
+        filterable =TRUE,
+        wrap = TRUE,
+        elementId = element_id)
+
+
+wrap_download(tbl,  
+              element_id,
+              'cra_open_issues.csv')
+```
+
+
+## Site Closed Issues
+
+```{r}
+tbl <- siteremotemonitoring %>% 
+    dplyr::filter(issue_type == 'Resolve', issue_id %in% resolved_issue) %>% 
+    dplyr::select(SubmissionDate, 
+                  `Issue ID` = issue_id,
+                  `Report ID` = report_id,
+                  issue,
+                  `Affect Participant Safety` = affect_participant_safety,
+                  `Reviewer Name` = resolver_name,
+                  `Team Members Informed` = team_members_informed,
+                  `Actions Taken` = actions_taken,
+                  identifier)
+
+
+element_id <- 'site_closed_issues'
+tbl <- reactable(
+        tbl,
+        columns = list(
+          identifier = colDef(
+            name = 'identifier',
+            minWidth = 200
+        )),
+        groupBy = 'identifier',
+        highlight = TRUE,
+        resizable = TRUE,
+        bordered = TRUE,
+        striped = TRUE,
+        filterable =TRUE,
+        wrap = TRUE,
+        elementId = element_id)
+
+wrap_download(
+  tbl,  
+  element_id,
+  'cra_closed_issues.csv')
+```
