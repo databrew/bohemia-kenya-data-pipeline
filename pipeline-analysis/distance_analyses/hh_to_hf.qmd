@@ -1,0 +1,85 @@
+---
+title: "Households to health facilities"
+order: 1
+execute:
+  echo: false
+  message: false
+  warning: false
+---
+
+```{r, ft.align = "left"}
+library(dplyr)
+library(readr)
+library(readxl)
+library(sf)
+library(tmap)
+library(geodata)
+library(readxl)
+options( scipen = 999 )
+
+LAKE_DB_BUCKET <- 'bohemia-lake-db'
+FORM_BUCKET <- 'databrew.org'
+
+# load data ----
+
+coordinates_of_hf <- cloudbrewr::aws_s3_get_table(
+  bucket = LAKE_DB_BUCKET,
+  key = glue::glue('bohemia_ext_data/coordinates_of_hf/coordinates_of_hf.csv')) %>%
+  select( Name, LONG, LAT )
+v0demography_points <- cloudbrewr::aws_s3_get_table(
+  bucket = FORM_BUCKET,
+  key = glue::glue('kwale/clean-form/v0demography/v0demography.csv')) %>%
+  select( hhid, LONG = Longitude, LAT = Latitude)
+
+
+v0_hh_wealth_indices <-  cloudbrewr::aws_s3_get_table(
+  bucket = LAKE_DB_BUCKET,
+  key = glue::glue('bohemia_ext_data/v0_hh_wealth_index/v0_hh_wealth_index.csv'))
+v0_cluster_wealth_indices <- cloudbrewr::aws_s3_get_table(
+  bucket = LAKE_DB_BUCKET,
+  key = glue::glue('bohemia_ext_data/v0_cluster_wealth_index/v0_cluster_wealth_index.csv'))
+
+
+msambweni_label <- coordinates_of_hf %>% filter( Name == "Msambweni County Referral Hospital" ) %>%
+  mutate( LAT = 1.0015*LAT )
+
+coordinates_of_hf <- st_as_sf( coordinates_of_hf, coords = c("LONG", "LAT"), remove = F, crs = st_crs(4326) )
+msambweni_label <- st_as_sf( msambweni_label, coords = c("LONG", "LAT"), remove = F, crs = st_crs(4326) )
+v0demography_points <- st_as_sf( v0demography_points, coords = c("LONG","LAT"), remove = F, crs = st_crs(4326) )
+
+
+
+v0demography_points <- left_join( v0demography_points, v0_hh_wealth_indices, by = "hhid") 
+
+# polygons for trial regions ----
+kenya <- st_as_sf( gadm( country = "Kenya", level = 3, path = getwd() ) )
+kwale <- kenya %>% filter( NAME_1 == "Kwale" )
+bhm_regions <- kwale %>% filter( NAME_3 %in% c("Pongwe/Kikoneni", "Ramisi")) %>% rename( Region = NAME_3)
+
+```
+
+```{r}
+distances <- st_distance( v0demography_points, coordinates_of_hf, by_element = FALSE)
+v0demography_points$closest_hf <- coordinates_of_hf$Name[ apply( distances, 1, FUN = which.min ) ]
+v0demography_points$meters_to_closest_hf <- apply( distances, 1, FUN = min )
+
+summary( v0demography_points$meters_to_closest_hf )
+```
+
+```{r}
+
+# tmap_mode("view") +
+tm_shape( bhm_regions, name = "Region" ) + 
+  tm_polygons( col = "Region", palette = c("lightblue","lightgreen") ) + 
+  tm_shape( v0demography_points ) + 
+  tm_dots( col = "wealth index score", alpha = 0.8, size = 0.1 ) + 
+  tm_shape( coordinates_of_hf ) + 
+  tm_dots( col = "blue", shape = 19, size = 0.25, alpha = 0.8 ) + 
+  tm_shape( coordinates_of_hf %>% filter( Name == "Msambweni County Referral Hospital" )) + 
+  tm_dots( col = "purple", shape = 19, size = 0.5, alpha = 0.8 ) + 
+  tm_shape( msambweni_label ) +
+  tm_text( "Name" )
+
+```
+
+
