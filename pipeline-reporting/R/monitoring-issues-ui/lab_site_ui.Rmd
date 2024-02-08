@@ -126,7 +126,8 @@ siteremotemonitoring <- cloudbrewr::aws_s3_get_table(
   bucket = 'databrew.org',
   key = INPUT_KEY$siteremotemonitoring
 ) %>% clean_column_names() %>% 
-  dplyr::filter(stringr::str_detect(report_id, 'LAB'))
+  dplyr::filter(stringr::str_detect(report_id, 'LAB'))  %>% 
+  dplyr::filter(SubmissionDate >= '2024-01-29')
 ```
 
 
@@ -201,6 +202,9 @@ reactable(
     highlight = TRUE,
     resizable = TRUE,
     bordered = TRUE,
+    filterable = TRUE,
+    defaultSorted = 'report_name',
+    wrap = FALSE,
     striped = TRUE)
 ```
 
@@ -256,6 +260,8 @@ tbl <- reactable(
         bordered = TRUE,
         striped = TRUE,
         filterable =TRUE,
+        defaultSorted = 'SubmissionDate',
+        wrap = FALSE,
         elementId = element_id)
 
 wrap_download(tbl,  
@@ -286,6 +292,8 @@ tbl <- reactable(
         bordered = TRUE,
         striped = TRUE,
         filterable =TRUE,
+        defaultSorted = 'SubmissionDate',
+        wrap = FALSE,
         elementId = element_id)
 
 wrap_download(tbl,  
