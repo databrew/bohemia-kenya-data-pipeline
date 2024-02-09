@@ -182,7 +182,8 @@ absence1stattempt <- absence1stattempt %>%
                                 take_drug_2_safetynew),
            safetystatus = safety_status,
            enrolment = case_when(
-                starting_safety_status == 'out' &
+                (starting_safety_status == 'out' |
+                    is.na(starting_safety_status)) &
                  safety_status != 'out' ~ 'enrolment',
               TRUE ~ 'follow up'),
            safety_reason = case_when(

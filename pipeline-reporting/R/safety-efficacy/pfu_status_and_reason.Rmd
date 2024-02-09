@@ -3,6 +3,8 @@ title: "PFU Report"
 output: 
   html_document:
     toc: true
+    toc_float: 
+      collapsed: true
     theme: cerulean
 date: '`r Sys.time()`'
 ---
@@ -259,7 +261,13 @@ target_table <- target_table %>%
            sex_v0 = sex)
 
 # assign the reasons for eos and in
-pfu_reason <- pfu %>%
+pfu_enrolment <- pfu %>%
+  arrange(visit) %>%
+  group_by(extid) %>%
+  mutate(enrolment = ifelse(row_number() == 1, "enrolment", "follow up")) %>%
+  ungroup()
+
+pfu_reason <- pfu_enrolment %>%
   mutate(pregnancy_status_reason = case_when(pregnancy_status == 'in' ~ 'in',
                             ltfu_eos == '1' |
                               fourth_absence_eos == '1' ~ 'absent 4 times in a row: ltfu',
@@ -280,73 +288,129 @@ pfu_reason <- pfu %>%
   rename(dob_pregnancy = dob_string,
          sex_pregnancy = sex,
          todays_date_pregnancy = todays_date)
+    
 
 # create the dataset that will be used for this script
   # this will exclude the people who were manually removed
-  data <- merge(pfu_reason, v0dem, by = c('extid'), all = TRUE) # add manual changes with filter function here 
+  data <- merge(pfu_reason, v0dem, by = c('extid'), all = TRUE)
   
 # create the dataset for the extid explorer
   data_investigation <- data %>%
     filter(!is.na(visit)) %>% # removes extids not in Efficacy
-    select(visit, extid, pregnancy_status, pregnancy_status_reason, sex_v0, sex_pregnancy, dob_v0, dob_pregnancy, todays_date_v0, todays_date_pregnancy)
+    select(visit, extid, pregnancy_status, pregnancy_status_reason, enrolment, sex_v0, sex_pregnancy, dob_v0, dob_pregnancy, todays_date_v0, todays_date_pregnancy)
 
 ```
 
 ```{r enrolment_followup}
-## create dataset to determine if it was an enrolment or follow up visit
-visit_type <- data %>%
-    pivot_wider(
-    id_cols = extid,  # Incorrect column name
-    names_from = visit,
-    values_from = pregnancy_status
-  ) %>% 
-  select(extid, V2, V3) %>% # add V4, etc.
-  filter(!is.na(V2) | !is.na(V3)) # add V4, etc.
+## create tables to show how many are enrolment or follow up
 
-# add the visit type column to data
-# need to make the visit type show and need to break up eos into visit type options
+## V2 ##########################
 
-# ## V4 #########################
-# 
-# visit_type_v4 <- visit_type %>%
-#   filter(!is.na(V4)) %>%
-#   mutate(visit_type = case_when(
-#     V3 == 'in' ~ 'follow up',
-#     V3 == 'out' |
-#       is.na(V3) ~ 'enrolment',
-#     V2 == 'eos' |
-#       V3 == 'eos' ~ 'previously eos'
-#   ))
-# 
-#   table_visit_type_v4 <- visit_type_v4 %>%
-#       group_by(visit_type) %>%
-#       summarise('Number of people' = n()) %>%
-#       arrange(visit_type) %>%
-#       rename('Visit type' = visit_type) %>%
-#       add_row('Visit type' = 'total visited', 'Number of people' = sum(.$'Number of people')) %>%
-#       mutate('Percent complete' = (as.numeric(`Number of people`)) / as.numeric(nrow(visit_type_v4)) * 100) %>%
-#       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
-#       mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
-
-## V3 ######################### 
-  visit_type_v3 <- visit_type %>%
-      filter(!is.na(V3)) %>%
-      mutate(visit_type = case_when(
-        V2 == 'in' ~ 'follow up',
-        V2 == 'out' |
-          is.na(V2) ~ 'enrolment',
-        V2 == 'eos' ~ 'previously eos'
-    ))
+pregnancy_v2 <- data %>%
+    filter(visit == 'V2')
   
-    table_visit_type_v3 <- visit_type_v3 %>%
-      group_by(visit_type) %>%
-      summarise('Number of people' = n()) %>%
-      arrange(visit_type) %>%
-      rename('Visit type' = visit_type) %>%
-      add_row('Visit type' = 'total visited', 'Number of people' = sum(.$'Number of people')) %>%
-      mutate('Percent complete' = (as.numeric(`Number of people`)) / as.numeric(nrow(visit_type_v3)) * 100) %>%
-      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
-      mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  table_visit_type_v2 <- pregnancy_v2 %>%
+    group_by(enrolment) %>%
+    summarise('Number of people' = n()) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
+    add_row('Visit type' = 'total', 'Number of people' = sum(.$'Number of people')) %>%
+    mutate('Percent' = (as.numeric(`Number of people`)) / as.numeric(nrow(pregnancy_v2)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+  
+  
+## V3 ##########################
+
+pregnancy_v3 <- data %>%
+    filter(visit == 'V3')
+  
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  table_visit_type_v3 <- pregnancy_v3 %>%
+    group_by(enrolment) %>%
+    summarise('Number of people' = n()) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
+    add_row('Visit type' = 'total', 'Number of people' = sum(.$'Number of people')) %>%
+    mutate('Percent' = (as.numeric(`Number of people`)) / as.numeric(nrow(pregnancy_v3)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+
+
+## V4 ##########################
+
+pregnancy_v4 <- data %>%
+    filter(visit == 'V4')
+  
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  table_visit_type_v4 <- pregnancy_v4 %>%
+    group_by(enrolment) %>%
+    summarise('Number of people' = n()) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
+    add_row('Visit type' = 'total', 'Number of people' = sum(.$'Number of people')) %>%
+    mutate('Percent' = (as.numeric(`Number of people`)) / as.numeric(nrow(pregnancy_v4)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+  
+  
+## V5 ##########################
+
+pregnancy_v5 <- data %>%
+    filter(visit == 'V5')
+  
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  table_visit_type_v5 <- pregnancy_v5 %>%
+    group_by(enrolment) %>%
+    summarise('Number of people' = n()) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
+    add_row('Visit type' = 'total', 'Number of people' = sum(.$'Number of people')) %>%
+    mutate('Percent' = (as.numeric(`Number of people`)) / as.numeric(nrow(pregnancy_v5)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+  
+  
+## V6 ##########################
+
+pregnancy_v6 <- data %>%
+    filter(visit == 'V6')
+  
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  table_visit_type_v6 <- pregnancy_v6 %>%
+    group_by(enrolment) %>%
+    summarise('Number of people' = n()) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
+    add_row('Visit type' = 'total', 'Number of people' = sum(.$'Number of people')) %>%
+    mutate('Percent' = (as.numeric(`Number of people`)) / as.numeric(nrow(pregnancy_v6)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+  
+  
+## V7 ##########################
+
+pregnancy_v7 <- data %>%
+    filter(visit == 'V7')
+  
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  table_visit_type_v7 <- pregnancy_v7 %>%
+    group_by(enrolment) %>%
+    summarise('Number of people' = n()) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
+    add_row('Visit type' = 'total', 'Number of people' = sum(.$'Number of people')) %>%
+    mutate('Percent' = (as.numeric(`Number of people`)) / as.numeric(nrow(pregnancy_v7)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+  
 ```
 
 ```{r eos_reason}
@@ -461,6 +525,61 @@ visit_type <- data %>%
 reactable(target_table, columns = list(), pagination = FALSE)
 ```
 
+## V5 Numbers
+```{r v5_table_status}
+reactable(pfu_totals_v5, columns = list(
+  `Percent complete` = colDef(align = "right")
+))
+
+# make a note of the real total number of people visited without repeats
+if (any(duplicated(pfu_totals_v5$extid))) {
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(pfu_totals_v5$extid)), "\n.")
+} else {
+  cat("Note: There are no duplicates based on extid in the data.")
+}
+```
+
+### Visit type
+```{r v5_visit_type}
+reactable(table_visit_type_v5, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+```
+
+### eos
+```{r v5_table_eos_reason}
+reactable(eos_reasons_v5, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# write which reasons do not appear in the table
+# Specify the names you want to check for
+names_to_check <- c('died',
+                    'migrated',
+                    'not wish to continue',
+                    'no longer pregnant - baby born alive',
+                    'no longer pregnant - miscarriage',
+                    'no longer pregnant - abortion (self-induced)',
+                    'no longer pregnant - baby was born dead',
+                    'no longer pregnant - prefer not to answer')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% eos_reasons_v5$reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following reasons are not shown: ", paste0(not_found_names, collapse = " / "))
+}
+```
+
+
 ## V4 Numbers
 ```{r v4_table_status}
 reactable(pfu_totals_v4, columns = list(
@@ -469,18 +588,18 @@ reactable(pfu_totals_v4, columns = list(
 
 # make a note of the real total number of people visited without repeats
 if (any(duplicated(pfu_totals_v4$extid))) {
-  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(pfu_totals_v2$extid)), "\n.")
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(pfu_totals_v4$extid)), "\n.")
 } else {
   cat("Note: There are no duplicates based on extid in the data.")
 }
 ```
 
-<!-- ### Visit type -->
-<!-- ```{r v4_visit_type} -->
-<!-- reactable(table_visit_type_v4, columns = list( -->
-<!--   `Percent complete` = colDef(align = 'right') -->
-<!-- ), pagination = FALSE) #pagination makes the entire table show on one page -->
-<!-- ``` -->
+### Visit type
+```{r v4_visit_type}
+reactable(table_visit_type_v4, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+```
 
 ### eos
 ```{r v4_table_eos_reason}
@@ -524,7 +643,7 @@ reactable(pfu_totals_v3, columns = list(
 
 # make a note of the real total number of people visited without repeats
 if (any(duplicated(pfu_totals_v3$extid))) {
-  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(pfu_totals_v2$extid)), "\n.")
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(pfu_totals_v3$extid)), "\n.")
 } else {
   cat("Note: There are no duplicates based on extid in the data.")
 }
@@ -533,7 +652,7 @@ if (any(duplicated(pfu_totals_v3$extid))) {
 ### Visit type
 ```{r v3_visit_type}
 reactable(table_visit_type_v3, columns = list(
-  `Percent complete` = colDef(align = 'right')
+  `Percent` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
