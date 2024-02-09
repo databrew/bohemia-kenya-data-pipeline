@@ -34,15 +34,13 @@ Each folder will be a section in the analyses website. Here are the steps:
         contents: new_analysis_name/*
 ```
 
-Once finished, create a PR to `bohemia-kenya-data-pipeline:dev`
-
-### Folders
+## Folders Definition
 - `/data_prep`: Used for storing data processing scripts
 - `/data`: Used for storing intermediary data
+- `/utils`: Utility scripts
+- `/analyses_files`
 
-### Combining Everything
-Note: This will only be required for deployment
+## Deployment
+Deployment will be done via Github Actions CI/CD. Once finished with your edits, [create a PR to master pipeline repository](https://github.com/databrew/bohemia-kenya-data-pipeline/compare) and compare changes to `dev` branch. 
 
-```
-make pipeline
-```
+Then, code will be reviewed and tested before merging to the `main` branch
