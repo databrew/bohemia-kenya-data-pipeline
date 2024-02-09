@@ -20,7 +20,7 @@ WORKDIR /root/pipeline-analysis
 ARG QUARTO_VERSION=1.3.433
 RUN mkdir -p /opt/quarto/${QUARTO_VERSION}
 RUN curl -o quarto-linux-amd64.deb -L https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb
-RUN -n gdebi quarto-linux-amd64.deb
+RUN gdebi -n quarto-linux-amd64.deb
 RUN quarto --version
 
 # use renv to replicate
