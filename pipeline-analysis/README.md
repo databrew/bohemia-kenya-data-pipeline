@@ -9,6 +9,13 @@ Results for BOHEMIA trial in Kenya
 
 3. Create a R Project under `pipeline-analysis`
 
+4. Restore all libraries and packages:
+
+```r
+renv::init(bare = TRUE)
+renv::restore()
+```
+
 **REQUIRED**: To get your local notebook development to point towards the most recent dataset, set environment variable `PIPELINE_STAGE=production`. You can also set this up once by using `.Renviron` file, and add in the environment variable you would like to have as default
 
 ### Modifying Existing Analysis
