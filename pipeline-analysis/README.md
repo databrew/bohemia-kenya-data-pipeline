@@ -18,10 +18,12 @@ renv::restore()
 
 **REQUIRED**: To get your local notebook development to point towards the most recent dataset, set environment variable `PIPELINE_STAGE=production`. You can also set this up once by using `.Renviron` file, and add in the environment variable you would like to have as default
 
-### Modifying Existing Analysis
+## Making Changes
+
+### a. Modifying Existing Analysis
 To modify each notebooks, you can go into the analysis folders in the project directory. Each folder will have a `.qmd` file and you can edit accordingly.
 
-### Adding New Analysis
+### b. Adding New Analysis
 Each folder will be a section in the analyses website. Here are the steps:
 - Create a new folder with new analysis name
 - To append to the website, edit contents in `_quarto.yml`
@@ -32,7 +34,9 @@ Each folder will be a section in the analyses website. Here are the steps:
         contents: new_analysis_name/*
 ```
 
-### Other Folders
+Once finished, create a PR to `bohemia-kenya-data-pipeline:dev`
+
+### Folders
 - `/data_prep`: Used for storing data processing scripts
 - `/data`: Used for storing intermediary data
 
