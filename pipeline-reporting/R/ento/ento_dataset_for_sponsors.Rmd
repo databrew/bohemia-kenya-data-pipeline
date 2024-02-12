@@ -500,7 +500,8 @@ rc_tubes_meta = rbind(rc_gonotrophic_tubes,rc_storage_tubes)
 
 entorc_df <- entorcmorphid[names(entorcmorphid) %>% stringr::str_detect("SubmissionDate|instance_label|cluster|instanceID|hh_or_pit|hhid|todays_date|repeat_tubes_|repeat_tube_")]%>%
   select(-c(hhid_manual, hhid_print))%>%
-  tidyr::pivot_longer(!c(SubmissionDate,todays_date,instance_label,hh_or_pit,hhid,instanceID), names_to = "temp_value", values_to = "value")%>%
+  tidyr::pivot_longer(!c(SubmissionDate,todays_date,instance_label,hh_or_pit,hhid,instanceID), 
+                      names_to = "temp_value", values_to = "value")%>%
   dplyr::mutate(species = stringr::str_extract(temp_value,'gambiae|funestus'),
                 KEY_ = gsub("_count","",temp_value),
                 KEY = as.character(stringr::str_glue('{instanceID}/group_anopheles_{species}/{KEY_}')),
@@ -541,7 +542,6 @@ entorcmorpid_tubes <- rc_df %>%
                 hhid = case_when(
                   nchar(hhid) == 4 ~ glue::glue('0{hhid}'),
                   TRUE             ~ hhid)), by = c("instance_label"="hhid", "todays_date" = "Collection date"))%>%
-  left_join(entorcoviposition %>% select(tube_id, species_complex), by=c("Sample tube ID"="tube_id"))%>%
   mutate(Cluster = cluster,
          Arm = assignment,
          `Storage Box ID` = NA,
@@ -552,7 +552,7 @@ entorcmorpid_tubes <- rc_df %>%
          `Collection date` = todays_date,
          `Collection location`,
          HHID = instance_label,
-         `Species complex` = species_complex,
+         `Species`,
          Cluster,
          Arm,
          `Storage Box ID`,
@@ -645,12 +645,12 @@ df <- entorcmorphid %>%
                        TRUE                ~ instance_label)), 
             by = c("site_id"="instance_label")) %>%
   left_join(entorcfield %>% 
-              select(hhid,todays_date,trap_success)%>%
+              select(hhid,todays_date,trap_success, hh_or_pit)%>%
               mutate(hhid = as.character(hhid),
                      hhid = case_when(
                        nchar(hhid) == 4 ~ glue::glue('0{hhid}'),
                        TRUE             ~ hhid)), 
-            by = c("site_id"="hhid", 'todays_date')) %>%
+            by = c("site_id"="hhid", 'todays_date', 'collection site' = 'hh_or_pit')) %>%
   select(-c(wall_specify,roof_specify))%>%
   select(`collection site`,
          `Date` = todays_date,
