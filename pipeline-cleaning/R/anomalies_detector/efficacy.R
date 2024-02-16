@@ -115,6 +115,21 @@ anomalies_list$sus_gps <-  efficacy %>%
   dplyr::ungroup() %>%
   dplyr::select(all_of(final_col_list))
 
+# hh gps accuracy too high
+anomalies_list$detected_multiple_clusters_hh <- efficacy %>%
+  dplyr::group_by(hhid) %>%
+  dplyr::mutate(n = n_distinct(cluster),
+                key_list = paste0(KEY, collapse = ',')) %>%
+  dplyr::filter(n > 1) %>%
+  dplyr::mutate(form_id = 'efficacy',
+                anomalies_id = glue::glue('hh_detected_multiple_clusters'),
+                anomalies_description = glue::glue('hhid:{hhid} detected multiple clusters in the same households; here are the instanceIDs: {key_list}'),
+                anomalies_reports_to_wid = glue::glue('{wid}')) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(all_of(final_col_list))
+
+
+
 #################################
 ## Consolidate
 #################################
