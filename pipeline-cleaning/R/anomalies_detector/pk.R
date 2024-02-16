@@ -107,6 +107,31 @@ anomalies_list$duplicate_pkday0_pkid <- pkday0 %>%
   dplyr::ungroup() %>%
   dplyr::select(all_of(final_col_list))
 
+
+anomalies_list$detected_multiple_clusters_hh_pkday0 <- pkday0 %>%
+  dplyr::group_by(hhid) %>%
+  dplyr::mutate(n = n_distinct(cluster),
+                key_list = paste0(KEY, collapse = ',')) %>%
+  dplyr::filter(n > 1) %>%
+  dplyr::mutate(form_id = 'pkday0',
+                anomalies_id = glue::glue('hh_detected_multiple_clusters'),
+                anomalies_description = glue::glue('hhid:{hhid} detected multiple clusters in the same households; here are the instanceIDs: {key_list}'),
+                anomalies_reports_to_wid = glue::glue('{wid}')) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(all_of(final_col_list))
+
+anomalies_list$detected_multiple_clusters_hh_pkdays123 <- pkdays123 %>%
+  dplyr::group_by(hhid) %>%
+  dplyr::mutate(n = n_distinct(cluster),
+                key_list = paste0(KEY, collapse = ',')) %>%
+  dplyr::filter(n > 1) %>%
+  dplyr::mutate(form_id = 'pkdays123',
+                anomalies_id = glue::glue('hh_detected_multiple_clusters'),
+                anomalies_description = glue::glue('hhid:{hhid} detected multiple clusters in the same households; here are the instanceIDs: {key_list}'),
+                anomalies_reports_to_wid = glue::glue('{wid}')) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(all_of(final_col_list))
+
 # duplicate pk_id
 anomalies_list$duplicate_pkdays123_pkid <- pkdays123 %>%
   dplyr::mutate(`KEY` = as.character(`KEY`)) %>%
