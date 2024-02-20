@@ -325,7 +325,9 @@ absence1stattempt <- absence1stattempt %>%
     add_row('EOS reason' = 'total visited', 
             '1' = sum(.$'1'),
             '2' = sum(.$'2')) %>%
-    mutate(Total = `1` + `2`) 
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
 
   
   # enrolled completion
@@ -343,7 +345,9 @@ absence1stattempt <- absence1stattempt %>%
     pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
     ungroup() %>%
     rename('Enrolled reason' = safety_status) %>%
-    mutate(Total = `1` + `2`)
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
 
 ```
 
@@ -384,7 +388,9 @@ absence1stattempt <- absence1stattempt %>%
     add_row('EOS reason' = 'total visited', 
             '1' = sum(.$'1'),
             '2' = sum(.$'2')) %>%
-    mutate(Total = `1` + `2`)
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
 
 # OUT
   
@@ -419,7 +425,9 @@ absence1stattempt <- absence1stattempt %>%
     add_row('OUT reason' = 'total visited', 
             '1' = sum(.$'1'),
             '2' = sum(.$'2')) %>%
-    mutate(Total = `1` + `2`)
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
 
 # REFUSAL
   
@@ -447,7 +455,9 @@ absence1stattempt <- absence1stattempt %>%
     add_row('REFUSAL reason' = 'total visited', 
             '1' = sum(.$'1'),
             '2' = sum(.$'2')) %>%
-    mutate(Total = `1` + `2`)
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
 
 ```
 

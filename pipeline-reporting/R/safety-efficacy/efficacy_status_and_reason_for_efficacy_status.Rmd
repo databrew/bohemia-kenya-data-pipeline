@@ -73,6 +73,11 @@ absence1stattempt <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/absences1stattempt/absences1stattempt.csv')) %>%
   pad_hhid()
 
+assignment <- cloudbrewr::aws_s3_get_table(
+  bucket ='bohemia-lake-db',
+  key = 'bohemia_ext_data/assignments/assignments.csv') %>%
+  pad_hhid()
+
 v0_dem_repeat <- cloudbrewr::aws_s3_get_table(
     bucket = DATA_STAGING_BUCKET_NAME,
     key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography-repeat_individual.csv')) %>%
@@ -142,7 +147,8 @@ individuals <- efficacy %>%
     rename(dob_efficacy = dob,
            sex_efficacy = sex, 
            todays_date_efficacy = todays_date) %>%
-    mutate(enrolment = case_when(
+    mutate(cluster = as.numeric(substr(extid, 1, 2)),
+           enrolment = case_when(
       starting_efficacy_status == 'out' &
         efficacy_status != 'out' ~ 'enrolment',
       starting_efficacy_status == 'out' &
@@ -168,10 +174,15 @@ individuals <- efficacy %>%
             TRUE ~ NA_character_  # To handle cases that don't match any condition
     ))
   
+  assignment <- assignment %>%
+    rename(cluster = cluster_number)
+  
+    total_eff <- left_join(eff, assignment, by='cluster')
+  
   
 # create the dataset that will be used for this script
   # this will exclude the people who were manually removed
-  data <- left_join(v0dem, eff, by = c('extid')) %>%
+  data <- left_join(total_eff, v0dem, by = c('extid')) %>%
     filter(extid != '74052-06', # dob change led to not efficacy eligible (aka out of 5-15 years)
            extid != '18039-03', # "
            extid != '02042-03', # "
@@ -183,7 +194,237 @@ individuals <- efficacy %>%
   data_investigation <- data %>%
     filter(!is.na(visit)) %>% # removes extids not in Efficacy
     select(visit, extid, efficacy_status, enrolment, efficacy_reason, sex_v0, sex_efficacy, dob_v0, dob_efficacy, todays_date_v0, todays_date_efficacy)
+  
+  data <- data %>% distinct(extid, visit, .keep_all = TRUE)
+
+  
+  # a trial profile tracks where every person went
+  by_visit <- data %>%
+    pivot_wider(id_cols = c(extid, hhid, cluster, assignment), 
+                names_from = visit,
+                values_from = c(efficacy_status, efficacy_reason)) %>%
+    select(extid, hhid, efficacy_status_V1, efficacy_status_V2, efficacy_status_V3,
+           efficacy_status_V4, efficacy_status_V5, efficacy_reason_V1, efficacy_reason_V2, efficacy_reason_V3, 
+           efficacy_reason_V4, efficacy_reason_V5, assignment, cluster) %>%
+    rename(status_V1 = efficacy_status_V1,
+           reason_V1 = efficacy_reason_V1,
+           status_V2 = efficacy_status_V2,
+           reason_V2 = efficacy_reason_V2,
+           status_V3 = efficacy_status_V3,
+           reason_V3 = efficacy_reason_V3,
+           status_V4 = efficacy_status_V4,
+           reason_V4 = efficacy_reason_V4,
+           status_V5 = efficacy_status_V5,
+           reason_V5 = efficacy_reason_V5)
 ```
+
+```{r enrolled}
+# create a dataset of enrolled participants (people who became efficacy status in)
+  enrolled <- data %>%
+    filter(enrolment == 'enrolment',
+           efficacy_status == 'in') 
+
+  amount_enrolled <- length(unique(enrolled$extid))
+  
+  # enrolled eos
+  enrol_eos <- by_visit %>%
+    filter(extid %in% enrolled$extid,
+           status_V2 == 'eos' |
+             status_V3 == 'eos' |
+             status_V4 == 'eos' |
+             status_V5 == 'eos')
+  
+  enrol_eos_data <- data %>%
+    filter(extid %in% enrol_eos$extid,
+           efficacy_status == 'eos') %>%
+    arrange(visit) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  enrol_eos_table <- enrol_eos_data %>%
+    arrange(visit) %>%
+    group_by(efficacy_reason, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(efficacy_reason) %>%
+    pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
+    ungroup() %>%
+    arrange(efficacy_reason) %>%
+    rename('EOS reason' = efficacy_reason) %>%
+    add_row('EOS reason' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+
+  # enrolled in
+  enrol_in <- by_visit %>%
+    filter(extid %in% enrolled$extid,
+           !(extid %in% enrol_eos_data$extid),
+           status_V5 == 'in' | is.na(status_V5))
+  
+  enrol_in_data <- data %>%
+    filter(extid %in% enrol_in$extid,
+           efficacy_status == 'in') %>%
+    arrange(visit) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup()
+  
+  enrol_in_table <- enrol_in_data %>%
+    arrange(visit) %>%
+    group_by(efficacy_status, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(efficacy_status) %>%
+    pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
+    ungroup() %>%
+    rename('Enrolled reason' = efficacy_status) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+  
+  merged <- merge(enrol_eos_data, enrol_in, by='extid', all = TRUE)
+  
+  test <- anti_join(enrolled, merged, by='extid')
+  
+  # enrolled completion # will be used later
+  # enrol_comp <- by_visit %>%
+  #   filter(extid %in% enrolled$extid,
+  #          status_V7 == 'completion')
+  # 
+  # enrol_comp_table <- data %>%
+  #   filter(extid %in% enrol_comp$extid,
+  #          efficacy_status == 'completion') %>%
+  #   arrange(visit) %>%
+  #   group_by(efficacy_status, assignment) %>%
+  #   summarise('N' = n()) %>%
+  #   group_by(efficacy_status) %>%
+  #   pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
+  #   ungroup() %>%
+  #   rename('Enrolled reason' = efficacy_status) %>%
+  #   mutate(Total = `1` + `2`) %>%
+  #   rename('Assignment 1' = '1',
+  #          'Assignment 2' = '2')
+
+```
+
+```{r not_enrolled}
+
+# not enrolled participants
+  
+  not_enrolled <- by_visit %>%
+    filter(!(extid %in% enrolled$extid))
+
+  amount_not_enrolled <- length(unique(not_enrolled$extid))
+
+# EOS
+
+  not_enrol_eos <- by_visit %>%
+  filter(
+    extid %in% not_enrolled$extid,
+    (status_V1 == 'eos' | is.na(status_V1) | status_V1 == 'out') &
+    (status_V2 == 'eos' | is.na(status_V2) | status_V2 == 'out') &
+    (status_V3 == 'eos' | is.na(status_V3)) &
+    (status_V4 == 'eos' | is.na(status_V4)) &
+    (status_V5 == 'eos' | is.na(status_V5))
+  )
+  
+  not_enrol_eos_data <- data %>%
+    filter(extid %in% not_enrol_eos$extid,
+           efficacy_status == 'eos') %>%
+    arrange(visit) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  not_enrol_eos_table <- not_enrol_eos_data %>%
+    arrange(visit) %>%
+    group_by(efficacy_reason, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(efficacy_reason) %>%
+    pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
+    ungroup() %>%
+    arrange(efficacy_reason) %>%
+    rename('EOS reason' = efficacy_reason) %>%
+    add_row('EOS reason' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+
+# OUT
+  
+  not_enrol_out <- by_visit %>%
+    filter(extid %in% not_enrolled$extid,
+           (status_V1 == 'out' |
+              is.na(status_V1)) &
+             (status_V2 == 'out' |
+                is.na(status_V2)) &
+             (status_V3 == 'out' |
+                is.na(status_V3)) &
+             (status_V4 == 'out' | 
+                is.na(status_V4)) &
+             (status_V5 == 'out' | 
+                is.na(status_V5)))
+  
+  not_enrol_out_data <- data %>%
+    filter(extid %in% not_enrol_out$extid,
+           efficacy_status == 'out') %>%
+    arrange(visit) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  not_enrol_out_table <- not_enrol_out_data %>%
+    arrange(visit) %>%
+    group_by(efficacy_reason, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(efficacy_reason) %>%
+    pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
+    ungroup() %>%
+    arrange(efficacy_reason) %>%
+    rename('OUT reason' = efficacy_reason) %>%
+    add_row('OUT reason' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+
+# REFUSAL
+  
+  not_enrol_ref <- data %>%
+    filter(extid %in% not_enrolled$extid,
+           efficacy_status == 'refusal')
+  
+  not_enrol_ref_data <- data %>%
+    filter(extid %in% not_enrol_ref$extid,
+           efficacy_status == 'refusal') %>%
+    arrange(visit) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  not_enrol_ref_table <- not_enrol_ref_data %>%
+    arrange(visit) %>%
+    group_by(efficacy_reason, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(efficacy_reason) %>%
+    pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
+    ungroup() %>%
+    arrange(efficacy_reason) %>%
+    rename('REFUSAL reason' = efficacy_reason) %>%
+    add_row('REFUSAL reason' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+
+```
+
 
 ```{r targets}
 # these numbers are determined by Aryton based on Joe's logic and are stored in AWS
@@ -1150,6 +1391,43 @@ efficacy_v2_in <- eff %>%
     mutate(Percent = paste0(Percent, '%')) %>%
     rename('Combination type' = combination)
 
+```
+
+## Efficacy Trial Profile
+
+### Enrolled Participants
+```{r trial_enrolled}
+cat(amount_enrolled, 'participants enrolled in Efficacy')
+```
+
+#### eos
+```{r trial_enrolled_eos}
+reactable(enrol_eos_table, columns = list(), pagination = FALSE)
+```
+
+#### in
+```{r trial_enrolled_in}
+reactable(enrol_in_table, columns = list(), pagination = FALSE)
+```
+
+### Not Enrolled Participants
+```{r trial_not_enrolled}
+cat(amount_not_enrolled, 'participants were not enrolled in Efficacy')
+```
+
+#### eos
+```{r trial_not_enrolled_eos}
+reactable(not_enrol_eos_table, columns = list(), pagination = FALSE)
+```
+
+#### out
+```{r trial_not_enrolled_out}
+reactable(not_enrol_out_table, columns = list(), pagination = FALSE)
+```
+
+#### refusal
+```{r trial_not_enrolled_ref}
+reactable(not_enrol_ref_table, columns = list(), pagination = FALSE)
 ```
 
 ## Efficacy targets
