@@ -245,7 +245,7 @@ assignment <- cloudbrewr::aws_s3_get_table(
 
 efficacy_selection <- cloudbrewr::aws_s3_get_table(
   bucket = 'bohemia-lake-db',
-  key = glue::glue('bohemia_ext/efficacy_selection.csv')) %>%
+  key = glue::glue('bohemia_ext_data/efficacy_selection/efficacy_selection.csv')) %>%
   pad_hhid() %>%
   dplyr::select(extid)
 
