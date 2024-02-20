@@ -4,6 +4,8 @@ on:
     push:
       paths:
         - pipeline-metadata/**
+    schedule:
+      - cron: 0 17 * * *
 
 jobs:
 
