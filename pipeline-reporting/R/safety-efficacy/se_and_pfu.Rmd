@@ -190,6 +190,56 @@ worker_registration <- cloudbrewr::aws_s3_get_table(
 ) %>%
   pad_hhid()
 
+
+efficacy_selection <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = glue::glue('bohemia_ext_data/efficacy_selection/efficacy_selection.csv')) %>%
+  pad_hhid() %>%
+  dplyr::select(extid)
+
+safety_targets <-  cloudbrewr::aws_s3_get_table(
+    bucket = 'bohemia-lake-db',
+    key = glue::glue('bohemia_prod/dwh/goal_safety_targets/goal_safety_targets.csv'))
+
+efficacy_targets <-  cloudbrewr::aws_s3_get_table(
+    bucket = 'bohemia-lake-db',
+    key = glue::glue('bohemia_prod/dwh/goal_efficacy_targets/goal_efficacy_targets.csv'))
+
+target_safety_by_assignment = safety_targets %>%
+    dplyr::group_by(visit, assignment) %>% 
+    dplyr::summarise(hh_target = sum(hh_target),
+                     ind_target = sum(ind_target)) 
+
+target_efficacy_by_assignment = efficacy_targets %>%
+    dplyr::group_by(visit, assignment) %>% 
+    dplyr::summarise(hh_target = sum(hh_target),
+                     ind_target = sum(ind_target))
+
+target_safety_by_cluster_and_village = safety_targets %>%
+    dplyr::group_by(visit, cluster, village) %>% 
+    dplyr::summarise(hh_target = sum(hh_target),
+                     ind_target = sum(ind_target)) 
+
+target_efficacy_by_cluster_and_village = efficacy_targets %>%
+    dplyr::group_by(visit, cluster, village) %>% 
+    dplyr::summarise(hh_target = sum(hh_target),
+                     ind_target = sum(ind_target))
+
+```
+
+
+```{r}
+#### DATA PREP
+
+#################################
+# Fetch v0 demography
+#################################
+worker_registration <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/reconaregistration/reconaregistration.csv'
+) %>%
+  pad_hhid()
+
 v0 <- cloudbrewr::aws_s3_get_table(
   bucket = 'databrew.org',
   key = 'kwale/clean-form/v0demography/v0demography.csv'
@@ -199,6 +249,12 @@ v0 <- cloudbrewr::aws_s3_get_table(
 v0_repeat <- cloudbrewr::aws_s3_get_table(
   bucket = 'databrew.org',
   key = 'kwale/clean-form/v0demography/v0demography-repeat_individual.csv'
+) %>%
+  pad_hhid()
+
+pfu <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/pfu/pfu.csv'
 ) %>%
   pad_hhid()
 
@@ -228,18 +284,10 @@ safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/clean-form/safetynew/safetynew-repeat_individual.csv')) %>%
   pad_hhid()
 
-pk_individuals <- cloudbrewr::aws_s3_get_table(
-  bucket = 'bohemia-lake-db',
-  key = glue::glue('bohemia_ext_data/pk_individuals/pk_individuals.csv')) %>%
-  pad_hhid()
-
-# cluster to remove
-CLUSTER_TO_REMOVE <- pk_individuals %>% distinct(cluster) %>% .$cluster
-
 
 assignment <- cloudbrewr::aws_s3_get_table(
   bucket = 'bohemia-lake-db',
-  key = glue::glue('bohemia_prod/dim_arm_assignment/assignments.csv')) %>%
+  key = glue::glue('bohemia_ext_data/assignments/assignments.csv')) %>%
   pad_hhid()
 
 
@@ -249,60 +297,54 @@ efficacy_selection <- cloudbrewr::aws_s3_get_table(
   pad_hhid() %>%
   dplyr::select(extid)
 
-safety_targets <-  cloudbrewr::aws_s3_get_table(
-    bucket = 'bohemia-lake-db',
-    key = glue::glue('bohemia_prod/dwh/goal_safety_targets/goal_safety_targets.csv'))
-
-efficacy_targets <-  cloudbrewr::aws_s3_get_table(
-    bucket = 'bohemia-lake-db',
-    key = glue::glue('bohemia_prod/dwh/goal_efficacy_targets/goal_efficacy_targets.csv'))
-
-target_safety_by_assignment = safety_targets %>%
-    dplyr::group_by(visit, assignment) %>% 
-    dplyr::summarise(hh_target = sum(hh_target),
-                     ind_target = sum(ind_target))
-
-target_efficacy_by_assignment = efficacy_targets %>%
-    dplyr::group_by(visit, assignment) %>% 
-    dplyr::summarise(hh_target = sum(hh_target),
-                     ind_target = sum(ind_target))
-
-target_safety_by_cluster_and_village = safety_targets %>%
-    dplyr::group_by(visit, cluster, village) %>% 
-    dplyr::summarise(hh_target = sum(hh_target),
-                     ind_target = sum(ind_target))
-
-target_efficacy_by_cluster_and_village = efficacy_targets %>%
-    dplyr::group_by(visit, cluster, village) %>% 
-    dplyr::summarise(hh_target = sum(hh_target),
-                     ind_target = sum(ind_target))
-
-```
+pk_individuals <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = glue::glue('bohemia_ext_data/pk_individuals/pk_individuals.csv')) %>%
+  pad_hhid()
 
 
-```{r}
-#### DATA PREP
+pfu <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/pfu/pfu.csv'
+) %>%
+  pad_hhid()
 
+pkfollowup <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'kwale/clean-form/pkfollowup/pkfollowup.csv'
+) %>%
+  pad_hhid()
 
-# v0 merged_tbl
-v0_merged_tbl <- v0 %>% 
-      dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY'))  %>%
-      dplyr::inner_join(
-        assignment, 
-        by = c('geo_cluster_num' = 'cluster_number')) %>% 
-  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)
-
+# cluster to remove
+CLUSTER_TO_REMOVE <- pk_individuals %>% distinct(cluster) %>% .$cluster
 
 # village mapping
-v0_mapping <- v0_merged_tbl %>% 
-    dplyr::select(hhid, cluster = geo_cluster_num, assignment, village) %>% 
-    distinct()
+village_mapping <- v0 %>%
+  dplyr::select(hhid, village) %>%
+  unique()
+
+# v0 merged_tbl
+v0_merged_tbl <- v0 %>%
+  dplyr::inner_join(v0_repeat, by = c('KEY' = 'PARENT_KEY'))  %>%
+  dplyr::inner_join(
+    assignment,
+    by = c('cluster' = 'cluster_number')) %>%
+  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)
 
 # prep safety table
-safety_merged_tbl <- safety %>% 
-  dplyr::select(-cluster) %>% 
-  dplyr::inner_join(safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>% 
-  dplyr::inner_join(v0_mapping, by = 'hhid') %>% 
+safety_merged_tbl <- safety %>%
+  dplyr::inner_join(safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
+  dplyr::select(-cluster) %>%
+  dplyr::inner_join(v0 %>% dplyr::select(hhid, cluster), by = c('hhid')) %>%
+  dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>%
+  dplyr::left_join(village_mapping, by = 'hhid')  %>%
+  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE) %>%
+  # get most recent submission
+  dplyr::group_by(visit, extid) %>%
+  dplyr::mutate(max_time = max(end_time)) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(end_time == max_time,
+                !is.na(visit)) %>% 
   # special categories for "refusal"
   mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
              ind_icf_thumbprint == 'no' |
@@ -310,20 +352,39 @@ safety_merged_tbl <- safety %>%
              minor_agree_sign_assent == 'no')
 
 # prep safety new
-safetynew_merged_tbl <- safetynew %>% 
-  dplyr::select(-cluster) %>% 
-  dplyr::inner_join(safetynew_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>% 
-  dplyr::inner_join(v0_mapping, by = 'hhid') %>% 
+safetynew_merged_tbl <- safetynew %>%
+  dplyr::inner_join(safetynew_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
+  dplyr::select(-cluster) %>%
+  dplyr::inner_join(v0 %>% dplyr::select(hhid, cluster), by = c('hhid')) %>%
+  dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>%
+  dplyr::left_join(village_mapping, by = 'hhid') %>%
+  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE) %>%
+  # get most recent submission
+  dplyr::group_by(visit, extid) %>%
+  dplyr::mutate(max_time = max(end_time)) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(end_time == max_time,
+                !is.na(visit)) %>% 
   # special categories for "refusal"
-  dplyr::mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
+  mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
              ind_icf_thumbprint == 'no' |
              ind_agree_sign_icf == 'no' |
              minor_agree_sign_assent == 'no')
-
 # efficacy df
-efficacy_df <-  efficacy %>% 
-  dplyr::select(-cluster, -village) %>% 
-  dplyr::inner_join(v0_mapping, by = 'hhid')
+efficacy_df <-  efficacy %>%
+  dplyr::select(-cluster) %>%
+  dplyr::inner_join(v0 %>% dplyr::select(hhid, cluster), by = c('hhid')) %>%
+  dplyr::inner_join(assignment %>%
+                      dplyr::select(cluster_number, assignment),
+                    by = c('cluster' = 'cluster_number')) %>%
+  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE) %>%
+  # get most recent submission
+  dplyr::group_by(visit, extid) %>%
+  dplyr::mutate(max_time = max(end_time)) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(end_time == max_time,
+                !is.na(visit))
+
 
 
 # goals after v1
