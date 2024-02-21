@@ -101,6 +101,14 @@ efficacy_targets <- cloudbrewr::aws_s3_get_table(
 efficacy_selection <- cloudbrewr::aws_s3_get_table(
   bucket ='bohemia-lake-db',
   key = glue::glue('bohemia_ext_data/efficacy_selection/efficacy_selection.csv'))
+  # this contains six extids that were removed because they aged out:
+  #'74052-06', # dob change led to not efficacy eligible (aka out of 5-15 years)
+  #'18039-03', # "
+  #'02042-03', # "
+  #'02042-02', # "
+  #'26007-03', # "
+  #'56118-06') # these extids have been removed from the collected efficacy data
+
 
 # this is a function to create a download csv button
 wrap_download <- function(reactable_obj, element_id, output_filename){
