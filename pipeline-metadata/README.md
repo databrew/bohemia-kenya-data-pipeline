@@ -29,3 +29,5 @@ For each scheduled runs, versioning will be based on `YYMMDD01` (for manual upda
 4. Fix sample time collection: https://github.com/databrew/bk/pull/24
 
 5. Manually Refresh metadata to triggger action
+
+6. Removal of unfinished line here https://databrewllc.slack.com/archives/C05EYV935V5/p1708463531754709
