@@ -74,6 +74,11 @@ absence1stattempt <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/absences1stattempt/absences1stattempt.csv')) %>%
   pad_hhid()
 
+assignment <- cloudbrewr::aws_s3_get_table(
+  bucket ='bohemia-lake-db',
+  key = 'bohemia_ext_data/assignments/assignments.csv') %>%
+  pad_hhid()
+
 v0_dem_repeat <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
   key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography-repeat_individual.csv')) %>%
@@ -176,7 +181,8 @@ absence1stattempt <- absence1stattempt %>%
   
   # join these two new dataframes
   total_safety <- bind_rows(joined_safety, joined_safetynew) %>%
-    mutate(took_drug = coalesce(participant_take_drug, 
+    mutate(cluster = as.numeric(substr(extid, 1, 2)),
+           took_drug = coalesce(participant_take_drug, 
                                 participant_take_drug_2, 
                                 take_drug_safetynew, 
                                 take_drug_2_safetynew),
@@ -214,7 +220,7 @@ absence1stattempt <- absence1stattempt %>%
              sum_night_hospital_eos >= '1' ~ 'spent night at the hospital',
              not_agree_safety_procedures_eos == '1' ~ 'not agree to safety procedures',
              refuse_drug_eos == '1' |
-               refuse_drug_eos_2 == '1' ~ 'participant withdrew informed consent',
+               refuse_drug_eos_2 == '1' ~ 'participant withdrew informed consent (refuse drug)',
              not_continue_eos == '1' ~ 'not wish to continue',
              person_died_eos == '1' |
                person_out_died == '1' ~ 'died',
@@ -242,43 +248,13 @@ absence1stattempt <- absence1stattempt %>%
              TRUE ~ NA_character_  # To handle cases that don't match any condition
            )) 
   
-# # add the enrolment vs. follow up column
-#   enrolled <- total_safety %>%
-#     filter(enrolment == 'yes')
-#   
-#   follow_up <- total_safety %>%
-#     filter(extid %in% enrolled$extid) %>%
-#     filter(enrolment == 'no',
-#            safety_status != 'out',
-#            starting_safety_status == 'in')
-#   
-#   not_yet_enrolled_due <- total_safety %>%
-#     filter(enrolment == 'no',
-#            ((starting_safety_status == 'out' &
-#              safety_status == 'out') & 
-#              (safety_reason == 'absent' | 
-#                 safety_reason == 'migrated')) |
-#              (starting_safety_status == 'in' &
-#                 safety_status == 'in' &
-#                 person_present == 'no'))
+  assignment <- assignment %>%
+    rename(cluster = cluster_number)
   
-  # enrolment = case_when(
-  #            extid %in% safetynew_repeat_individual$extid |
-  #              (starting_safety_status == 'out' & 
-  #               safety_status != 'out' &
-  #              (minor_assent_status == '1' |
-  #              ind_sign_icf_status == '1' |
-  #              ind_thumbprint_status == '1')) ~ 'enrolment',
-  #            (is.na(minor_assent_status) |
-  #              is.na(ind_sign_icf_status) |
-  #              is.na(ind_thumbprint_status)) &
-  #              safety_status != 'out' &
-  #              person_present == 'yes' ~ 'follow up',
-  #            (is.na(minor_assent_status) |
-  #              is.na(ind_sign_icf_status) |
-  #              is.na(ind_thumbprint_status)) &
-  #              safety_status != 'out' &
-  #              person_present != 'yes' ~ 'missed visit')
+  total_safety <- left_join(total_safety, assignment, by='cluster') %>%
+    filter(extid != '2437-61',
+           safety_status != 'UNDEFINED')
+  
   
 # join total_safety and v0 data
   data <- merge(total_safety, v0dem, by = c('extid'), all = TRUE)
@@ -294,6 +270,194 @@ absence1stattempt <- absence1stattempt %>%
     select(visit, extid, safety_status, safety_reason, 
            enrolment, sex_v0, sex_safety, dob_v0, 
            dob_safety_visit, todays_date_v0, todays_date_safety)
+  
+# a trial profile tracks where every person went
+  by_visit <- data %>%
+    pivot_wider(id_cols = c(extid, hhid, cluster, assignment), 
+                names_from = visit,
+                values_from = c(safety_status, safety_reason)) %>%
+    select(extid, hhid, safety_status_V1, safety_status_V2, safety_status_V3,
+           safety_status_V4, safety_reason_V1, safety_reason_V2, safety_reason_V3, 
+           safety_reason_V4, assignment, cluster) %>%
+    rename(status_V1 = safety_status_V1,
+           reason_V1 = safety_reason_V1,
+           status_V2 = safety_status_V2,
+           reason_V2 = safety_reason_V2,
+           status_V3 = safety_status_V3,
+           reason_V3 = safety_reason_V3,
+           status_V4 = safety_status_V4,
+           reason_V4 = safety_reason_V4)
+
+```
+
+```{r enrolled}
+# create a dataset of enrolled participants (people who became safety status in)
+  enrolled <- data %>%
+    filter(enrolment == 'enrolment',
+           safety_status == 'in')
+
+  amount_enrolled <- length(unique(enrolled$extid))
+
+  # enrolled eos
+  enrol_eos <- by_visit %>%
+    filter(extid %in% enrolled$extid,
+           status_V2 == 'eos' |
+             status_V3 == 'eos' |
+             status_V4 == 'eos')
+  
+  enrol_eos_data <- data %>%
+    filter(extid %in% enrol_eos$extid,
+           safety_status == 'eos') %>%
+    arrange(visit) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  enrol_eos_table <- enrol_eos_data %>%
+    arrange(visit) %>%
+    group_by(safety_reason, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(safety_reason) %>%
+    pivot_wider(names_from = assignment, values_from = N) %>%
+    ungroup() %>%
+    arrange(safety_reason) %>%
+    rename('EOS reason' = safety_reason) %>%
+    add_row('EOS reason' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+
+  
+  # enrolled completion
+  enrol_comp <- by_visit %>%
+    filter(extid %in% enrolled$extid,
+           status_V4 == 'completion')
+  
+  enrol_comp_table <- data %>%
+    filter(extid %in% enrol_comp$extid,
+           safety_status == 'completion') %>%
+    arrange(visit) %>%
+    group_by(safety_status, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(safety_status) %>%
+    pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
+    ungroup() %>%
+    rename('Enrolled reason' = safety_status) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+
+```
+
+```{r not_enrolled}
+
+# not enrolled participants
+  
+  not_enrolled <- by_visit %>%
+    filter(!(extid %in% enrolled$extid))
+
+  amount_not_enrolled <- length(unique(not_enrolled$extid)) - 1795
+
+# EOS
+
+  not_enrol_eos <- by_visit %>%
+    filter(extid %in% not_enrolled$extid,
+           status_V2 == 'eos' |
+             status_V3 == 'eos' |
+             status_V4 == 'eos')
+  
+  not_enrol_eos_data <- data %>%
+    filter(extid %in% not_enrol_eos$extid,
+           safety_status == 'eos') %>%
+    arrange(visit) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  not_enrol_eos_table <- not_enrol_eos_data %>%
+    arrange(visit) %>%
+    group_by(safety_reason, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(safety_reason) %>%
+    pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
+    ungroup() %>%
+    arrange(safety_reason) %>%
+    rename('EOS reason' = safety_reason) %>%
+    add_row('EOS reason' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+
+# OUT
+  
+  not_enrol_out <- by_visit %>%
+    filter(extid %in% not_enrolled$extid,
+           (status_V1 == 'out' |
+              is.na(status_V1)) &
+             (status_V2 == 'out' |
+                is.na(status_V2)) &
+             (status_V3 == 'out' |
+                is.na(status_V3)) &
+             (status_V4 == 'out' | 
+                is.na(status_V4)))
+  
+  not_enrol_out_data <- data %>%
+    filter(extid %in% not_enrol_out$extid,
+           safety_status == 'out') %>%
+    arrange(visit) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  not_enrol_out_table <- not_enrol_out_data %>%
+    arrange(visit) %>%
+    group_by(safety_reason, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(safety_reason) %>%
+    pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
+    ungroup() %>%
+    arrange(safety_reason) %>%
+    rename('OUT reason' = safety_reason) %>%
+    add_row('OUT reason' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+
+# REFUSAL
+  
+  not_enrol_ref <- data %>%
+    filter(extid %in% not_enrolled$extid,
+           safety_status == 'refusal')
+  
+  not_enrol_ref_data <- data %>%
+    filter(extid %in% not_enrol_ref$extid,
+           safety_status == 'refusal') %>%
+    arrange(visit) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  not_enrol_ref_table <- not_enrol_ref_data %>%
+    arrange(visit) %>%
+    group_by(safety_reason, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(safety_reason) %>%
+    pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
+    ungroup() %>%
+    arrange(safety_reason) %>%
+    rename('REFUSAL reason' = safety_reason) %>%
+    add_row('REFUSAL reason' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
 
 ```
 
@@ -804,6 +968,28 @@ target_table <- target_table %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
+```
+
+## Safety Trial Profile
+
+### Enrolled Participants
+```{r trial_enrolled}
+cat(amount_enrolled, 'participants enrolled in Safety')
+
+reactable(enrol_eos_table, columns = list(), pagination = FALSE)
+
+reactable(enrol_comp_table, columns = list(), pagination = FALSE)
+```
+
+### Not Enrolled Participants
+```{r trial_not_enrolled}
+cat(amount_not_enrolled, 'participants were not enrolled in Safety')
+
+reactable(not_enrol_eos_table, columns = list(), pagination = FALSE)
+
+reactable(not_enrol_out_table, columns = list(), pagination = FALSE)
+
+reactable(not_enrol_ref_table, columns = list(), pagination = FALSE)
 ```
 
 ## Safety targets
