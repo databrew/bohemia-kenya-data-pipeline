@@ -98,6 +98,10 @@ efficacy_targets <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('bohemia_prod/dwh/goal_efficacy_targets/goal_efficacy_targets.csv')) %>%
   pad_hhid()
 
+efficacy_selection <- cloudbrewr::aws_s3_get_table(
+  bucket ='bohemia-lake-db',
+  key = glue::glue('bohemia_ext_data/efficacy_selection/efficacy_selection.csv'))
+
 # this is a function to create a download csv button
 wrap_download <- function(reactable_obj, element_id, output_filename){
   onclick_command <- glue::glue(
@@ -188,7 +192,7 @@ individuals <- efficacy %>%
            extid != '02042-03', # "
            extid != '02042-02', # "
            extid != '26007-03', # "
-           extid != '56118-06') # "
+           extid != '56118-06') # these extids have been removed from the data
   
 # create the dataset for the extid explorer
   data_investigation <- data %>%
