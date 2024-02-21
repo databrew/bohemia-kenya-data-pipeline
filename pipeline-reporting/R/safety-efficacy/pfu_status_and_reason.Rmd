@@ -27,8 +27,7 @@ knitr::opts_chunk$set(
 
 ```{r setup, include=FALSE}
 ### PURPOSE:
-# determine how many woman had submissions for PFU; enter only as in and only thing that can happen is become EOS. So interesting to know how many submissions and out of this how many are in and EOS and of EOS why EOS (miscarriage, abortion, etc.) ~ look at Paula's dm about this below.
-# 1. Dead, migrated 2. Does not confirm 3. Absent 4 times on a row: LTFU (lost to follow up) 4. No longer pregnant; If not: What happened? □ Baby was born alive □ Miscarriage/loss of baby (no visible baby or less than 5 months since last menstrual period) □ Abortion (self-induced) □ Baby was born dead □ Prefer not to answer
+# determine how many woman had submissions for PFU; enter only as in and only thing that can happen is become EOS.
 
 # load required libraries
 library(dplyr)
@@ -96,6 +95,11 @@ pfu_targets <- cloudbrewr::aws_s3_get_table(
   key = glue::glue('bohemia_prod/dwh/goal_pfu_targets/goal_pfu_targets.csv')) %>%
   pad_hhid()
 
+pkfollowup <- cloudbrewr::aws_s3_get_table(
+  bucket = DATA_STAGING_BUCKET_NAME,
+  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/pkfollowup/pkfollowup.csv')) %>%
+  pad_hhid()
+
 # this is a function to create a download csv button
 wrap_download <- function(reactable_obj, element_id, output_filename){
   onclick_command <- glue::glue(
@@ -108,6 +112,60 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
       reactable_obj
     ))
 }
+```
+
+```{r data creation}
+# create the merged v0 data
+  v0dem <- left_join(v0_dem_repeat, v0_demography, by=c('PARENT_KEY' = 'KEY'))  %>%
+    select(extid, dob, sex, todays_date) %>%
+    rename(dob_v0 = dob,
+           todays_date_v0 = todays_date,
+           sex_v0 = sex)
+
+  pk_pregnancies <- pkfollowup %>%
+    select(extid, pregnancy_status) %>%
+    filter(pregnancy_status == 'in')
+  # 2 extids (35022-02, 01024-02) found to be pregnant in pkfollowup must be enrolled in pfu
+
+# assign the reasons for eos and in
+pfu_enrolment <- pfu %>%
+  arrange(visit) %>%
+  group_by(extid) %>%
+  mutate(enrolment = ifelse(row_number() == 1, "enrolment", "follow up")) %>%
+  ungroup()
+
+pfu_reason <- pfu_enrolment %>%
+  mutate(pregnancy_status_reason = case_when(pregnancy_status == 'in' ~ 'in',
+                            ltfu_eos == '1' |
+                              fourth_absence_eos == '1' ~ 'absent 4 times in a row: ltfu',
+                            person_died_eos == '1' ~ 'died',
+                            person_migrated_eos == '1' ~ 'migrated',
+                            not_continue_eos == '1' ~ 'not wish to continue',
+                            #still_preg_no_eos == '1' ~ 'no longer pregnant',
+                            still_preg_no_eos == '1' & 
+                              still_preg_no_reason == 'Baby was born alive' ~ 'no longer pregnant - baby born alive',
+                            still_preg_no_eos == '1' &
+                              still_preg_no_reason == 'Miscarriage' ~ 'no longer pregnant - miscarriage',
+                            still_preg_no_eos == '1' &
+                              still_preg_no_reason == 'Abortion (self-induced)' ~ 'no longer pregnant - abortion (self-induced)',
+                            still_preg_no_eos == '1' &
+                              still_preg_no_reason == 'Baby was born dead' ~ 'no longer pregnant - baby was born dead',
+                            still_preg_no_eos == '1' &
+                              still_preg_no_reason == 'pna' ~ 'no longer pregnant - prefer not to answer')) %>%
+  rename(dob_pregnancy = dob_string,
+         sex_pregnancy = sex,
+         todays_date_pregnancy = todays_date)
+    
+
+# create the dataset that will be used for this script
+  # this will exclude the people who were manually removed
+  data <- merge(pfu_reason, v0dem, by = c('extid'), all = TRUE)
+  
+# create the dataset for the extid explorer
+  data_investigation <- data %>%
+    filter(!is.na(visit)) %>% # removes extids not in Efficacy
+    select(visit, extid, pregnancy_status, pregnancy_status_reason, enrolment, sex_v0, sex_pregnancy, dob_v0, dob_pregnancy, todays_date_v0, todays_date_pregnancy)
+
 ```
 
 ```{r targets}
@@ -250,55 +308,6 @@ target_table <- target_table %>%
       mutate('Percent complete' = (as.numeric(`Number of people visited`)) / as.numeric(nrow(pfu_v7)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
-```
-
-```{r data creation}
-# create the merged v0 data
-  v0dem <- left_join(v0_dem_repeat, v0_demography, by=c('PARENT_KEY' = 'KEY'))  %>%
-    select(extid, dob, sex, todays_date) %>%
-    rename(dob_v0 = dob,
-           todays_date_v0 = todays_date,
-           sex_v0 = sex)
-
-# assign the reasons for eos and in
-pfu_enrolment <- pfu %>%
-  arrange(visit) %>%
-  group_by(extid) %>%
-  mutate(enrolment = ifelse(row_number() == 1, "enrolment", "follow up")) %>%
-  ungroup()
-
-pfu_reason <- pfu_enrolment %>%
-  mutate(pregnancy_status_reason = case_when(pregnancy_status == 'in' ~ 'in',
-                            ltfu_eos == '1' |
-                              fourth_absence_eos == '1' ~ 'absent 4 times in a row: ltfu',
-                            person_died_eos == '1' ~ 'died',
-                            person_migrated_eos == '1' ~ 'migrated',
-                            not_continue_eos == '1' ~ 'not wish to continue',
-                            #still_preg_no_eos == '1' ~ 'no longer pregnant',
-                            still_preg_no_eos == '1' & 
-                              still_preg_no_reason == 'Baby was born alive' ~ 'no longer pregnant - baby born alive',
-                            still_preg_no_eos == '1' &
-                              still_preg_no_reason == 'Miscarriage' ~ 'no longer pregnant - miscarriage',
-                            still_preg_no_eos == '1' &
-                              still_preg_no_reason == 'Abortion (self-induced)' ~ 'no longer pregnant - abortion (self-induced)',
-                            still_preg_no_eos == '1' &
-                              still_preg_no_reason == 'Baby was born dead' ~ 'no longer pregnant - baby was born dead',
-                            still_preg_no_eos == '1' &
-                              still_preg_no_reason == 'pna' ~ 'no longer pregnant - prefer not to answer')) %>%
-  rename(dob_pregnancy = dob_string,
-         sex_pregnancy = sex,
-         todays_date_pregnancy = todays_date)
-    
-
-# create the dataset that will be used for this script
-  # this will exclude the people who were manually removed
-  data <- merge(pfu_reason, v0dem, by = c('extid'), all = TRUE)
-  
-# create the dataset for the extid explorer
-  data_investigation <- data %>%
-    filter(!is.na(visit)) %>% # removes extids not in Efficacy
-    select(visit, extid, pregnancy_status, pregnancy_status_reason, enrolment, sex_v0, sex_pregnancy, dob_v0, dob_pregnancy, todays_date_v0, todays_date_pregnancy)
-
 ```
 
 ```{r enrolment_followup}
