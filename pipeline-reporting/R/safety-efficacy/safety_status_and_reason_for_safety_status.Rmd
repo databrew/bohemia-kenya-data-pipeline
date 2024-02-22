@@ -138,7 +138,8 @@ absence1stattempt <- absence1stattempt %>%
     select(extid, dob, sex, todays_date) %>%
     rename(dob_v0 = dob,
            todays_date_v0 = todays_date,
-           sex_v0 = sex)
+           sex_v0 = sex) %>%
+    mutate(sex_v0 = tolower(sex_v0))
   
 # create the merged safety data
   clean_safety_repeat <- safety_repeat_individual %>%
@@ -304,6 +305,19 @@ trial_by_visit <- data %>%
     mutate(Total = `1` + `2`) %>%
     rename('Assignment 1' = '1',
            'Assignment 2' = '2')
+
+women_by_arm <- enrolled %>%
+  mutate(age = round(as.numeric(difftime('2023-10-01', dob_v0, units = "days") / 365.25), 2)) %>%
+  filter(sex_v0 == 'female',
+         age > '13' & age < '49', # reproductive age
+         safety_status == 'in') %>% 
+  group_by(extid) %>%
+  arrange(desc(visit)) %>%
+  group_by(extid) %>%
+  slice(1) %>%
+  ungroup() 
+  
+  table(women_by_arm$assignment)
 
 ```
 
