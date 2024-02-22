@@ -238,6 +238,29 @@ individuals <- efficacy %>%
 
   amount_enrolled <- length(unique(enrolled$extid))
   
+  enrolled_data <- data %>%
+    filter(extid %in% enrolled$extid) %>%
+    arrange(desc(visit)) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  enrolled_table <- enrolled_data %>%
+    arrange(visit) %>%
+    group_by(efficacy_status, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(efficacy_status) %>%
+    pivot_wider(names_from = assignment, values_from = N) %>%
+    ungroup() %>%
+    arrange(efficacy_status) %>%
+    rename('ENROLLED status' = efficacy_status) %>%
+    add_row('ENROLLED status' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+  
   # enrolled eos
   enrol_eos <- by_visit %>%
     filter(extid %in% enrolled$extid,
@@ -329,6 +352,29 @@ individuals <- efficacy %>%
     filter(!(extid %in% enrolled$extid))
 
   amount_not_enrolled <- length(unique(not_enrolled$extid))
+  
+  not_enrolled_data <- data %>%
+    filter(extid %in% not_enrolled$extid) %>%
+    arrange(desc(visit)) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  not_enrolled_table <- not_enrolled_data %>%
+    arrange(visit) %>%
+    group_by(efficacy_status, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(efficacy_status) %>%
+    pivot_wider(names_from = assignment, values_from = N) %>%
+    ungroup() %>%
+    arrange(efficacy_status) %>%
+    rename('NOT ENROLLED status' = efficacy_status) %>%
+    add_row('NOT ENROLLED status' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
 
 # EOS
 
@@ -437,6 +483,36 @@ individuals <- efficacy %>%
 
 ```
 
+```{r not_and_enrolled}
+trial_profile <- data %>%
+  mutate(enrolled = case_when(
+    extid %in% enrolled$extid ~ 'enrolled',
+    extid %in% not_enrolled$extid ~ 'not enrolled'
+  )) %>%
+  select(extid, visit, enrolled, assignment) %>%
+  filter(!(is.na(assignment))) %>%
+    arrange(visit) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup()
+
+total_trial_table <- trial_profile %>%
+    arrange(visit) %>%
+    group_by(enrolled, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(enrolled) %>%
+    pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
+    ungroup() %>%
+    arrange(enrolled) %>%
+    rename('enrolment status' = enrolled) %>%
+    add_row('enrolment status' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+
+```
 
 ```{r targets}
 # these numbers are determined by Aryton based on Joe's logic and are stored in AWS
@@ -1406,10 +1482,13 @@ efficacy_v2_in <- eff %>%
 ```
 
 ## Efficacy Trial Profile
+```{r trial_total}
+reactable(total_trial_table, columns = list(), pagination = FALSE)
+```
 
 ### Enrolled Participants
 ```{r trial_enrolled}
-cat(amount_enrolled, 'participants enrolled in Efficacy')
+reactable(enrolled_table, columns = list(), pagination = FALSE)
 ```
 
 #### eos
@@ -1424,7 +1503,7 @@ reactable(enrol_in_table, columns = list(), pagination = FALSE)
 
 ### Not Enrolled Participants
 ```{r trial_not_enrolled}
-cat(amount_not_enrolled, 'participants were not enrolled in Efficacy')
+reactable(not_enrolled_table, columns = list(), pagination = FALSE)
 ```
 
 #### eos

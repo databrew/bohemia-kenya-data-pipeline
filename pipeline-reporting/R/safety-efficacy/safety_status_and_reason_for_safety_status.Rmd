@@ -297,6 +297,29 @@ absence1stattempt <- absence1stattempt %>%
            safety_status == 'in')
 
   amount_enrolled <- length(unique(enrolled$extid))
+  
+  enrolled_data <- data %>%
+    filter(extid %in% enrolled$extid) %>%
+    arrange(desc(visit)) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  enrolled_table <- enrolled_data %>%
+    arrange(visit) %>%
+    group_by(safety_status, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(safety_status) %>%
+    pivot_wider(names_from = assignment, values_from = N) %>%
+    ungroup() %>%
+    arrange(safety_status) %>%
+    rename('ENROLLED status' = safety_status) %>%
+    add_row('ENROLLED status' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
 
   # enrolled eos
   enrol_eos <- by_visit %>%
@@ -356,9 +379,33 @@ absence1stattempt <- absence1stattempt %>%
 # not enrolled participants
   
   not_enrolled <- by_visit %>%
-    filter(!(extid %in% enrolled$extid))
+    filter(!(extid %in% enrolled$extid),
+           !(is.na(assignment))) # this removes the 1795 extids that were dropped due to dropping of clusters
 
-  amount_not_enrolled <- length(unique(not_enrolled$extid)) - 1795
+  amount_not_enrolled <- length(unique(not_enrolled$extid))
+  
+  not_enrolled_data <- data %>%
+    filter(extid %in% not_enrolled$extid) %>%
+    arrange(desc(visit)) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  not_enrolled_table <- not_enrolled_data %>%
+    arrange(visit) %>%
+    group_by(safety_status, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(safety_status) %>%
+    pivot_wider(names_from = assignment, values_from = N) %>%
+    ungroup() %>%
+    arrange(safety_status) %>%
+    rename('NOT ENROLLED status' = safety_status) %>%
+    add_row('NOT ENROLLED status' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
 
 # EOS
 
@@ -453,6 +500,37 @@ absence1stattempt <- absence1stattempt %>%
     arrange(safety_reason) %>%
     rename('REFUSAL reason' = safety_reason) %>%
     add_row('REFUSAL reason' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+
+```
+
+```{r not_and_enrolled}
+trial_profile <- data %>%
+  mutate(enrolled = case_when(
+    extid %in% enrolled$extid ~ 'enrolled',
+    extid %in% not_enrolled$extid ~ 'not enrolled'
+  )) %>%
+  select(extid, visit, enrolled, assignment) %>%
+  filter(!(is.na(assignment))) %>%
+    arrange(visit) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup()
+
+total_trial_table <- trial_profile %>%
+    arrange(visit) %>%
+    group_by(enrolled, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(enrolled) %>%
+    pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
+    ungroup() %>%
+    arrange(enrolled) %>%
+    rename('enrolment status' = enrolled) %>%
+    add_row('enrolment status' = 'total visited', 
             '1' = sum(.$'1'),
             '2' = sum(.$'2')) %>%
     mutate(Total = `1` + `2`) %>%
@@ -971,10 +1049,13 @@ target_table <- target_table %>%
 ```
 
 ## Safety Trial Profile
+```{r trial_total}
+reactable(total_trial_table, columns = list(), pagination = FALSE)
+```
 
 ### Enrolled Participants
 ```{r trial_enrolled}
-cat(amount_enrolled, 'participants enrolled in Safety')
+reactable(enrolled_table, columns = list(), pagination = FALSE)
 
 reactable(enrol_eos_table, columns = list(), pagination = FALSE)
 
@@ -983,7 +1064,7 @@ reactable(enrol_comp_table, columns = list(), pagination = FALSE)
 
 ### Not Enrolled Participants
 ```{r trial_not_enrolled}
-cat(amount_not_enrolled, 'participants were not enrolled in Safety')
+reactable(not_enrolled_table, columns = list(), pagination = FALSE)
 
 reactable(not_enrol_eos_table, columns = list(), pagination = FALSE)
 
