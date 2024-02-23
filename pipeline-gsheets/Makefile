@@ -15,7 +15,7 @@ get_detected_anomalies:
 
 get_curr_resolution:
 	. gsheets_src/venv/bin/activate
-	python3 gsheets_src/update.py
+	python3 gsheets_src/anomalies_update.py
 	aws s3 sync output s3://${BUCKET_NAME}/bohemia_prod/
 
 get_ever_resolved:
@@ -24,7 +24,8 @@ get_ever_resolved:
 
 update_google_sheets:
 	. gsheets_src/venv/bin/activate
-	python3 gsheets_src/populate.py
+	python3 gsheets_src/anomalies_populate.py
+	python3 gsheets_src/ento_populate.py
 
 	
 pipeline: prep get_key get_detected_anomalies get_curr_resolution get_ever_resolved update_google_sheets
