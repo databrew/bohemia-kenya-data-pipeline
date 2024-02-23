@@ -65,6 +65,18 @@ tryCatch({
 })
 ```
 
+```{r}
+pad_hhid <- function(data){
+  if('hhid' %in% names(data)){
+    data %>%
+      dplyr::mutate(hhid = case_when(stringr::str_count(hhid) > 0 ~ stringr::str_pad(hhid, 5, pad = "0"),
+                                     TRUE ~ NA_character_))
+  }else{
+    data
+  }
+}
+```
+
 
 ```{r}
 entostoragebox<- cloudbrewr::aws_s3_get_table(
@@ -95,6 +107,16 @@ entorcoviposition <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
   key = input_key$entorcoviposition) %>% mutate(across(matches("date"), lubridate::date))
 
+assignment <- cloudbrewr::aws_s3_get_table(
+  bucket = 'bohemia-lake-db',
+  key = glue::glue('bohemia_ext_data/assignments/assignments.csv')) %>%
+  pad_hhid()
+
+v0 <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = glue::glue('kwale/clean-form/v0demography/v0demography.csv')) %>%
+  pad_hhid() %>% 
+  dplyr::distinct(hhid, cluster)
 ```
 
 
@@ -111,12 +133,6 @@ box_meta <- lapply(dflist, function(x){
   data.frame(tube_ids,box_ids,position_in_box)
 }) %>% 
   data.table::rbindlist()
-
-```
-
-```{r}
-
-
 
 ```
 
@@ -213,35 +229,113 @@ light_trap_df <- entoltmorpid_tubes %>%
 
 ```
 
-
-
-
-CDCD (Individual Mosquitoes)
 ```{r}
-light_trap_df %>%
-  filter(stringr::str_detect(`Sample tube ID`, 'CDCD-'))%>%
-  left_join(box_meta, by = c("Sample tube ID" = "tube_ids"))%>%
-  mutate(Cluster = NA,
-         Arm = NA,
-         `Household ID` = ifelse(site.x == "Household", instance_label, NA),
-         `Livestock enclosure ID` = ifelse(site.x == "Livestock_Enclosure", instance_label, NA))%>%
-  select(`Box ID` = box_ids,`Date of collection` = date,`Sample tube ID`,Cluster,Arm,Species,`Household ID`,`Livestock enclosure ID`,physio,wing_length,parity_status,position_in_box)%>%
-  arrange(`Box ID`,position_in_box)
+# create directory
+output_dir <-'tmp'
+unlink(output_dir, recursive = TRUE)
+dir.create(output_dir)
 ```
 
 
 
-CDC (Pools)
+CDCD (Individual Mosquitoes)
+
 ```{r}
-light_trap_df %>%
-  filter(stringr::str_detect(`Sample tube ID`, 'CDC-'))%>%
-  left_join(box_meta, by = c("Sample tube ID" = "tube_ids"))%>%
-  mutate(Cluster = NA,
-         Arm = NA,
-         `Household ID` = ifelse(site.x == "Household", instance_label, NA),
-         `Livestock enclosure ID` = ifelse(site.x == "Livestock_Enclosure", instance_label, NA))%>%
-  select(`Box ID`=box_ids,`Sample tube ID`,`Date of collection` = date,Cluster,Arm,Species,`No. of mosquitoes per tube (Listed Number)` = `Number of mosquitos in tube`,`Household ID`,`Livestock enclosure ID`,physio,position_in_box)%>%
-  arrange(`Box ID`,position_in_box)
+indiv_mosquitoes_cdc <- light_trap_df %>%
+    filter(stringr::str_detect(`Sample tube ID`, 'CDCD-'))%>%
+    left_join(box_meta, by = c("Sample tube ID" = "tube_ids")) %>%
+    mutate(
+        `Household ID` = ifelse(site.x == "Household", instance_label, NA),
+        `Livestock enclosure ID` = ifelse(site.x == "Livestock_Enclosure", 
+                                          instance_label, NA)) %>%
+    dplyr::mutate(cluster = case_when(
+        !is.na(`Livestock enclosure ID`) ~ as.numeric(gsub('^.*L\\s*|\\s*-.*$',
+                                                '', `Livestock enclosure ID`)), 
+        !is.na(`Household ID`) ~ as.numeric(stringr::str_extract(`Household ID`, "^.{2}")))
+        ) %>%
+  dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>% 
+  select(`Box ID` = box_ids,
+         `Date of collection` = date,
+         `Sample tube ID`,
+         `Cluster` = cluster,
+         `Arm` = assignment,
+         Species,
+         `Household ID`,
+         `Livestock enclosure ID`,
+         physio,
+         wing_length,
+         parity_status,
+         position_in_box) %>%
+  arrange(`Box ID`,position_in_box) %>% 
+  tidyr::drop_na(`Box ID`) %>% 
+  dplyr::mutate(across(where(is.character), toupper)) %>% 
+  dplyr::mutate(across(where(is.character), .fns = ~tidyr::replace_na(.,''))) 
+
+
+reactable(indiv_mosquitoes_cdc)
+
+
+output_filename <- glue::glue('{output_dir}/ento_labs_individual_mosquitoes_cdc.csv')
+
+indiv_mosquitoes_cdc %>% 
+  fwrite(output_filename)
+
+cloudbrewr::aws_s3_store(
+  bucket = 'bohemia-lake-db',
+  key = 'bohemia_prod/dwh/ento_labs_individual_mosquitoes_cdc/ento_labs_individual_mosquitoes_cdc.csv',
+  filename = as.character(output_filename)
+)
+
+```
+
+CDC (Pools)
+
+```{r}
+pooled_mosquitoes_cdc <- light_trap_df %>%
+  filter(stringr::str_detect(`Sample tube ID`, 'CDC-')) %>%
+  left_join(box_meta, by = c("Sample tube ID" = "tube_ids")) %>%
+  dplyr::mutate(
+         `Household ID` = ifelse(site.x == "Household", 
+                                 instance_label, NA),
+         `Livestock enclosure ID` = ifelse(site.x == "Livestock_Enclosure", 
+                                           instance_label, NA)) %>%
+    mutate(
+        `Household ID` = ifelse(site.x == "Household", instance_label, NA),
+        `Livestock enclosure ID` = ifelse(site.x == "Livestock_Enclosure", 
+                                          instance_label, NA)) %>%
+    dplyr::mutate(cluster = case_when(
+        !is.na(`Livestock enclosure ID`) ~ as.numeric(gsub('^.*L\\s*|\\s*-.*$',
+                                                '', `Livestock enclosure ID`)), 
+        !is.na(`Household ID`) ~ as.numeric(stringr::str_extract(`Household ID`, "^.{2}")))
+        ) %>%
+  dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>% 
+  select(`Box ID`=box_ids,
+         `Sample tube ID`,
+         `Date of collection` = date,
+         Species,
+         `No. of mosquitoes per tube (Listed Number)` = 
+         `Number of mosquitos in tube`,
+         `Household ID`,
+         `Livestock enclosure ID`,
+         physio,
+         position_in_box,
+         `Cluster` = cluster,
+         `Arm` = assignment)%>%
+  arrange(`Box ID`, position_in_box)  %>% 
+  dplyr::mutate(across(where(is.character), toupper)) %>% 
+  dplyr::mutate(across(where(is.character), .fns = ~tidyr::replace_na(.,''))) 
+
+reactable(pooled_mosquitoes_cdc)
+
+output_filename <- glue::glue('{output_dir}/ento_labs_pooled_mosquitoes_cdc.csv')
+pooled_mosquitoes_cdc %>% 
+  fwrite(output_filename)
+
+cloudbrewr::aws_s3_store(
+  bucket = 'bohemia-lake-db',
+  key = 'bohemia_prod/dwh/ento_labs_pooled_mosquitoes_cdc/ento_labs_pooled_mosquitoes_cdc.csv',
+  filename = as.character(output_filename)
+)
 ```
 
 
@@ -336,45 +430,76 @@ rc_tubes = entorcmorpid_tubes[!duplicated(entorcmorpid_tubes),]
     
 ```
 
-
-
-
-
-### Resting Collection (RCS)
-```{r}
-
-rc_tubes %>%
-  filter(stringr::str_detect(`Sample tube ID`, 'RCS-'))%>%
-  left_join(box_meta, by = c("Sample tube ID" = "tube_ids"))%>%
-  mutate(Cluster = NA,
-         Arm = NA)%>%
-  arrange(`Box ID` = box_ids,position_in_box)%>%
-  select(`Box ID` = box_ids,`Sample tube ID`,`Date of collection` = todays_date,Cluster, Arm,`Household ID` = instance_label,`Species Complex` = Species,`Physiological Status` = physio,position_in_box)
-  
-
-```
-
-
-
 ### Resting Collection (RC)
+Mosquito indivdually
 ```{r}
-rc_tubes %>%
+individual_mosquitoes_rc <- rc_tubes %>%
   filter(stringr::str_detect(`Sample tube ID`, 'RC-'))%>%
   left_join(box_meta, by = c("Sample tube ID" = "tube_ids"))%>%
-  mutate(Cluster = NA,
-         Arm = NA)%>%
-   arrange(box_ids,position_in_box)%>%
+  dplyr::mutate(cluster = case_when(
+        !is.na(instance_label) ~ as.numeric(stringr::str_extract(instance_label, "^.{2}")))
+  ) %>%
+  dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>% 
+  arrange(box_ids,position_in_box) %>%
   select(`Box ID` = box_ids,
          `Sample tube ID`,
          `Sample tube ID`,
          `Date of collection` = todays_date,
-         Cluster, 
-         Arm,
+         Cluster = cluster, 
+         Arm = assignment,
          `Household ID` = instance_label,
          `No. of mosquitoes per tube (Listed Number)` = `Number of mosquitos in tube`,
          `Species Complex` = Species,
          `Physiological Status` = physio,
          position_in_box)
+
+reactable(individual_mosquitoes_rc)
+
+output_filename <- glue::glue('{output_dir}/ento_labs_individual_mosquitoes_rc.csv')
+individual_mosquitoes_rc %>% 
+  fwrite(output_filename)
+
+cloudbrewr::aws_s3_store(
+  bucket = 'bohemia-lake-db',
+  key = 'bohemia_prod/dwh/ento_labs_individual_mosquitoes_rc/ento_labs_individual_mosquitoes_rc.csv',
+  filename = as.character(output_filename)
+)
 ```
 
 
+
+### Resting Collection (RCS)
+Mosquito in pools
+```{r}
+
+pooled_mosquitoes_rc <- rc_tubes %>%
+  filter(stringr::str_detect(`Sample tube ID`, 'RCS-'))%>%
+  left_join(box_meta, by = c("Sample tube ID" = "tube_ids"))%>%
+  dplyr::mutate(cluster = case_when(
+        !is.na(instance_label) ~ as.numeric(stringr::str_extract(instance_label, "^.{2}")))
+  ) %>%
+  dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>% 
+  arrange(`Box ID` = box_ids,position_in_box)%>%
+  select(`Box ID` = box_ids,
+         `Sample tube ID`,
+         `Number of mosquitos in tube`,
+         `Date of collection` = todays_date,
+         `Cluster` = cluster, 
+         `Arm` = assignment,
+         `Household ID` = instance_label,
+         `Species Complex` = Species,
+         `Physiological Status` = physio,
+         position_in_box)
+
+reactable(pooled_mosquitoes_rc)
+  
+output_filename <- glue::glue('{output_dir}/ento_labs_pooled_mosquitoes_rc.csv')
+pooled_mosquitoes_rc %>% 
+  fwrite(output_filename)
+
+cloudbrewr::aws_s3_store(
+  bucket = 'bohemia-lake-db',
+  key = 'bohemia_prod/dwh/ento_labs_pooled_mosquitoes_rc/ento_labs_pooled_mosquitoes_rc.csv',
+  filename = as.character(output_filename)
+)
+```
