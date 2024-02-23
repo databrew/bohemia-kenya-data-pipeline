@@ -229,6 +229,23 @@ individuals <- efficacy %>%
            status_V5 = efficacy_status_V5,
            reason_V5 = efficacy_reason_V5)
 ```
+```{r trial_by_visit}
+# show the assignment of people who were in at each visit
+trial_by_visit <- data %>%
+  filter(efficacy_status == 'in') %>%
+  group_by(visit, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(visit) %>%
+    pivot_wider(names_from = assignment, values_from = N) %>%
+    ungroup() %>%
+    arrange(visit) %>%
+    rename('IN people per visit' = visit) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+
+```
+
 
 ```{r enrolled}
 # create a dataset of enrolled participants (people who became efficacy status in)
@@ -1483,6 +1500,8 @@ efficacy_v2_in <- eff %>%
 
 ## Efficacy Trial Profile
 ```{r trial_total}
+reactable(trial_by_visit, columns = list(), pagination = FALSE)
+
 reactable(total_trial_table, columns = list(), pagination = FALSE)
 ```
 

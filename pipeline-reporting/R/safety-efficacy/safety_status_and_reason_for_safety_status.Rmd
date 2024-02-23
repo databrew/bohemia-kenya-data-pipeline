@@ -138,7 +138,8 @@ absence1stattempt <- absence1stattempt %>%
     select(extid, dob, sex, todays_date) %>%
     rename(dob_v0 = dob,
            todays_date_v0 = todays_date,
-           sex_v0 = sex)
+           sex_v0 = sex) %>%
+    mutate(sex_v0 = tolower(sex_v0))
   
 # create the merged safety data
   clean_safety_repeat <- safety_repeat_individual %>%
@@ -287,6 +288,36 @@ absence1stattempt <- absence1stattempt %>%
            reason_V3 = safety_reason_V3,
            status_V4 = safety_status_V4,
            reason_V4 = safety_reason_V4)
+
+```
+
+```{r trial_by_visit}
+# show the assignment of people who were in at each visit
+trial_by_visit <- data %>%
+  filter(safety_status == 'in') %>%
+  group_by(visit, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(visit) %>%
+    pivot_wider(names_from = assignment, values_from = N) %>%
+    ungroup() %>%
+    arrange(visit) %>%
+    rename('IN people per visit' = visit) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
+
+women_by_arm <- enrolled %>%
+  mutate(age = round(as.numeric(difftime('2023-10-01', dob_v0, units = "days") / 365.25), 2)) %>%
+  filter(sex_v0 == 'female',
+         age > '13' & age < '49', # reproductive age
+         safety_status == 'in') %>% 
+  group_by(extid) %>%
+  arrange(desc(visit)) %>%
+  group_by(extid) %>%
+  slice(1) %>%
+  ungroup() 
+  
+  table(women_by_arm$assignment)
 
 ```
 
@@ -1050,6 +1081,8 @@ target_table <- target_table %>%
 
 ## Safety Trial Profile
 ```{r trial_total}
+reactable(trial_by_visit, columns = list(), pagination = FALSE)
+
 reactable(total_trial_table, columns = list(), pagination = FALSE)
 ```
 
