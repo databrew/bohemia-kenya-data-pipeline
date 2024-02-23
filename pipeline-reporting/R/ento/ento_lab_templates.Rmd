@@ -320,7 +320,7 @@ pooled_mosquitoes_cdc <- light_trap_df %>%
          physio,
          position_in_box,
          `Cluster` = cluster,
-         `Arm` = assignment)%>%
+         `Arm` = assignment) %>%
   arrange(`Box ID`, position_in_box)  %>% 
   dplyr::mutate(across(where(is.character), toupper)) %>% 
   dplyr::mutate(across(where(is.character), .fns = ~tidyr::replace_na(.,''))) 
@@ -451,7 +451,10 @@ individual_mosquitoes_rc <- rc_tubes %>%
          `No. of mosquitoes per tube (Listed Number)` = `Number of mosquitos in tube`,
          `Species Complex` = Species,
          `Physiological Status` = physio,
-         position_in_box)
+         position_in_box)  %>%
+  arrange(`Box ID`, position_in_box)  %>% 
+  dplyr::mutate(across(where(is.character), toupper)) %>% 
+  dplyr::mutate(across(where(is.character), .fns = ~tidyr::replace_na(.,''))) 
 
 reactable(individual_mosquitoes_rc)
 
@@ -489,7 +492,10 @@ pooled_mosquitoes_rc <- rc_tubes %>%
          `Household ID` = instance_label,
          `Species Complex` = Species,
          `Physiological Status` = physio,
-         position_in_box)
+         position_in_box)  %>%
+  arrange(`Box ID`, position_in_box)  %>% 
+  dplyr::mutate(across(where(is.character), toupper)) %>% 
+  dplyr::mutate(across(where(is.character), .fns = ~tidyr::replace_na(.,''))) 
 
 reactable(pooled_mosquitoes_rc)
   
