@@ -2,10 +2,12 @@
 # anomalies list for user input
 # Author: atediarjo@gmail.com
 
+import os
 import pygsheets as pg
 import pandas as pd
 
 gc = pg.authorize(service_file='key/key.json')
+GSHEETS_TARGET = 'odk-form-anomalies' + '-' + os.getenv('PIPELINE_STAGE')
 
 anomalies_list = pd.read_csv('input/anomalies_detection.csv')
 ever_resolved = pd.read_csv('input/ever_resolved.csv')
@@ -29,7 +31,7 @@ data_for_spreadsheet = data_for_spreadsheet[['resolution_id',
                                              'resolution_status']].fillna('')
 
 
-sh = gc.open('odk_form_anomalies')
+sh = gc.open(GSHEETS_TARGET)
 wks = sh.worksheet_by_title('anomalies_resolution_tracker')
 wks.clear(start='A1', end = 'Y20000')
 wks.set_dataframe(data_for_spreadsheet, (0,0))

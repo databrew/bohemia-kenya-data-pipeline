@@ -8,9 +8,10 @@ import pandas as pd
 from datetime import datetime
 
 CURR_TIME = datetime.now()
+GSHEETS_TARGET = 'odk-form-anomalies' + '-' + os.getenv('PIPELINE_STAGE')
 gc = pg.authorize(service_file='key/key.json')
 
-sh = gc.open('odk_form_anomalies')
+sh = gc.open(GSHEETS_TARGET)
 wks = sh.worksheet_by_title('anomalies_resolution_tracker')
 
 # get resolution tracker
