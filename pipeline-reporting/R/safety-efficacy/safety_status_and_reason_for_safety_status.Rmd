@@ -71,7 +71,7 @@ tryCatch({
 # load in the data
 absence1stattempt <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/absences1stattempt/absences1stattempt.csv')) %>%
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/absences1stattempt/absences1stattempt.csv')) %>%
   pad_hhid()
 
 assignment <- cloudbrewr::aws_s3_get_table(
@@ -81,32 +81,32 @@ assignment <- cloudbrewr::aws_s3_get_table(
 
 v0_dem_repeat <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography-repeat_individual.csv')) %>%
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/v0demography/v0demography-repeat_individual.csv')) %>%
   pad_hhid()
   
 v0_demography <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography.csv')) %>%
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/v0demography/v0demography.csv')) %>%
   pad_hhid()
 
 safety <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safety/safety.csv')) %>%
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/safety/safety.csv')) %>%
   pad_hhid()
 
 safetynew <- cloudbrewr::aws_s3_get_table(
   bucket =DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safetynew/safetynew.csv')) %>%
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/safetynew/safetynew.csv')) %>%
   pad_hhid()
 
 safety_repeat_individual <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safety/safety-repeat_individual.csv')) %>%
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/safety/safety-repeat_individual.csv')) %>%
   pad_hhid()
 
 safetynew_repeat_individual <- cloudbrewr::aws_s3_get_table(
   bucket =DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/safetynew/safetynew-repeat_individual.csv')) %>%
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/safetynew/safetynew-repeat_individual.csv')) %>%
   pad_hhid()
 
 safety_targets <- cloudbrewr::aws_s3_get_table(
@@ -294,7 +294,7 @@ absence1stattempt <- absence1stattempt %>%
 ```{r trial_by_visit}
 # show the assignment of people who were in at each visit
 trial_by_visit <- data %>%
-  filter(safety_status == 'in') %>%
+  filter(safety_status %in% c('in')) %>%
   group_by(visit, assignment) %>%
     summarise('N' = n()) %>%
     group_by(visit) %>%
@@ -306,18 +306,18 @@ trial_by_visit <- data %>%
     rename('Assignment 1' = '1',
            'Assignment 2' = '2')
 
-women_by_arm <- enrolled %>%
-  mutate(age = round(as.numeric(difftime('2023-10-01', dob_v0, units = "days") / 365.25), 2)) %>%
-  filter(sex_v0 == 'female',
-         age > '13' & age < '49', # reproductive age
-         safety_status == 'in') %>% 
-  group_by(extid) %>%
-  arrange(desc(visit)) %>%
-  group_by(extid) %>%
-  slice(1) %>%
-  ungroup() 
-  
-  table(women_by_arm$assignment)
+# women_by_arm <- enrolled %>%
+#   mutate(age = round(as.numeric(difftime('2023-10-01', dob_v0, units = "days") / 365.25), 2)) %>%
+#   filter(sex_v0 == 'female',
+#          age > '13' & age < '49', # reproductive age
+#          safety_status == 'in') %>% 
+#   group_by(extid) %>%
+#   arrange(desc(visit)) %>%
+#   group_by(extid) %>%
+#   slice(1) %>%
+#   ungroup() 
+#   
+#   table(women_by_arm$assignment)
 
 ```
 
@@ -1081,14 +1081,14 @@ target_table <- target_table %>%
 
 ## Safety Trial Profile
 ```{r trial_total}
-reactable(trial_by_visit, columns = list(), pagination = FALSE)
-
 reactable(total_trial_table, columns = list(), pagination = FALSE)
 ```
 
 ### Enrolled Participants
 ```{r trial_enrolled}
 reactable(enrolled_table, columns = list(), pagination = FALSE)
+
+reactable(trial_by_visit, columns = list(), pagination = FALSE)
 
 reactable(enrol_eos_table, columns = list(), pagination = FALSE)
 

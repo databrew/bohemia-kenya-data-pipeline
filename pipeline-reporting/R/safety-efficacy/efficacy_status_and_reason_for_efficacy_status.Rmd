@@ -70,7 +70,7 @@ tryCatch({
 # load in the data
 absence1stattempt <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/absences1stattempt/absences1stattempt.csv')) %>%
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/absences1stattempt/absences1stattempt.csv')) %>%
   pad_hhid()
 
 assignment <- cloudbrewr::aws_s3_get_table(
@@ -80,17 +80,17 @@ assignment <- cloudbrewr::aws_s3_get_table(
 
 v0_dem_repeat <- cloudbrewr::aws_s3_get_table(
     bucket = DATA_STAGING_BUCKET_NAME,
-    key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography-repeat_individual.csv')) %>%
+    key = glue::glue('{PROJECT_SOURCE}/clean-form/v0demography/v0demography-repeat_individual.csv')) %>%
     pad_hhid()
 
 v0_demography <- cloudbrewr::aws_s3_get_table(
     bucket = DATA_STAGING_BUCKET_NAME,
-    key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography.csv')) %>%
+    key = glue::glue('{PROJECT_SOURCE}/clean-form/v0demography/v0demography.csv')) %>%
     pad_hhid()
 
 efficacy <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/efficacy/efficacy.csv')) %>%
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/efficacy/efficacy.csv')) %>%
   pad_hhid()
 
 efficacy_targets <- cloudbrewr::aws_s3_get_table(
@@ -1500,45 +1500,31 @@ efficacy_v2_in <- eff %>%
 
 ## Efficacy Trial Profile
 ```{r trial_total}
-reactable(trial_by_visit, columns = list(), pagination = FALSE)
-
 reactable(total_trial_table, columns = list(), pagination = FALSE)
 ```
 
 ### Enrolled Participants
 ```{r trial_enrolled}
 reactable(enrolled_table, columns = list(), pagination = FALSE)
-```
 
-#### eos
-```{r trial_enrolled_eos}
 reactable(enrol_eos_table, columns = list(), pagination = FALSE)
-```
 
-#### in
-```{r trial_enrolled_in}
+reactable(trial_by_visit, columns = list(), pagination = FALSE)
+
 reactable(enrol_in_table, columns = list(), pagination = FALSE)
 ```
 
 ### Not Enrolled Participants
 ```{r trial_not_enrolled}
 reactable(not_enrolled_table, columns = list(), pagination = FALSE)
-```
 
-#### eos
-```{r trial_not_enrolled_eos}
 reactable(not_enrol_eos_table, columns = list(), pagination = FALSE)
-```
 
-#### out
-```{r trial_not_enrolled_out}
 reactable(not_enrol_out_table, columns = list(), pagination = FALSE)
-```
 
-#### refusal
-```{r trial_not_enrolled_ref}
 reactable(not_enrol_ref_table, columns = list(), pagination = FALSE)
 ```
+
 
 ## Efficacy targets
 ```{r target_show}

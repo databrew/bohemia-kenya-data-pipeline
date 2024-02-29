@@ -72,22 +72,22 @@ tryCatch({
 # load in the data
 pfu <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/pfu/pfu.csv')) %>%
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/pfu/pfu.csv')) %>%
   pad_hhid()
 
 pfu_repeat <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/pfu/pfu-repeat_preg_symptom.csv')) %>%
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/pfu/pfu-repeat_preg_symptom.csv')) %>%
   pad_hhid()
 
 v0_dem_repeat <- cloudbrewr::aws_s3_get_table(
     bucket = DATA_STAGING_BUCKET_NAME,
-    key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography-repeat_individual.csv')) %>%
+    key = glue::glue('{PROJECT_SOURCE}/clean-form/v0demography/v0demography-repeat_individual.csv')) %>%
     pad_hhid()
 
 v0_demography <- cloudbrewr::aws_s3_get_table(
     bucket = DATA_STAGING_BUCKET_NAME,
-    key = glue::glue('{PROJECT_SOURCE}/sanitized-form/v0demography/v0demography.csv')) %>%
+    key = glue::glue('{PROJECT_SOURCE}/clean-form/v0demography/v0demography.csv')) %>%
     pad_hhid()
 
 pfu_targets <- cloudbrewr::aws_s3_get_table(
@@ -97,7 +97,7 @@ pfu_targets <- cloudbrewr::aws_s3_get_table(
 
 pkfollowup <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
-  key = glue::glue('{PROJECT_SOURCE}/sanitized-form/pkfollowup/pkfollowup.csv')) %>%
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/pkfollowup/pkfollowup.csv')) %>%
   pad_hhid()
 
 # this is a function to create a download csv button
