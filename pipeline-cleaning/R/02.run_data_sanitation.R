@@ -3,7 +3,9 @@
 # 1. Data sanitation to `sanitized-form`
 
 # Load library
+library(digest)
 library(dplyr)
+library(janitor)
 library(lubridate)
 library(magrittr)
 library(paws)
@@ -96,7 +98,10 @@ tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
                                               sanitized_file_path = ..2,
                                               form_id = ..3,
                                               clean = ..4){
-                                       sanitized <- clean_pii_columns(clean)
+                                       sanitized <- clean %>%
+                                         clean_pii_columns() %>%
+                                         hash_columns() %>%
+                                         clean_artifacts()
 
                                        dir.create(glue::glue('projects/sanitized-form/{form_id}'),
                                                   recursive = TRUE,

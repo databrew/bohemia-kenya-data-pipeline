@@ -266,14 +266,8 @@
     },
     "digest": {
       "Package": "digest",
-      "Version": "0.6.33",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "R",
-        "utils"
-      ],
-      "Hash": "b18a9cf3c003977b0cc49d5e76ebe48d"
+      "Version": "0.6.34",
+      "Source": "Repository"
     },
     "dplyr": {
       "Package": "dplyr",
@@ -380,6 +374,11 @@
         "openssl"
       ],
       "Hash": "ac107251d9d9fd72f0ca8049988f1d7f"
+    },
+    "janitor": {
+      "Package": "janitor",
+      "Version": "2.2.0",
+      "Source": "Repository"
     },
     "jsonlite": {
       "Package": "jsonlite",
