@@ -47,18 +47,64 @@ clean_column_names <- function(data){
 #' @description  clean pii column
 #' @param data data to sanitize
 clean_pii_columns <- function(data){
-  pii_columns <- c('firstname',
-                   'lastname',
-                   'person_signed_icf',
-                   'member_select',
-                   'person_string',
-                   'fullname',
-                   'fullname_id',
-                   'fa_id',
-                   'dob_pulled',
-                   'household_members',
-                   'taken')
+  pii_columns <- c(
+     'archivist_select',
+     'dob_pulled',
+     'ento_le',
+     'firstname',
+     'fullname',
+     'hecon_members',
+     'herd_id',
+     'hh_head',
+     'hh_head_string',
+     'hh_head_sub',
+     'hh_head_sub_string',
+     'hhid_barcode',
+     'hhid_calculate',
+     'hhid_manual',
+     'hhid_print',
+     'hhid_select',
+     'household_members',
+     'instance_label',
+     'instancename',
+     'lastname',
+     'member_select',
+     'participant_name',
+     'person_string',
+     'taken'
+  )
   data %>% dplyr::select(-any_of(pii_columns))
+}
+
+hash_columns <- function(data) {
+
+  encrypt_list <- c(
+    'archivist_id',
+    'cl_id',
+    'cl_wid_sending',
+    'extid',
+    'fa_id',
+    'fa_wid_receiving',
+    'fa_wid_sending',
+    'hhid',
+    'id_username',
+    'pharma_wid_receiving',
+    'pharma_wid_sending',
+    'pkstaff_issuing',
+    'pkstaff_receiving',
+    'sfa_wid_receiving',
+    'sfa_wid_sending'
+  )
+
+  data %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(across(any_of(encrypt_list), function(x){  digest(x, algo = 'sha1') }))
+}
+
+
+clean_artifacts <- function(data) {
+  data %>%
+    janitor::remove_empty(which = "cols")
 }
 
 standardize_col_value_case <- function(data, col_names){
