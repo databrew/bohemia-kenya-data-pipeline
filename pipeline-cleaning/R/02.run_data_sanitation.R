@@ -101,7 +101,6 @@ tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
                                               form_id = ..3,
                                               clean = ..4){
 
-
                                        sanitized <- clean %>%
                                          clean_pii_columns() %>%
                                          hash_columns() %>%
