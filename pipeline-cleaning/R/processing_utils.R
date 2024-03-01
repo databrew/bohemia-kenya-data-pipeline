@@ -113,15 +113,22 @@ clean_artifacts <- function(data) {
 
 jitter_location <- function(data) {
 
+  # Reference: https://stackoverflow.com/questions/68995919/anonymising-aggregating-lat-long-coordinates
+  # To add random noise, you could displace every point by a fixed distance in a random direction. On a flat projection, for a radius r:
+
+  # angle = Math.random() * 2 * PI
+  # newLat = lat + (r * sin(angle))
+  # newLon = lon + (r * cos(angle))
+  # That would guarantee a fixed displacement (r) for every point, in an unpredictable direction.
+  # 0.01 constant is used as 0.01 degrees is equivalent to 1 km displacement
   coord_cols <- c('Longitude', 'Latitude', 'hhid')
   set.seed(1001)
-
   if(coord_cols %in% names(data) %>% all()){
     return(data %>%
              dplyr::group_by(hhid) %>%
              dplyr::mutate(
-               longitude_new = `Longitude` + (0.01 * sin(runif(1) * 2 * base::pi)),
-               latitude_new = `Latitude` + (0.01 * cos(runif(1) * 2 * base::pi)),
+               `Longitude` = `Longitude` + (0.01 * sin(runif(1) * 2 * base::pi)),
+               `Latitude` = `Latitude` + (0.01 * cos(runif(1) * 2 * base::pi)),
              ))
   }else{
     return(data)
