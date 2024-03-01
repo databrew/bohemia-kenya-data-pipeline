@@ -107,6 +107,26 @@ clean_artifacts <- function(data) {
     janitor::remove_empty(which = "cols")
 }
 
+
+
+
+
+jitter_location <- function(data) {
+
+  coord_cols <- c('Longitude', 'Latitude')
+  set.seed(1001)
+  if(coord_cols %in% names(data) %>% all()){
+    return(data %>%
+      dplyr::group_by(hhid) %>%
+      dplyr::mutate(
+        longitude_new = `Longitude` + (0.01 * sin(runif(1) * 2 * base::pi)),
+        latitude_new = `Latitude` + (0.01 * cos(runif(1) * 2 * base::pi)),
+      ))
+  }else{
+    return(data)
+  }
+}
+
 standardize_col_value_case <- function(data, col_names){
   tryCatch({
     data %>%
