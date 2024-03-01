@@ -30,6 +30,7 @@ env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 Sys.setenv(R_CONFIG_ACTIVE=env_pipeline_stage)
 BUCKET_NAME <- 'databrew.org'
 ROLE_NAME <- 'cloudbrewr-aws-role'
+EXCLUDE_FORMS <- c('craremotemonitoring', 'siteremotemonitoring')
 
 
 # Create connection to AWS
@@ -89,7 +90,8 @@ tbl_nest <- files_orig %>%
       tibble::as_tibble(.name_repair = 'unique')})) %>%
   dplyr::rowwise() %>%
   dplyr::mutate(sanitized_file_path = file.path('projects/sanitized-form',form_id, basename(file_path))) %>%
-  dplyr::select(file_path, sanitized_file_path, form_id, clean)
+  dplyr::select(file_path, sanitized_file_path, form_id, clean) %>%
+  dplyr::filter(!form_id %in% EXCLUDE_FORMS)
 
 # create data sanitation folder
 dir.create('projects/sanitized-form')
@@ -98,10 +100,12 @@ tbl_final_mapping <- purrr::pmap_dfr(tbl_nest,
                                               sanitized_file_path = ..2,
                                               form_id = ..3,
                                               clean = ..4){
+
                                        sanitized <- clean %>%
                                          clean_pii_columns() %>%
                                          hash_columns() %>%
-                                         clean_artifacts()
+                                         clean_artifacts() %>%
+                                         jitter_location()
 
                                        dir.create(glue::glue('projects/sanitized-form/{form_id}'),
                                                   recursive = TRUE,
