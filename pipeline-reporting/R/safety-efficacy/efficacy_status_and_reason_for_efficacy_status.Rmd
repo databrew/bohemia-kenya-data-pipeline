@@ -246,7 +246,7 @@ trial_by_visit <- data %>%
 
 ```
 
-```{r safety_trial_profile_into}
+```{r efficacy_trial_profile_into}
 ######### EFFICACY SELECTION #############
 
 efficacy_selected <- length(unique(efficacy_selection$extid))
@@ -281,7 +281,6 @@ v1_extid_not_visited <- anti_join(efficacy_selection, v1, by = 'extid') %>%
   ) 
 
 num_v1_not_visited <- length(unique(v1_extid_not_visited$extid))
-
 
 
 ###### REMOVED INDIVIDUALS
@@ -326,12 +325,11 @@ v2_total_visited <- length(unique(v2$extid))
 
 v2_extid_not_visited <- anti_join(v1_clean, v2, by = 'extid') %>%
   filter(!(extid %in% aged_out)) %>%
-  select(extid, hhid) %>%
+  select(extid, hhid, efficacy_status) %>%
   mutate(
     hhid = as.character(hhid),  # Convert hhid to character type to retain leading zeros
     hhid = sprintf("%05d", as.numeric(hhid)),  # Ensure hhid has leading zeros if necessary
-    visit = 'v2',
-    efficacy_status = 'out'
+    visit = 'V2'
   ) 
 
 num_v2_not_visited <- length(unique(v2_extid_not_visited$extid))
@@ -378,15 +376,18 @@ v3_total_visited <- length(unique(v3$extid))
 
 v3_extid_not_visited <- anti_join(v2_clean, v3, by = 'extid') %>%
   filter(!(extid %in% aged_out)) %>%
-  select(extid, hhid) %>%
+  select(extid, hhid, efficacy_status) %>%
   mutate(
     hhid = as.character(hhid),  # Convert hhid to character type to retain leading zeros
     hhid = sprintf("%05d", as.numeric(hhid)),  # Ensure hhid has leading zeros if necessary
-    visit = 'v3',
-    efficacy_status = 'out'
+    visit = 'V3'
   ) 
 
 num_v3_not_visited <- length(unique(v3_extid_not_visited$extid))
+
+v3_not_visited_keep <- v3_extid_not_visited %>%
+  filter(efficacy_status == 'in')
+num_v3_not_visited_keep <- length(unique(v3_not_visited_keep$extid))
 
 
 
@@ -409,10 +410,15 @@ v3_removed_extid_table <- v3_removed_extid_data %>%
             'N' = sum(.$'N')) %>% 
   rename('Removal Reason' = removal_reason)
 
+v3_never_enrolled <- v3_removed_extid_data %>%
+  filter(enrolment == 'not yet enrolled')
+num_v3_never_enrolled <- length(unique(v3_never_enrolled$extid))
+
 # add the missed extids back in and remove the 100 refusal houses and not enrolled individuals
 v3_clean <- v3 %>%
   anti_join(v3_removed_extid_data, by = "extid") %>%
-  bind_rows(v3_extid_not_visited) 
+  bind_rows(v3_not_visited_keep) 
+  
 
 num_v3_clean <- length(unique(v3_clean$extid))
 
@@ -520,8 +526,6 @@ v5_clean <- v5 %>%
 
 num_v5_clean <- length(unique(v5_clean$extid))
 
-test <- semi_join(v5_extid_not_visited, v4_extid_not_visited, by='extid')
-
 
 ```
 
@@ -616,7 +620,6 @@ test <- semi_join(v5_extid_not_visited, v4_extid_not_visited, by='extid')
   
   merged <- merge(enrol_eos_data, enrol_in, by='extid', all = TRUE)
   
-  test <- anti_join(enrolled, merged, by='extid')
   
   # enrolled completion # will be used later
   # enrol_comp <- by_visit %>%
@@ -1780,8 +1783,12 @@ efficacy_v2_in <- eff %>%
 
 This is the efficacy trial profile which breaks down the children visited from beginning to end. It starts at efficacy pre-selection and ends at V7. The aim is to track every child and understand why they are present or not at each stage and to understand where they go.  
 
+***
+
 ### Efficacy Preselection
 Efficacy started with `r efficacy_selected` pre-selected children. Therefore, the target for V1 is `r efficacy_selected` children.  
+  
+***
 
 #### V1
 
@@ -1820,7 +1827,7 @@ This number discrepancy can be explained by the following:
   
   * `r num_v2_not_visited` children were not visited in V2 (aka missed the visit).  
   
-While we expected to visit `r num_v1_clean` children, we actually only visited `r v2_total_visited` children because `r num_v1_not_visited` children should have been visited but were missed. Now that we have determined why our target number for V2 is different than the number of people we actually visited, we need to determine the V3 target.
+While we expected to visit `r num_v1_clean` children, we actually only visited `r v2_total_visited` children because `r num_v2_not_visited` children should have been visited but were missed. Now that we have determined why our target number for V2 is different than the number of people we actually visited, we need to determine the V3 target.
 
 In preparation for V3, migrations, deaths, refusals, and eos children needed to be removed from the data. `r v2_removed_extids` kids were removed going into V3 for the following reasons:
 
@@ -1846,7 +1853,7 @@ This number discrepancy can be explained by the following:
   
 While we expected to visit `r num_v2_clean` children, we actually only visited `r v3_total_visited` children because `r num_v2_not_visited` children should have been visited but were missed. Now that we have determined why our target number for V3 is different than the number of people we actually visited, we need to determine the V4 target.
 
-In preparation for V4, migrations, deaths, refusals, and eos children needed to be removed from the data as well as children who had not yet enrolled since V3 is the last opportunity for enrollment. `r v3_removed_extids` kids were removed going into V4 for the following reasons:
+In preparation for V4, migrations, deaths, refusals, and eos children needed to be removed from the data as well as children who had not yet enrolled (`r num_v3_never_enrolled` with efficacy status "out") since V3 is the last opportunity for enrollment. `r v3_removed_extids` kids were removed going into V4 for the following reasons:
 
 ```{r not_visited_table_v3}
 knitr::kable(v3_removed_extid_table)
@@ -1854,7 +1861,7 @@ knitr::kable(v3_removed_extid_table)
 
 After removing migrations, deaths, refusals, and eos, we enter V4 with a target of `r num_v3_clean`. See below:
 
-  * `r v3_total_visited` (V3 submissions) + `r num_v3_not_visited` (extids not visited) - `r v3_removed_extids` (removed extids) = `r  sum(v3_total_visited + num_v3_not_visited - v3_removed_extids)`
+  * `r v3_total_visited` (V3 submissions) + `r num_v3_not_visited_keep` - `r v3_removed_extids` (removed extids) = `r  sum(v3_total_visited + num_v3_not_visited_keep - v3_removed_extids)`
   
 ***
 
@@ -1864,7 +1871,7 @@ In V4 `r v4_total_visited` children were visited. If the target for efficacy was
 
  * `r num_v3_clean` (V4 Target) - `r v4_total_visited` (V4 Visited) = `r num_v3_clean - v4_total_visited`
 
-This number discrepancy can be explained by the following:
+This number can be explained by the following:
   
   * `r num_v4_not_visited` children were not visited in V4 (aka missed the visit).  
   
@@ -1888,7 +1895,7 @@ In V5 `r v5_total_visited` children were visited. If the target for efficacy was
 
  * `r num_v4_clean` (V5 Target) - `r v5_total_visited` (V5 Visited) = `r num_v4_clean - v5_total_visited`
 
-This number discrepancy can be explained by the following:
+This number can be explained by the following:
   
   * `r num_v5_not_visited` children were not visited in V5 (aka missed the visit).  
   
@@ -1940,6 +1947,150 @@ reactable(not_enrol_ref_table, columns = list(), pagination = FALSE)
 ```{r target_show}
 reactable(target_table, columns = list(), pagination = FALSE)
 ```
+
+## V6 Numbers
+```{r v6_total_show}
+reactable(total_efficacy_status_v6, columns = list(
+  `Percent complete` = colDef(align = 'right')
+))
+
+# make a note of duplicates
+if (any(duplicated(total_efficacy_v6$extid))) {
+  cat('Note: Excluding the duplicates, the real total number of people visited is',
+      length(unique(total_efficacy_v6$extid)), '.\n')
+} else {
+  cat("Note: There are no duplicates based on extid in the data.")
+}
+```
+
+### in
+```{r v6_in_show}
+reactable(in_type_v6, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+```
+
+### eos
+```{r v6_eos_show}
+reactable(eos_reasons_v6, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# generate a message that says which reasons do not appear
+# Specify the names you want to check for
+names_to_check <- c('decline participation', 
+                    'not agree to efficacy procedures', 
+                    'not a resident', 
+                    'enrolled in other trials')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_eos_v6$efficacy_reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for eos:", paste0(not_found_names, collapse = " / ", "."))
+}
+```
+
+
+### out
+```{r v6_out_show}
+reactable(out_reasons_v6, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# generate a message that says which reasons do not appear
+# Specify the names you want to check for
+names_to_check <- c('migrated', 
+                    'died', 
+                    'absent',
+                    'not enrolled yet')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_out_v6$efficacy_reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for out status:", paste0(not_found_names, collapse = " / ", "."))
+}
+```
+
+### refusal
+```{r v6_refusal_show}
+reactable(refusal_reasons_v6, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# generate a message that says which reasons do not appear
+# Specify the names you want to check for
+names_to_check <- c('thumbprint status', 
+                    'sign icf status', 
+                    'minor assent status')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_refusal_v6$efficacy_reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for refusals:", paste0(not_found_names, collapse = "/ ", "."))
+}
+```
+
+###  rdt results
+#### total rdt results in v6
+```{r rdt-results-totals-v6}
+reactable(eff_rdt_prop_totals_v6, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# make a note of blank test responses
+if (sum(eff_results_v6$combination == 'blank test responses') >= 1) {
+  cat('Note:', sum(eff_results_v6$combination == 'blank test responses'), 'blank test responses have been excluded from this table.\n')
+} else {
+  cat('Note: No blank test responses were recorded.\n')
+}
+```
+
+#### rdt results by cluster in v6
+```{r rdt-results-by-cluster-v6}
+element_id <- 'efficacy-rdt-results-by-cluster-v6'
+
+v6_eff_cluster_rdt_results_readable <- reactable(eff_cluster_rdt_results_v6, columns = list(), 
+                                              highlight = TRUE,
+                                              resizable = TRUE,
+                                              bordered = TRUE,
+                                              striped = TRUE,
+                                              filterable=TRUE,
+                                              elementId = element_id
+                                              )
+
+wrap_download(
+  v6_eff_cluster_rdt_results_readable, 
+  element_id,
+  'efficacy_rdt_results_by_cluster.csv')
+```
+
 
 ## V5 Numbers
 ```{r v5_total_show}
