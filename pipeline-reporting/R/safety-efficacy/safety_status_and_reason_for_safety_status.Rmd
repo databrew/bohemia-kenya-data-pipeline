@@ -402,6 +402,11 @@ trial_by_visit <- data %>%
     mutate(Total = `1` + `2`) %>%
     rename('Assignment 1' = '1',
            'Assignment 2' = '2')
+  
+  v4_pregnant_women <- data_investigation %>%
+    filter(visit == 'V4',
+           safety_reason == 'pregnant')
+  v4_pregnant_women_stat <- length(unique(v4_pregnant_women$extid))
 
 ```
 
@@ -1094,6 +1099,7 @@ reactable(enrol_eos_table, columns = list(), pagination = FALSE)
 
 reactable(enrol_comp_table, columns = list(), pagination = FALSE)
 ```
+*Note: the `r v4_pregnant_women_stat` women found pregnant in V4 are included in the Enrolled reason completion table.*
 
 ### Not Enrolled Participants
 ```{r trial_not_enrolled}
