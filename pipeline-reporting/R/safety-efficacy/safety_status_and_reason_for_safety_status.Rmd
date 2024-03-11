@@ -141,6 +141,9 @@ absence1stattempt <- absence1stattempt %>%
            sex_v0 = sex) %>%
     mutate(sex_v0 = tolower(sex_v0))
   
+  v0data <- left_join(v0_dem_repeat, v0_demography, by=c('PARENT_KEY' = 'KEY')) %>%
+    select(extid, hhid, cluster)
+  
 # create the merged safety data
   clean_safety_repeat <- safety_repeat_individual %>%
     select(PARENT_KEY, extid, safety_status, starting_safety_status, dob_string, 
@@ -319,6 +322,26 @@ trial_by_visit <- data %>%
 #   
 #   table(women_by_arm$assignment)
 
+```
+
+```{r safety_trial_profile_individual_level}
+######### SAFETY SELECTION #############
+
+num_ind_v0_total_visited <- length(unique(v0data$extid))
+num_hhid_v0_total_visited <- length(unique(v0data$hhid))
+
+v0_removed_hhids <- c( "49260", "86041", "20029", "11076", "66029", "86038", "52074", "52073", "35032", "66025", "66020", "04047", "04046", "66024", "66023", "52020", "52049", "52046", "51120", "69045", "71026", "52071", "52070", "52051", "52069", "86037", "86032", "86031", "86030", "66021", "66019", "66018", "35028", "35027", "35024", "89029", "89027", "35022", "35021", "35020", "35019", "51068", "01029", "16021", "04045", "04044", "04043", "04040", "04036", "89025", "69103", "52068", "52067", "52066", "52005", "52037", "52036", "52035", "03069", "03068", "01001", "35018", "36028", "36027", "47043", "47042", "04035", "04034", "04032", "51109", "51108", "06008", "06009", "66017", "66016", "66015", "04031", "04030", "04029", "04028", "04027", "04025", "04024", "04023", "04022", "52034", "52002", "52033", "52065", "52064", "52045", "35015", "01002", "01004", "01005", "03066", "89024", "89023", "86026", "86025", "86024", "86023", "86022", "92057", "47040", "47039", "47038", "47036", "47035", "32033", "06010", "06012", "06013", "06046", "66014", "66013", "66012", "24067", "51105", "52031", "52030", "52032", "52063", "52062", "52061", "21019", "92020", "86020", "89022", "89021", "01006", "32032", "32031", "35014", "35013", "06011", "06014", "06045", "71025", "66011", "66010", "66009", "66008", "07059", "07058", "67016", "88457", "04021", "04020", "04019", "52029", "52028", "52027", "01007", "01008", "52060", "52059", "52058", "66006", "66005", "35010", "86019", "86018", "89020", "89019", "06044", "06015", "32030", "32029", "29127", "47034", "71024", "71023", "07057", "04018", "04017", "04016", "04015", "04014", "04013", "04012", "66004", "66003", "66002", "89018", "89017", "35009", "35008", "71022", "71021", "71020", "86017", "86016", "86014", "52026", "52025", "52039", "52057", "52056", "52055", "41068", "01009", "01010", "67019", "32028", "32027", "32025", "32024", "06016", "06017", "06042", "06041", "07056", "47032", "47031", "76016", "76015", "76014", "76012", "89016", "89015", "89014", "69088", "01011", "01013", "01014", "71019", "71017", "71016", "32023", "32022", "32019", "86011", "86012", "86013", "47030", "47028", "47027", "47026", "47025", "47024", "47023", "06039", "06038", "06018", "06019", "52024", "52023", "52054", "52053", "52050", "52008", "04011", "04010", "04009", "04008", "04007", "76010", "76009", "76008", "71015", "71014", "71013", "71011", "86010", "86009", "86007", "86006", "86005", "86004", "86003", "06020", "06021", "06022", "06023", "89013", "89012", "89010", "52022", "52009", "52011", "52019", "52048", "52010", "52006", "52001", "01016", "01018", "32018", "32016", "32015", "32014", "32013", "35007", "35006", "01019", "01020", "01021", "01023", "01022", "01024", "76006", "76005", "76004", "42008", "71010", "71009", "71008", "71007", "71006", "89009", "89008", "89007", "89003", "52007", "52043", "52038", "52017", "52016", "52018", "32012", "32011", "32010", "32009", "32008", "32007", "32005", "24090", "04006", "04005", "04004", "04003", "35005", "35004", "35003", "06037", "06036", "06035", "06034", "06026", "06024", "06027", "06028", "06029", "06030", "67071", "47022", "47021", "47020", "47019", "47018", "92001", "92002", "54003", "10003", "72002", "35002", "35001", "04002", "04001", "01025", "01026", "89002", "89001", "66001", "71005", "71004", "76002", "76001", "52041", "52040", "52044", "52042", "06001", "06025", "86002", "86001", "47017", "47016", "32002", "32001")
+num_v0_removed_hhid <- length(v0_removed_hhids)
+
+v0_removed_hhids_dataset <- v0data %>%
+  filter(hhid %in% v0_removed_hhids)
+num_v0_removed_extid <- length(unique(v0_removed_hhids_dataset$extid))
+
+v0_clean <- v0data %>%
+  filter(!hhid %in% v0_removed_hhids)
+
+num_ind_v0_clean <- length(unique(v0_clean$extid))
+num_hhid_v0_clean <- length(unique(v0_clean$hhid))
 ```
 
 ```{r enrolled}
@@ -1084,7 +1107,22 @@ target_table <- target_table %>%
 
 ```
 
-## Safety Trial Profile
+## Safety Trial Profile  
+
+This is the safety trial profile which breaks down the people visited from beginning to end. It starts at safety V0 and ends at V4. The aim is to track every person and understand why they are present or not at each stage and to understand where they go.  
+
+***
+
+### Safety V0
+
+Safety V0 started by visiting `r num_hhid_v0_total_visited` households (`r num_ind_v0_total_visited` people). However, `r num_v0_removed_hhid` households (`r num_v0_removed_extid` people) were removed at the study's discretion. Therefore, the target for V1 is `r num_hhid_v0_clean` households (`r num_ind_v0_clean` people).  
+
+* Household level: `r num_hhid_v0_total_visited` visited houesholds - `r num_v0_removed_hhid` removed households = `r num_hhid_v0_total_visited - num_v0_removed_hhid` target households
+* Individual level: `r num_ind_v0_total_visited` visited houesholds - `r num_v0_removed_extid` removed households = `r num_ind_v0_total_visited - num_v0_removed_extid` target households
+  
+***
+
+## Safety Totals
 ```{r trial_total}
 reactable(total_trial_table, columns = list(), pagination = FALSE)
 ```

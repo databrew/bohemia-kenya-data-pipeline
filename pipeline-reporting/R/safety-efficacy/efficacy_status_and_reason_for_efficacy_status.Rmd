@@ -493,7 +493,7 @@ v5_extid_not_visited <- anti_join(v4_clean, v5, by = 'extid') %>%
   mutate(
     hhid = as.character(hhid),  # Convert hhid to character type to retain leading zeros
     hhid = sprintf("%05d", as.numeric(hhid)),  # Ensure hhid has leading zeros if necessary
-    visit = 'v3',
+    visit = 'v5',
     efficacy_status = 'out'
   ) 
 
@@ -526,6 +526,57 @@ v5_clean <- v5 %>%
 
 num_v5_clean <- length(unique(v5_clean$extid))
 
+
+
+# v6 ###############################
+
+v6 <- total_eff %>% 
+  filter(visit == 'V6') %>% 
+  select(extid, hhid, visit, efficacy_status, efficacy_reason)
+
+v6_total_visited <- length(unique(v6$extid))
+
+
+####### NOT VISITED
+
+v6_extid_not_visited <- anti_join(v5_clean, v6, by = 'extid') %>%
+  filter(!(extid %in% aged_out)) %>%
+  select(extid, hhid) %>%
+  mutate(
+    hhid = as.character(hhid),  # Convert hhid to character type to retain leading zeros
+    hhid = sprintf("%05d", as.numeric(hhid)),  # Ensure hhid has leading zeros if necessary
+    visit = 'v6',
+    efficacy_status = 'out'
+  ) 
+
+num_v6_not_visited <- length(unique(v6_extid_not_visited$extid))
+
+
+
+###### REMOVED INDIVIDUALS
+
+
+v6_removed_extid_data <- v6 %>%
+  filter(efficacy_status %in% c('refusal', 'eos') | efficacy_reason %in% c('migrated', 'died')) %>%
+  mutate(removal_reason = paste(efficacy_status, efficacy_reason, sep = " "))
+
+v6_removed_extids <- length(unique(v6_removed_extid_data$extid))
+
+v6_removed_extid_table <- v6_removed_extid_data %>%
+  arrange(visit) %>%
+  group_by(removal_reason) %>%
+  summarise('N' = n()) %>%
+  arrange(removal_reason) %>%
+  add_row(removal_reason = 'total', 
+            'N' = sum(.$'N')) %>% 
+  rename('Removal Reason' = removal_reason)
+
+# add the missed extids back in and remove the 100 refusal houses
+v6_clean <- v6 %>%
+  anti_join(v6_removed_extid_data, by = "extid") %>%
+  bind_rows(v6_extid_not_visited) 
+
+num_v6_clean <- length(unique(v6_clean$extid))
 
 ```
 
@@ -1913,7 +1964,31 @@ After removing migrations, deaths, refusals, and eos, we enter V6 with a target 
   
 ***
 
-#### V6 & V7 TBD
+#### V6 
+
+In V5 `r v6_total_visited` children were visited. If the target for efficacy was `r num_v5_clean`, then this means that `r num_v5_clean - v6_total_visited` less children were visited than expected. See below:
+
+ * `r num_v5_clean` (V6 Target) - `r v6_total_visited` (V6 Visited) = `r num_v5_clean - v6_total_visited`
+
+This number can be explained by the following:
+  
+  * `r num_v6_not_visited` children were not visited in V6 (aka missed the visit).  
+  
+While we expected to visit `r num_v5_clean` children, we actually only visited `r v6_total_visited` children because `r num_v6_not_visited` children should have been visited but were missed. Now that we have determined why our target number for V6 is different than the number of people we actually visited, we need to determine the V7 target.
+
+In preparation for V7, migrations, deaths, refusals, and eos children needed to be removed from the data. `r v6_removed_extids` kids were removed going into V7 for the following reasons:
+
+```{r not_visited_table_v6}
+knitr::kable(v6_removed_extid_table)
+```
+
+After removing migrations, deaths, refusals, and eos, we enter V7 with a target of `r num_v6_clean`. See below:
+
+  * `r v6_total_visited` (V5 submissions) + `r num_v6_not_visited` (extids not visited) - `r v6_removed_extids` (removed extids) = `r  sum(v6_total_visited + num_v6_not_visited - v6_removed_extids)`
+
+***
+
+#### V7 TBD
 
 ### Enrolment Figures
 ```{r trial_total}
