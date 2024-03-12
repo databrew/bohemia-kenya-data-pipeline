@@ -469,6 +469,47 @@ v1_death_hhs <- v1safety %>%
                          v1_migrations$extid))
   num_extid_v1_clean <- length(unique(v1_clean$extid))
   num_hhid_v1_clean <- length(unique(v1_clean$hhid))
+  
+  
+# make table of safety statuses
+  v1safety_statuses <- v1safety %>%
+    group_by(safety_status) %>%
+    summarize(n = n()) %>%
+    rename('V1 Visited' = n) %>%
+    add_row(safety_status = 'total', 'V1 Visited' = sum(.$'V1 Visited'))
+  
+  v1safety_clean_statuses <- v1_clean %>%
+    group_by(safety_status) %>%
+    summarize(n = n()) %>%
+    rename('V1 Clean' = n) %>%
+    add_row(safety_status = 'total', 'V1 Clean' = sum(.$'V1 Clean'))
+  
+  v1statuses <- merge(v1safety_statuses, v1safety_clean_statuses, by='safety_status')
+  
+  # for out
+  v1_out <- v1safety %>%
+    filter(safety_status == 'out')
+  num_v1_out <- length(unique(v1_out$extid))
+  
+  v1_out_mig <- v1_out %>%
+    filter(safety_reason == c('migrated'))
+  num_v1_out_mig <- length(unique(v1_out_mig$extid))
+  
+  v1_out_died <- v1_out %>%
+    filter(safety_reason == c('died'))
+  num_v1_out_died <- length(unique(v1_out_died$extid))
+  
+  # for refusal
+  
+  v1_refusal <- v1safety %>%
+    filter(safety_status == 'refusal')
+  num_v1_refusal <- length(unique(v1_refusal$extid))
+  
+  v1_ref_removed <- v1_refusal %>%
+    filter(extid %in% v1_100_refusal_dataset$extid)
+  num_v1_ref_removed <- length(unique(v1_ref_removed$extid))
+  
+
 ```
 
 ```{r enrolled}
@@ -1294,6 +1335,14 @@ Now when we remove migrations, deaths, and people in 100% refusal households and
 
 `r num_extid_v1_total_visited` visited + `r num_extid_v1_not_visited` missed - `r num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal` removed = `r num_extid_v1_total_visited + num_extid_v1_not_visited - (num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal)` V2 target
 
+To double check everything that has been done, the V1 visited people's safety statuses are compared to the V2 target below: 
+
+```{r v1_safety_statuses}
+knitr::kable(v1statuses)
+```
+
+* OUT: `r num_v1_out` - `r num_v1_out_mig` migrated - `r num_v1_out_died` died + `r num_extid_v1_not_visited` missed people = `r num_v1_out - num_v1_out_mig - num_v1_out_died + num_extid_v1_not_visited` OUT
+* REFUSAL: `r num_v1_refusal` - `r num_v1_ref_removed` people in 100% removal households = `r num_v1_refusal - num_v1_ref_removed` REFUSAL
 
 
 
