@@ -119,6 +119,30 @@ v0 <- cloudbrewr::aws_s3_get_table(
   dplyr::distinct(hhid, cluster)
 ```
 
+```{r}
+entorcoviposition <- entorcoviposition %>% 
+    dplyr::mutate(dead_day = case_when(dead_day_1 == 'yes' ~ 1,
+                                       dead_day_2 == 'yes' ~ 2,
+                                       dead_day_3 == 'yes' ~ 3,
+                                       dead_day_4 == 'yes' ~ 4,
+                                       dead_day_5 == 'yes' ~ 5,
+                                       dead_day_6 == 'yes' ~ 6,
+                                       dead_day_7 == 'yes' ~ 7,
+                                       TRUE ~ NA),
+                  oviposition_day = case_when(oviposition_day_1 == 'yes' ~ 1,
+                                              oviposition_day_2 == 'yes' ~ 2,
+                                              oviposition_day_3 == 'yes' ~ 3,
+                                              oviposition_day_4 == 'yes' ~ 4,
+                                              oviposition_day_5 == 'yes' ~ 5,
+                                              oviposition_day_6 == 'yes' ~ 6,
+                                              oviposition_day_7 == 'yes' ~ 7,
+                                              TRUE ~ NA),
+                  is_dead = case_when(is.na(dead_day) ~ 'No', TRUE~'Yes'),
+                  is_oviposition = case_when(is.na(oviposition_day) ~ 'No', TRUE~'Yes')
+                  )
+
+```
+
 
 ```{r}
 storage <- entostoragebox[,!grepl("Device|device_id|note|manual|barcod|instance|KEY|Submitter|Status|Attachments|ReviewState|
@@ -435,8 +459,10 @@ rc_tubes = entorcmorpid_tubes[!duplicated(entorcmorpid_tubes),]
 ### Resting Collection (RC)
 Mosquito indivdually
 ```{r}
-individual_mosquitoes_rc <- rc_tubes %>%
-  filter(stringr::str_detect(`Sample tube ID`, 'RC-'))%>%
+individual_mosquitoes_rc <- rc_tubes %>% 
+  dplyr::left_join(entorcoviposition %>% 
+                         dplyr::select(tube_id, dead_day, is_dead, oviposition_day, is_oviposition), by = c('Sample tube ID' = 'tube_id')) %>%
+  dplyr::filter(stringr::str_detect(`Sample tube ID`, 'RCS-'))%>%
   left_join(box_meta, by = c("Sample tube ID" = "tube_ids"))%>%
   dplyr::mutate(cluster = case_when(
         !is.na(instance_label) ~ as.numeric(stringr::str_extract(instance_label, "^.{2}")))
@@ -453,7 +479,11 @@ individual_mosquitoes_rc <- rc_tubes %>%
          `No. of mosquitoes per tube (Listed Number)` = `Number of mosquitos in tube`,
          `Species Complex` = Species,
          `Physiological Status` = physio,
-         position_in_box)  %>%
+         position_in_box,
+         `Oviposited` = is_oviposition, 
+         `Day oviposited` = oviposition_day, 
+         `Dead` = is_dead,
+         `Day Died` = dead_day)  %>%
   arrange(`Box ID`, position_in_box)  %>% 
   dplyr::mutate(across(where(is.character), toupper)) %>% 
   dplyr::mutate(across(where(is.character), .fns = ~tidyr::replace_na(.,''))) %>% 
@@ -479,7 +509,7 @@ Mosquito in pools
 ```{r}
 
 pooled_mosquitoes_rc <- rc_tubes %>%
-  filter(stringr::str_detect(`Sample tube ID`, 'RCS-'))%>%
+  filter(stringr::str_detect(`Sample tube ID`, 'RC-'))%>%
   left_join(box_meta, by = c("Sample tube ID" = "tube_ids"))%>%
   dplyr::mutate(cluster = case_when(
         !is.na(instance_label) ~ as.numeric(stringr::str_extract(instance_label, "^.{2}")))
