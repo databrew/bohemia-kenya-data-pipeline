@@ -1400,12 +1400,10 @@ knitr::kable(v1statuses)
 
 Finally, all people should follow the pathways below:
 
-> Potentially adding the image from Safety Document here...
-
 ```{r, echo=FALSE}
 htmltools::img(src = knitr::image_uri('../../asset/safety_pathway_screenshot.jpg'), 
                alt = 'logo', 
-               style = 'padding:10px; width:200px; height:100px')
+               style = 'padding:10px; width:550px; height:200px')
 ```
 
 We can check this in the following table:
