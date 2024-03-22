@@ -12,7 +12,7 @@ date: '`r Sys.time()`'
 Notes:
 
 - Report is refreshed hourly 9-5pm EAT, once 12AM EAT
-- Please reach out to nikamgorski@gmail.com for bug reports
+- Please reach out to nika.gorski@isglobal.org for bug reports
 
 
 ```{r, echo=FALSE, message=FALSE}
@@ -463,12 +463,16 @@ v1_death_hhs <- v1safety %>%
   
 # create safety clean
   v1_clean <- v1safety %>%
-    bind_rows(v1_not_visited) %>%
     filter(!extid %in% c(v1_100_refusal_dataset$extid, 
                          v1_death$extid, 
                          v1_migrations$extid))
   num_extid_v1_clean <- length(unique(v1_clean$extid))
   num_hhid_v1_clean <- length(unique(v1_clean$hhid))
+  
+# make a safety v2 target
+  v2_target <- v1_clean %>%
+    bind_rows(v1_not_visited)
+  num_hhid_v2_target <- length(unique(v2_target$hhid))
   
   
 # make table of safety statuses
@@ -484,7 +488,7 @@ v1_death_hhs <- v1safety %>%
     rename('V1 Clean' = n) %>%
     add_row(safety_status = 'total', 'V1 Clean' = sum(.$'V1 Clean'))
   
-  v2safety_target_statuses <- v1_clean %>%
+  v2safety_target_statuses <- v2_target %>%
     filter(safety_status %in% c('in', 'out'),
            !safety_reason %in% c('migrated', 'died')) %>%
     group_by(safety_status) %>%
@@ -499,12 +503,12 @@ v1_death_hhs <- v1safety %>%
     merge(v2safety_target_statuses, by='safety_status')
 
   # for in
-  v1_in <- v1safety %>%
+  v1_in <- v2_target %>%
     filter(safety_status == 'in')
   num_v1_in <- length(unique(v1_in$extid))
   
   # for out
-  v1_out <- v1safety %>%
+  v1_out <- v2_target %>%
     filter(safety_status == 'out') 
   num_v1_out <- length(unique(v1_out$extid))
   
@@ -1341,7 +1345,7 @@ When we dive deeper to confirm that `r num_hhid_v0_clean - num_hhid_v1_total_vis
 
 > _NOTE: `r num_v1_hhid_visited_extid_not` households were visited but only had Safety New members enrolled. The other members of the household had no data submitted for that visit._
 
-Now that we have determined why the target hh and visited hh numbers differ, we will begin to find the V2 target number. To create the V2 target, we must remove all hhs with a 100% refusal rate. __A 100% refusal rate houshold is defined as a household that is completely made up of individuals who refused, migrated, or died.__ See below:
+Now that we have determined why the target hh and visited hh numbers differ, we will begin to find the V2 target number. To create the V2 target, we must remove the hh below:
 
 * `r num_hhid_v1_ref_ref` households had all individuals refuse,  
 * `r num_hhid_v1_all_migrations` households had all individuals migrate,  
@@ -1349,16 +1353,20 @@ Now that we have determined why the target hh and visited hh numbers differ, we 
 * `r num_hhid_v1_ref_mig_died` households had all individuals refuse, migrate, or die.
 * Total of above = `r num_hhid_v1_ref_ref + num_hhid_v1_all_migrations + num_hhid_v1_all_death + num_hhid_v1_ref_mig_died`  
 
-This means that `r num_hhid_v1_ref_ref + num_hhid_v1_all_migrations + num_hhid_v1_all_death + num_hhid_v1_ref_mig_died` households were removed due to being 100% refusal.
+This means that `r num_hhid_v1_ref_ref + num_hhid_v1_all_migrations + num_hhid_v1_all_death + num_hhid_v1_ref_mig_died` households were removed.
 
-Finally, to create the V2 target we want to keep all people who we visited that are not a part of the 100% refusal households and we need to include the people who were missed in V1:
+The V1 Clean data will then have the following households:
+
+* `r num_hhid_v1_total_visited` visited - `r num_hhid_v1_100_refusal` 100% refusals = `r num_hhid_v1_total_visited - num_hhid_v1_100_refusal` V1 Clean
+
+Finally, to create the V2 target we want to keep all people who we visited that are not a part of the households removed and we need to include the households who were missed in V1:
 
 * `r num_hhid_v1_total_visited` visited + `r num_hhid_v1_not_visited - num_v1_hhid_visited_extid_not` not visited - `r num_hhid_v1_100_refusal` 100% refusals = `r num_hhid_v1_total_visited + (num_hhid_v1_not_visited - num_v1_hhid_visited_extid_not) - num_hhid_v1_100_refusal` V2 target
 
-So now there is a V2 target of `r num_hhid_v1_clean` households.
+So now there is a V2 target of `r num_hhid_v2_target` households.
 
 #### Individual Level
-At the invidivual level, people can be visited throughout Safety who were previously added to the household in Demography or they can be added to a household in Safety V1, V2, or V3 through the Safety New Members Form. For the purposes of this document we will refer to safety new member people as __type new__ and people who joined a household in Demography as type __OG__.   
+At the invidivual level, people who were registered in Demography go through the Safety form or they can be added to a household in Safety V1, V2, or V3 through the Safety New Members Form. For the purposes of this document we will refer to safety new member people as __type new__ and people who joined a household in Demography as type __OG__.   
 > _Note: OG is slang for original._
 
 Safety V1 visited people who were also visited in Demography (type OG) but also visits new people (type new). In total `r num_extid_v1_total_visited` people were visited in Safety V1 of which `r num_extid_v1_new_visited` were new and `r num_extid_v1_og_visited` were OG. 
@@ -1366,28 +1374,24 @@ Safety V1 visited people who were also visited in Demography (type OG) but also 
 In the target for V1, new people were not accounted for, only the OG people. So when we compare the V1 target and V1 OG visited we find that `r num_extid_v1_not_visited` people were not visited:  
 
 * `r num_extid_v0_clean` (target) - `r num_extid_v1_og_visited` (OG visited) = `r num_extid_v0_clean - num_extid_v1_og_visited` (missed people)
+* These individuals are coming from the `r length(unique(v1_not_visited$hhid)) - length(unique(v1_hhid_visited_extid_not$hhid))` missed households + `r length(unique(v1_hhid_visited_extid_not$hhid))` households which had no Safety submissions (just Safety New Members).
 
-Now that we understand why the target is different, let's clean V1 by removing all migrations, deaths, and 100% refusal households: 
+Now that we understand why the target is different, let's clean V1 by removing all migrations, deaths, and 100% refusal households. __A 100% refusal rate household is defined as a household that is completely made up of individuals who refused, or a combination of refused and migrated and/or dead__: 
 
 * `r num_extid_v1_mig_hhs_not_100` migrations (which are not a part of 100% refusal households),    
 * `r num_extid_v1_died_hhs_not_100` deaths (which are not a part of 100% refusal households), and    
 * `r num_extid_v1_100_refusal` people belonging to 100% refusal households.
-* Total of above = `r num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal` people  
+  + `r num_v1_out_mig - num_extid_v1_mig_hhs_not_100` people migrated, and
+  + `r num_v1_ref_removed` people refused.
+* Total of above = `r num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal` people   
 
-Above people who are migrated or died are considered migrated or died while people in 100% refusal households are households with all refusals. However, in reality a 100% refusal household is considered a household with people who all refused, migrated or died. Therefore, the above could be broken down in the following way:
+Now when we remove migrations, deaths, and people in 100% refusal households, we get a V1 Clean of `r num_extid_v1_clean`.  
 
-* `r num_v1_out_mig` migrations (which are not a part of 100% refusal households),    
-* `r num_v1_out_died` deaths (which are not a part of 100% refusal households), and    
-* `r num_v1_ref_removed` people belonging to 100% refusal households.  
-* Total of above = `r num_v1_out_mig + num_v1_out_died + num_v1_ref_removed` people  
+* `r num_extid_v1_total_visited` visited - `r num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal` removed = `r num_extid_v1_total_visited - (num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal)` V1 Clean
 
-Now when we remove migrations, deaths, and people in 100% refusal households and add the people we missed, we get a V1 Clean of `r num_extid_v1_clean`.  
+Now that the data has been cleaned, we will calculate the V2 Target number by adding the people missed in V1 to the V1 Clean. The V2 Target will reflect the number of people who can be visited in the next visit (out and in people).
 
-* `r num_extid_v1_total_visited` visited + `r num_extid_v1_not_visited` missed - `r num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal` removed = `r num_extid_v1_total_visited + num_extid_v1_not_visited - (num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal)` V1 Clean
-
-Now that the data has been cleaned, we will calculate the V2 Target number. The V2 Target will reflect the number of people who can be visited in the next visit (out and in people) or continue in the study.
-
-* V2 Target: `r num_v1_in` in + `r num_v1_out_clean` out = `r num_v1_in + num_v1_out_clean` V2 Target
+* `r num_v1_in` in + `r num_v1_out_clean` out = `r num_v1_in + num_v1_out_clean` V2 Target
 
 To double check everything that has been done, the V1 visited people's safety statuses are compared to V1 Clean and V2 Target below: 
 
@@ -1395,8 +1399,8 @@ To double check everything that has been done, the V1 visited people's safety st
 knitr::kable(v1statuses)
 ```
 
-* OUT: `r num_v1_out` - `r num_v1_out_mig` migrated - `r num_v1_out_died` died + `r num_extid_v1_not_visited` missed people = `r num_v1_out - num_v1_out_mig - num_v1_out_died + num_extid_v1_not_visited` OUT
-* REFUSAL: `r num_v1_refusal` - `r num_v1_ref_removed` people in 100% removal households = `r num_v1_refusal - num_v1_ref_removed` REFUSAL
+* OUT: `r num_v1_out` - `r num_v1_out_mig` migrated - `r num_v1_out_died` died + `r num_extid_v1_not_visited` missed people = `r num_v1_out - num_v1_out_mig - num_v1_out_died + num_extid_v1_not_visited` OUT (participants who can still enter the study)
+* REFUSAL: `r num_v1_refusal` - `r num_v1_ref_removed` people in 100% removal households = `r num_v1_refusal - num_v1_ref_removed` REFUSAL (participants who refused but belong to hh that are still part of the study)
 
 Finally, all people should follow the pathways below:
 
