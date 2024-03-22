@@ -12,7 +12,7 @@ date: '`r Sys.time()`'
 Notes:
 
 - Report is refreshed hourly 9-5pm EAT, once 12AM EAT
-- Please reach out to nikamgorski@gmail.com for bug reports
+- Please reach out to nika.gorski@isglobal.org for bug reports
 
 
 ```{r, echo=FALSE, message=FALSE}
@@ -463,12 +463,16 @@ v1_death_hhs <- v1safety %>%
   
 # create safety clean
   v1_clean <- v1safety %>%
-    bind_rows(v1_not_visited) %>%
     filter(!extid %in% c(v1_100_refusal_dataset$extid, 
                          v1_death$extid, 
                          v1_migrations$extid))
   num_extid_v1_clean <- length(unique(v1_clean$extid))
   num_hhid_v1_clean <- length(unique(v1_clean$hhid))
+  
+# make a safety v2 target
+  v2_target <- v1_clean %>%
+    bind_rows(v1_not_visited)
+  num_hhid_v2_target <- length(unique(v2_target$hhid))
   
   
 # make table of safety statuses
@@ -484,7 +488,7 @@ v1_death_hhs <- v1safety %>%
     rename('V1 Clean' = n) %>%
     add_row(safety_status = 'total', 'V1 Clean' = sum(.$'V1 Clean'))
   
-  v2safety_target_statuses <- v1_clean %>%
+  v2safety_target_statuses <- v2_target %>%
     filter(safety_status %in% c('in', 'out'),
            !safety_reason %in% c('migrated', 'died')) %>%
     group_by(safety_status) %>%
@@ -499,12 +503,12 @@ v1_death_hhs <- v1safety %>%
     merge(v2safety_target_statuses, by='safety_status')
 
   # for in
-  v1_in <- v1safety %>%
+  v1_in <- v2_target %>%
     filter(safety_status == 'in')
   num_v1_in <- length(unique(v1_in$extid))
   
   # for out
-  v1_out <- v1safety %>%
+  v1_out <- v2_target %>%
     filter(safety_status == 'out') 
   num_v1_out <- length(unique(v1_out$extid))
   
@@ -1351,11 +1355,15 @@ Now that we have determined why the target hh and visited hh numbers differ, we 
 
 This means that `r num_hhid_v1_ref_ref + num_hhid_v1_all_migrations + num_hhid_v1_all_death + num_hhid_v1_ref_mig_died` households were removed.
 
+The V1 Clean data will then have the following households:
+
+* `r num_hhid_v1_total_visited` visited - `r num_hhid_v1_100_refusal` 100% refusals = `r num_hhid_v1_total_visited - num_hhid_v1_100_refusal` V1 Clean
+
 Finally, to create the V2 target we want to keep all people who we visited that are not a part of the households removed and we need to include the households who were missed in V1:
 
 * `r num_hhid_v1_total_visited` visited + `r num_hhid_v1_not_visited - num_v1_hhid_visited_extid_not` not visited - `r num_hhid_v1_100_refusal` 100% refusals = `r num_hhid_v1_total_visited + (num_hhid_v1_not_visited - num_v1_hhid_visited_extid_not) - num_hhid_v1_100_refusal` V2 target
 
-So now there is a V2 target of `r num_hhid_v1_clean` households.
+So now there is a V2 target of `r num_hhid_v2_target` households.
 
 #### Individual Level
 At the invidivual level, people who were registered in Demography go through the Safety form or they can be added to a household in Safety V1, V2, or V3 through the Safety New Members Form. For the purposes of this document we will refer to safety new member people as __type new__ and people who joined a household in Demography as type __OG__.   
@@ -1377,13 +1385,13 @@ Now that we understand why the target is different, let's clean V1 by removing a
   + `r num_v1_ref_removed` people refused.
 * Total of above = `r num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal` people   
 
-Now when we remove migrations, deaths, and people in 100% refusal households and add the people we missed, we get a V1 Clean of `r num_extid_v1_clean`.  
+Now when we remove migrations, deaths, and people in 100% refusal households, we get a V1 Clean of `r num_extid_v1_clean`.  
 
-* `r num_extid_v1_total_visited` visited + `r num_extid_v1_not_visited` missed - `r num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal` removed = `r num_extid_v1_total_visited + num_extid_v1_not_visited - (num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal)` V1 Clean
+* `r num_extid_v1_total_visited` visited - `r num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal` removed = `r num_extid_v1_total_visited - (num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal)` V1 Clean
 
-Now that the data has been cleaned, we will calculate the V2 Target number. The V2 Target will reflect the number of people who can be visited in the next visit (out and in people).
+Now that the data has been cleaned, we will calculate the V2 Target number by adding the people missed in V1 to the V1 Clean. The V2 Target will reflect the number of people who can be visited in the next visit (out and in people).
 
-* V2 Target: `r num_v1_in` in + `r num_v1_out_clean` out = `r num_v1_in + num_v1_out_clean` V2 Target
+* `r num_v1_in` in + `r num_v1_out_clean` out = `r num_v1_in + num_v1_out_clean` V2 Target
 
 To double check everything that has been done, the V1 visited people's safety statuses are compared to V1 Clean and V2 Target below: 
 
