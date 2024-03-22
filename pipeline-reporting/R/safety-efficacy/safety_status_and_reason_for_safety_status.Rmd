@@ -1372,14 +1372,9 @@ Now that we understand why the target is different, let's clean V1 by removing a
 * `r num_extid_v1_mig_hhs_not_100` migrations (which are not a part of 100% refusal households),    
 * `r num_extid_v1_died_hhs_not_100` deaths (which are not a part of 100% refusal households), and    
 * `r num_extid_v1_100_refusal` people belonging to 100% refusal households.
-* Total of above = `r num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal` people  
-
-Above people who are migrated or died are considered migrated or died while people in 100% refusal households are households with all refusals. However, in reality a 100% refusal household is considered a household with people who all refused, migrated or died. Therefore, the above could be broken down in the following way:
-
-* `r num_v1_out_mig` migrations (which are not a part of 100% refusal households),    
-* `r num_v1_out_died` deaths (which are not a part of 100% refusal households), and    
-* `r num_v1_ref_removed` people belonging to 100% refusal households.  
-* Total of above = `r num_v1_out_mig + num_v1_out_died + num_v1_ref_removed` people  
+  + `r num_v1_out_mig - num_extid_v1_mig_hhs_not_100` people migrated, and
+  + `r num_v1_ref_removed` people refused.
+* Total of above = `r num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal` people   
 
 Now when we remove migrations, deaths, and people in 100% refusal households and add the people we missed, we get a V1 Clean of `r num_extid_v1_clean`.  
 
