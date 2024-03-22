@@ -1366,6 +1366,7 @@ Safety V1 visited people who were also visited in Demography (type OG) but also 
 In the target for V1, new people were not accounted for, only the OG people. So when we compare the V1 target and V1 OG visited we find that `r num_extid_v1_not_visited` people were not visited:  
 
 * `r num_extid_v0_clean` (target) - `r num_extid_v1_og_visited` (OG visited) = `r num_extid_v0_clean - num_extid_v1_og_visited` (missed people)
+* These individuals are coming from the `r length(unique(v1_not_visited$hhid)) - length(unique(v1_hhid_visited_extid_not$hhid))` missed households + `r length(unique(v1_hhid_visited_extid_not$hhid))` households which had no Safety submissions (just Safety New Members).
 
 Now that we understand why the target is different, let's clean V1 by removing all migrations, deaths, and 100% refusal households. __A 100% refusal rate household is defined as a household that is completely made up of individuals who refused, or a combination of refused and migrated and/or dead__: 
 
