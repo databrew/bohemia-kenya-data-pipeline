@@ -331,8 +331,9 @@ trial_by_visit <- data %>%
 
 ```
 
-```{r safety_trial_profile_individual_level}
+```{r safety_trial_profile_dem_v1}
 ######### SAFETY SELECTION #############
+# make a v0 dataset and assign it to type OG to distinguish between this and safetynew
 v0data <- left_join(v0_dem_repeat, v0_demography, by=c('PARENT_KEY' = 'KEY')) %>%
   left_join(assignment, by='cluster') %>%
     select(extid, hhid, cluster, safety_status, assignment) %>%
@@ -380,7 +381,8 @@ v1_not_visited <- anti_join(v0_clean, v1safety, by='extid') %>%
     select(cluster, extid, hhid) %>%
     mutate(visit = 'V1',
            safety_status = 'out',
-           safety_reason = 'missed V1')
+           safety_reason = 'missed V1',
+           starting_safety_status = 'out')
 
 num_extid_v1_not_visited <- length(unique(v1_not_visited$extid))
 num_hhid_v1_not_visited <- length(unique(v1_not_visited$hhid))
@@ -428,18 +430,22 @@ v1_hhid_visited_extid_not <- semi_join(v1_not_visited, v1safety, by='hhid')
 # migrations 
 v1_migrations <- v1safety %>%
   filter(safety_reason == 'migrated')
+  num_extid_v1_migrations <- length(unique(v1_migrations$extid))
+  num_hhid_v1_migrations <- length(unique(v1_migrations$hhid))
 
 v1_migrated_hhs <- v1safety %>%
     group_by(hhid) %>%
     filter(all(extid %in% v1_migrations$extid),
            safety_reason %in% c('migrated'))
-  num_extid_v1_migrations <- length(unique(v1_migrations$extid))
-  num_hhid_v1_migrations <- length(unique(v1_migrations$hhid))
   num_hhid_v1_all_migrations <- length(unique(v1_migrated_hhs$hhid))
   
   v1_mig_hhs_not_100 <- v1_migrations %>%
     filter(!extid %in% v1_100_refusal_dataset$extid)
   num_extid_v1_mig_hhs_not_100 <- length(unique(v1_mig_hhs_not_100$extid))
+  
+  v1_mig_hhs_100 <- v1_migrations %>%
+    filter(extid %in% v1_100_refusal_dataset$extid)
+  num_extid_v1_mig_hhs_100 <- length(unique(v1_mig_hhs_100$extid))
   
   
   
@@ -461,7 +467,7 @@ v1_death_hhs <- v1safety %>%
 
     
   
-# create safety clean
+# create safety clean by removing deaths, migrations, and 100% refusal households
   v1_clean <- v1safety %>%
     filter(!extid %in% c(v1_100_refusal_dataset$extid, 
                          v1_death$extid, 
@@ -469,11 +475,17 @@ v1_death_hhs <- v1safety %>%
   num_extid_v1_clean <- length(unique(v1_clean$extid))
   num_hhid_v1_clean <- length(unique(v1_clean$hhid))
   
-# make a safety v2 target
+# make a safety v2 target by adding missed extids and removing eos, refusal, migrated and died
   v2_target <- v1_clean %>%
-    bind_rows(v1_not_visited)
+    bind_rows(v1_not_visited) %>%
+    filter(safety_status %in% c('in', 'out'),
+           !safety_reason %in% c('migrated', 'died'))
   num_hhid_v2_target <- length(unique(v2_target$hhid))
   
+  v2_target_real <- v1_clean %>%
+    bind_rows(v1_not_visited)
+  num_hhid_v2_target_real <- length(unique(v2_target_real$hhid))
+  num_extid_v2_target_real <- length(unique(v2_target_real$extid))
   
 # make table of safety statuses
   v1safety_statuses <- v1safety %>%
@@ -503,14 +515,14 @@ v1_death_hhs <- v1safety %>%
     merge(v2safety_target_statuses, by='safety_status')
 
   # for in
-  v1_in <- v2_target %>%
+  v1_in_target <- v2_target %>%
     filter(safety_status == 'in')
-  num_v1_in <- length(unique(v1_in$extid))
+  num_v1_in_target <- length(unique(v1_in_target$extid))
   
   # for out
-  v1_out <- v2_target %>%
-    filter(safety_status == 'out') 
-  num_v1_out <- length(unique(v1_out$extid))
+  v1_out <- v1safety %>%
+    filter(safety_status == 'out')
+  num_v1_out <- length(v1_out$extid)
   
   v1_out_mig <- v1_out %>%
     filter(safety_reason == c('migrated'))
@@ -520,10 +532,16 @@ v1_death_hhs <- v1safety %>%
     filter(safety_reason == c('died'))
   num_v1_out_died <- length(unique(v1_out_died$extid))
   
-  v1_out_clean <- v1_out %>%
-    filter(!extid %in% c(v1_out_died$extid, v1_out_mig$extid)) %>%
-    bind_rows(v1_not_visited)
-  num_v1_out_clean <- length(unique(v1_out_clean$extid))
+  v2_target_out_start <- v1_out %>%
+    filter(!extid %in% c(v1_out_died$extid, v1_out_mig$extid, v1_not_visited$extid)) 
+  num_v2_target_out_start <- length(unique(v2_target_out_start$extid))
+  
+  v2_target_out <- v2_target %>%
+    filter(safety_status == 'out') 
+  num_v2_target_out <- length(unique(v2_target_out$extid))
+
+  
+
   
   # for refusal
   
@@ -553,6 +571,222 @@ v1_death_hhs <- v1safety %>%
     summarize(count = n()) %>%
     add_row(pathway = 'total', count = sum(.$count))
 
+```
+
+```{r safety_trial_profile_v2}
+##### V2
+v2safety <- data %>%
+  filter(visit == 'V2') %>%
+  select(visit, extid, hhid, cluster, starting_safety_status, safety_status, safety_reason, assignment, type)
+num_extid_v2_total_visited <- length(unique(v2safety$extid))
+num_hhid_v2_total_visited <- length(unique(v2safety$hhid))
+
+v2safety_new <- v2safety %>%
+  filter(type == 'new')
+num_extid_v2_new_visited <- length(unique(v2safety_new$extid))
+num_hhid_v2_new_visited <- length(unique(v2safety_new$hhid))
+
+v2safety_og <- v2safety %>%
+  filter(type == 'OG')
+num_extid_v2_og_visited <- length(unique(v2safety_og$extid))
+num_hhid_v2_og_visited <- length(unique(v2safety_og$hhid))
+
+
+# missed V2
+v2_not_visited <- anti_join(v1_clean, v2safety, by='extid') %>% 
+    select(cluster, extid, hhid) %>%
+    mutate(visit = 'V2',
+           safety_status = 'out',
+           safety_reason = 'missed V2',
+           starting_safety_status = 'out')
+
+num_extid_v2_not_visited <- length(unique(v2_not_visited$extid))
+num_hhid_v2_not_visited <- length(unique(v2_not_visited$hhid))
+
+v2_hhid_visited_extid_not <- semi_join(v2_not_visited, v2safety, by='hhid')
+    num_v2_hhid_visited_extid_not <- length(unique(v2_hhid_visited_extid_not$hhid))
+  
+  
+# refusal information
+  v2_refusals <- v2safety %>%
+    filter(visit == 'V2') %>%
+    filter(safety_status == 'refusal' | safety_reason %in% c('migrated', 'died'))
+  
+  v2_100_refusal_dataset <- v2safety %>%
+    group_by(hhid) %>%
+    filter(all(extid %in% v2_refusals$extid),
+           safety_status == 'refusal' | safety_reason %in% c('migrated', 'died')) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() %>%
+    select(extid, hhid, visit, safety_status, safety_reason, assignment)
+  num_extid_v2_100_refusal <- length(unique(v2_100_refusal_dataset$extid))
+  num_hhid_v2_100_refusal <- length(unique(v2_100_refusal_dataset$hhid))
+  
+  v2_ref_ref <- v2_100_refusal_dataset %>%
+    group_by(hhid) %>%
+    filter(all(safety_status == 'refusal')) 
+  num_extid_v2_ref_ref <- length(unique(v2_ref_ref$extid))
+  num_hhid_v2_ref_ref <- length(unique(v2_ref_ref$hhid))
+  
+  v2_mig_died <- v2_100_refusal_dataset %>%
+    group_by(hhid) %>%
+    filter(all(safety_reason %in% c('migrated', 'died')))
+  num_extid_v2_mig_died <- length(unique(v2_mig_died$extid))
+  num_hhid_v2_mig_died <- length(unique(v2_mig_died$hhid))
+  
+  v2_ref_mig_died <- v2_100_refusal_dataset %>%
+    filter(!(hhid %in% v2_ref_ref$hhid) & !(hhid %in% v2_mig_died$hhid)) 
+  num_extid_v2_ref_mig_died <- length(unique(v2_ref_mig_died$extid))
+  num_hhid_v2_ref_mig_died <- length(unique(v2_ref_mig_died$hhid))
+  
+
+
+  
+# migrations 
+v2_migrations <- v2safety %>%
+  filter(safety_reason == 'migrated')
+  num_extid_v2_migrations <- length(unique(v2_migrations$extid))
+  num_hhid_v2_migrations <- length(unique(v2_migrations$hhid))
+
+v2_migrated_hhs <- v2safety %>%
+    group_by(hhid) %>%
+    filter(all(extid %in% v2_migrations$extid),
+           safety_reason %in% c('migrated'))
+  num_hhid_v2_all_migrations <- length(unique(v2_migrated_hhs$hhid))
+  
+  v2_mig_hhs_not_100 <- v2_migrations %>%
+    filter(!extid %in% v2_100_refusal_dataset$extid)
+  num_extid_v2_mig_hhs_not_100 <- length(unique(v2_mig_hhs_not_100$extid))
+  
+  v2_mig_hhs_100 <- v2_migrations %>%
+    filter(extid %in% v2_100_refusal_dataset$extid)
+  num_extid_v2_mig_hhs_100 <- length(unique(v2_mig_hhs_100$extid))
+  
+  
+  
+# deaths
+v2_death <- v2safety %>%
+  filter(safety_reason == 'died')
+
+v2_death_hhs <- v2safety %>%
+    group_by(hhid) %>%
+    filter(all(extid %in% v2_death$extid),
+           safety_reason %in% c('died'))
+  num_extid_v2_death <- length(unique(v2_death$extid))
+  num_hhid_v2_death <- length(unique(v2_death$hhid))
+  num_hhid_v2_all_death <- length(unique(v2_death_hhs$hhid))
+  
+  v2_died_hhs_not_100 <- v2_death %>%
+    filter(!extid %in% v2_100_refusal_dataset$extid)
+  num_extid_v2_died_hhs_not_100 <- length(unique(v2_died_hhs_not_100$extid))
+
+    
+  
+# create safety clean by removing deaths, migrations, and 100% refusal households
+  v2_clean <- v2safety %>%
+    filter(!extid %in% c(v2_100_refusal_dataset$extid, 
+                         v2_death$extid, 
+                         v2_migrations$extid))
+  num_extid_v2_clean <- length(unique(v2_clean$extid))
+  num_hhid_v2_clean <- length(unique(v2_clean$hhid))
+  
+# make a safety v2 target by adding missed extids and removing eos, refusal, migrated and died
+  v3_target <- v2_clean %>%
+    bind_rows(v2_not_visited) %>%
+    filter(safety_status %in% c('in', 'out'),
+           !safety_reason %in% c('migrated', 'died'))
+  num_hhid_v3_target <- length(unique(v3_target$hhid))
+  
+  v3_target_real <- v2_clean %>%
+    bind_rows(v2_not_visited)
+  num_hhid_v3_target_real <- length(unique(v3_target_real$hhid))
+  num_extid_v3_target_real <- length(unique(v3_target_real$extid))
+  
+  
+# make table of safety statuses
+  v2safety_statuses <- v2safety %>%
+    group_by(safety_status) %>%
+    summarize(n = n()) %>%
+    rename('V2 Visited' = n) %>%
+    add_row(safety_status = 'total', 'V2 Visited' = sum(.$'V2 Visited'))
+  
+  v2safety_clean_statuses <- v2_clean %>%
+    group_by(safety_status) %>%
+    summarize(n = n()) %>%
+    rename('V2 Clean' = n) %>%
+    add_row(safety_status = 'total', 'V2 Clean' = sum(.$'V2 Clean'))
+  
+  v3safety_target_statuses <- v3_target %>%
+    filter(safety_status %in% c('in', 'out'),
+           !safety_reason %in% c('migrated', 'died')) %>%
+    group_by(safety_status) %>%
+    summarize(`V3 Target` = n()) %>%
+    add_row(safety_status = 'eos', `V3 Target` = 0) %>%
+    add_row(safety_status = 'refusal', `V3 Target` = 0) %>%
+    add_row(safety_status = 'total', `V3 Target` = sum(.$'V3 Target'))
+  
+  v2statuses <- merge(v2safety_statuses, 
+                      v2safety_clean_statuses,
+                      by='safety_status') %>%
+    merge(v3safety_target_statuses, by='safety_status')
+
+  # for in
+  v2_in_target <- v3_target %>%
+    filter(safety_status == 'in')
+  num_v2_in_target <- length(unique(v2_in_target$extid))
+  
+  # for out
+  v2_out <- v2safety %>%
+    filter(safety_status == 'out')
+  num_v2_out <- length(v2_out$extid)
+  
+  v2_out_mig <- v2_out %>%
+    filter(safety_reason == c('migrated'))
+  num_v2_out_mig <- length(unique(v2_out_mig$extid))
+  
+  v2_out_died <- v2_out %>%
+    filter(safety_reason == c('died'))
+  num_v2_out_died <- length(unique(v2_out_died$extid))
+  
+  v3_target_out_start <- v2_out %>%
+    filter(!extid %in% c(v2_out_died$extid, v2_out_mig$extid, v2_not_visited$extid)) 
+  num_v3_target_out_start <- length(unique(v3_target_out_start$extid))
+  
+  v3_target_out <- v3_target %>%
+    filter(safety_status == 'out') 
+  num_v3_target_out <- length(unique(v3_target_out$extid))
+
+  
+
+  
+  # for refusal
+  
+  v2_refusal <- v2safety %>%
+    filter(safety_status == 'refusal')
+  num_v2_refusal <- length(unique(v2_refusal$extid))
+  
+  v2_ref_removed <- v2_refusal %>%
+    filter(extid %in% v2_100_refusal_dataset$extid)
+  num_v2_ref_removed <- length(unique(v2_ref_removed$extid))
+  
+  
+# tracking safety statuses
+  v2_status_pathway <- v2safety %>%
+    mutate(pathway = case_when(
+      starting_safety_status == 'out' & safety_status == 'out' ~ 'out to out',
+      starting_safety_status == 'out' & safety_status == 'refusal' ~ 'out to refusal',
+      starting_safety_status == 'out' & safety_status == 'in' ~ 'out to in',
+      starting_safety_status == 'out' & safety_status == 'out' ~ 'out to out',
+      starting_safety_status == 'out' & safety_status == 'eos' ~ 'out to eos',
+      starting_safety_status == 'in' & safety_status == 'eos' ~ 'in to eos',
+      starting_safety_status == 'in' & safety_status == 'in' ~ 'in to in',
+      starting_safety_status == 'in' & safety_status == 'completion' ~ 'in to completion',
+      TRUE ~ 'other'
+    )) %>%
+    group_by(pathway) %>%
+    summarize(count = n()) %>%
+    add_row(pathway = 'total', count = sum(.$count))
 
 ```
 
@@ -1363,10 +1597,10 @@ Finally, to create the V2 target we want to keep all people who we visited that 
 
 * `r num_hhid_v1_total_visited` visited + `r num_hhid_v1_not_visited - num_v1_hhid_visited_extid_not` not visited - `r num_hhid_v1_100_refusal` 100% refusals = `r num_hhid_v1_total_visited + (num_hhid_v1_not_visited - num_v1_hhid_visited_extid_not) - num_hhid_v1_100_refusal` V2 target
 
-So now there is a V2 target of `r num_hhid_v2_target` households.
+So now there is a V2 target of `r num_hhid_v2_target_real` households.
 
 #### Individual Level
-At the invidivual level, people who were registered in Demography go through the Safety form or they can be added to a household in Safety V1, V2, or V3 through the Safety New Members Form. For the purposes of this document we will refer to safety new member people as __type new__ and people who joined a household in Demography as type __OG__.   
+At the individual level, people who were registered in Demography go through the Safety form or they can be added to a household in Safety V1, V2, or V3 through the Safety New Members Form. For the purposes of this document we will refer to safety new member people as __type new__ and people who joined a household in Demography as type __OG__.   
 > _Note: OG is slang for original._
 
 Safety V1 visited people who were also visited in Demography (type OG) but also visits new people (type new). In total `r num_extid_v1_total_visited` people were visited in Safety V1 of which `r num_extid_v1_new_visited` were new and `r num_extid_v1_og_visited` were OG. 
@@ -1381,9 +1615,10 @@ Now that we understand why the target is different, let's clean V1 by removing a
 * `r num_extid_v1_mig_hhs_not_100` migrations (which are not a part of 100% refusal households),    
 * `r num_extid_v1_died_hhs_not_100` deaths (which are not a part of 100% refusal households), and    
 * `r num_extid_v1_100_refusal` people belonging to 100% refusal households.
-  + `r num_v1_out_mig - num_extid_v1_mig_hhs_not_100` people migrated, and
+  + `r num_extid_v1_mig_hhs_100` people migrated, and
   + `r num_v1_ref_removed` people refused.
-* Total of above = `r num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal` people   
+  + Total: `r num_extid_v1_mig_hhs_100` + `r num_v1_ref_removed` = `r num_extid_v1_mig_hhs_100 + num_v1_ref_removed` people
+* Total of: `r num_extid_v1_mig_hhs_not_100` migrations + `r num_extid_v1_died_hhs_not_100` deaths + `r num_extid_v1_100_refusal` 100% refusals = `r num_extid_v1_mig_hhs_not_100 + num_extid_v1_died_hhs_not_100 + num_extid_v1_100_refusal` people   
 
 Now when we remove migrations, deaths, and people in 100% refusal households, we get a V1 Clean of `r num_extid_v1_clean`.  
 
@@ -1391,7 +1626,7 @@ Now when we remove migrations, deaths, and people in 100% refusal households, we
 
 Now that the data has been cleaned, we will calculate the V2 Target number by adding the people missed in V1 to the V1 Clean. The V2 Target will reflect the number of people who can be visited in the next visit (out and in people).
 
-* `r num_v1_in` in + `r num_v1_out_clean` out = `r num_v1_in + num_v1_out_clean` V2 Target
+* `r num_v1_in_target` in + `r num_v2_target_out` out = `r num_v1_in_target + num_v2_target_out` V2 Target
 
 To double check everything that has been done, the V1 visited people's safety statuses are compared to V1 Clean and V2 Target below: 
 
@@ -1399,7 +1634,7 @@ To double check everything that has been done, the V1 visited people's safety st
 knitr::kable(v1statuses)
 ```
 
-* OUT: `r num_v1_out` - `r num_v1_out_mig` migrated - `r num_v1_out_died` died + `r num_extid_v1_not_visited` missed people = `r num_v1_out - num_v1_out_mig - num_v1_out_died + num_extid_v1_not_visited` OUT (participants who can still enter the study)
+* OUT: `r num_v1_out` V1 Visited out - `r num_v1_out_died` died - `r num_v1_out_mig` migrated =  `r num_v1_out - num_v1_out_died - num_v1_out_mig` V1 Clean out + `r num_extid_v1_not_visited` missed people = `r num_v2_target_out_start + num_extid_v1_not_visited` OUT (participants who can still enter the study)
 * REFUSAL: `r num_v1_refusal` - `r num_v1_ref_removed` people in 100% removal households = `r num_v1_refusal - num_v1_ref_removed` REFUSAL (participants who refused but belong to hh that are still part of the study)
 
 Finally, all people should follow the pathways below:
@@ -1415,6 +1650,85 @@ We can check this in the following table:
 ```{r v1_safety_pathway}
 knitr::kable(v1_status_pathway)
 ```
+
+***
+
+### Safety V2
+
+#### Household Level
+While the target number of households to visit in Safety V2 was `r num_hhid_v2_target_real`, only `r num_hhid_v2_total_visited` households were visited. This means:
+
+* `r num_hhid_v2_target_real` target hhs - `r num_hhid_v2_total_visited` visited hhs = `r num_hhid_v2_target_real - num_hhid_v2_total_visited` missed 
+
+When we dive deeper to confirm that `r num_hhid_v2_target_real - num_hhid_v2_total_visited` household was missed, we find that `r num_hhid_v2_not_visited - num_v2_hhid_visited_extid_not` households were indeed not visited in V1.  
+
+> _NOTE: `r num_v2_hhid_visited_extid_not` households were visited but only had Safety New members enrolled. The other members of the household had no data submitted for that visit._
+
+Now that we have determined why the target hh and visited hh numbers differ, we will begin to find the V2 target number. To create the V2 target, we must remove the hh below:
+
+* `r num_hhid_v2_ref_ref` households had all individuals refuse,  
+* `r num_hhid_v2_all_migrations` households had all individuals migrate,  
+* `r num_hhid_v2_all_death` households had all individuals die, and   
+* `r num_hhid_v2_ref_mig_died` households had all individuals refuse, migrate, or die.
+* Total of above = `r num_hhid_v2_ref_ref + num_hhid_v2_all_migrations + num_hhid_v2_all_death + num_hhid_v2_ref_mig_died`  
+
+This means that `r num_hhid_v2_ref_ref + num_hhid_v2_all_migrations + num_hhid_v2_all_death + num_hhid_v2_ref_mig_died` households were removed.
+
+The V2 Clean data will then have the following households:
+
+* `r num_hhid_v2_total_visited` visited - `r num_hhid_v2_100_refusal` 100% refusals = `r num_hhid_v2_total_visited - num_hhid_v2_100_refusal` V1 Clean
+
+Finally, to create the V3 target we want to keep all people who we visited that are not a part of the households removed and we need to include the households that were missed in V2:
+
+* `r num_hhid_v2_total_visited` visited + `r num_hhid_v2_not_visited - num_v2_hhid_visited_extid_not` not visited - `r num_hhid_v2_100_refusal` 100% refusals = `r num_hhid_v2_total_visited + (num_hhid_v2_not_visited - num_v2_hhid_visited_extid_not) - num_hhid_v2_100_refusal` V3 target
+
+So now there is a V3 target of `r num_hhid_v3_target_real` households.
+
+#### Individual Level
+
+In total `r num_extid_v2_total_visited` people were visited in Safety V2 of which `r num_extid_v2_new_visited` were new and `r num_extid_v2_og_visited` were OG. 
+
+In the target for V2, new people were not accounted for, only the OG people. So when we compare the V2 target and V2 OG visited we find that `r num_extid_v2_not_visited` people were not visited:  
+
+* `r num_extid_v2_target_real` (target) - `r num_extid_v2_og_visited` (OG visited) = `r num_extid_v2_target_real - num_extid_v2_og_visited` (missed people)
+* These individuals are coming from the `r length(unique(v2_not_visited$hhid)) - length(unique(v2_hhid_visited_extid_not$hhid))` missed households + `r length(unique(v2_hhid_visited_extid_not$hhid))` households which had no Safety submissions (just Safety New Members).
+
+Now that we understand why the target is different, let's clean V2 by removing all migrations, deaths, and 100% refusal households: 
+
+* `r num_extid_v2_mig_hhs_not_100` migrations (which are not a part of 100% refusal households),    
+* `r num_extid_v2_died_hhs_not_100` deaths (which are not a part of 100% refusal households), and    
+* `r num_extid_v2_100_refusal` people belonging to 100% refusal households.
+  + `r num_extid_v2_mig_hhs_100` people migrated, and
+  + `r num_v2_ref_removed` people refused.
+  + Total: `r num_extid_v2_mig_hhs_100` + `r num_v2_ref_removed` = `r num_extid_v2_mig_hhs_100 + num_v2_ref_removed` people
+* Total of: `r num_extid_v2_mig_hhs_not_100` migrations + `r num_extid_v2_died_hhs_not_100` deaths + `r num_extid_v2_100_refusal` 100% refusals = `r num_extid_v2_mig_hhs_not_100 + num_extid_v2_died_hhs_not_100 + num_extid_v2_100_refusal` people   
+
+Now when we remove migrations, deaths, and people in 100% refusal households, we get a V2 Clean of `r num_extid_v2_clean`.  
+
+* `r num_extid_v2_total_visited` visited - `r num_extid_v2_mig_hhs_not_100 + num_extid_v2_died_hhs_not_100 + num_extid_v2_100_refusal` removed = `r num_extid_v2_total_visited - (num_extid_v2_mig_hhs_not_100 + num_extid_v2_died_hhs_not_100 + num_extid_v2_100_refusal)` V2 Clean
+
+Now that the data has been cleaned, we will calculate the V3 Target number by adding the people missed in V2 to the V2 Clean. The V3 Target will reflect the number of people who can be visited in the next visit (out and in people).
+
+* `r num_v2_in_target` in + `r num_v3_target_out` out = `r num_v2_in_target + num_v3_target_out` V3 Target
+
+To double check everything that has been done, the V2 visited people's safety statuses are compared to V2 Clean and V3 Target below: 
+
+```{r v2_safety_statuses}
+knitr::kable(v2statuses)
+```
+
+* OUT: `r num_v2_out` V2 Visited out - `r num_v2_out_died` died - `r num_v2_out_mig` migrated =  `r num_v2_out - num_v2_out_died - num_v2_out_mig` V2 Clean out + `r num_extid_v2_not_visited` missed people = `r num_v3_target_out_start + num_extid_v2_not_visited` OUT (participants who can still enter the study)
+* REFUSAL: `r num_v2_refusal` - `r num_v2_ref_removed` people in 100% removal households = `r num_v2_refusal - num_v2_ref_removed` REFUSAL (participants who refused but belong to hh that are still part of the study).
+
+We can check this in the following table:
+
+```{r v2_safety_pathway}
+knitr::kable(v2_status_pathway)
+```
+
+***
+
+
 
 ## Safety Totals
 ```{r trial_total}
