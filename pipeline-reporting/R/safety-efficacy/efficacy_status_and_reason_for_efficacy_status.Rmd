@@ -578,6 +578,68 @@ v6_clean <- v6 %>%
 
 num_v6_clean <- length(unique(v6_clean$extid))
 
+
+
+# v7 ###############################
+
+v7 <- total_eff %>% 
+  filter(visit == 'V7') %>% 
+  select(extid, hhid, visit, efficacy_status, efficacy_reason)
+
+v7_total_visited <- length(unique(v7$extid))
+
+
+####### NOT VISITED
+
+v7_extid_not_visited <- anti_join(v6_clean, v7, by = 'extid') %>%
+  filter(!(extid %in% aged_out)) %>%
+  select(extid, hhid) %>%
+  mutate(
+    hhid = as.character(hhid),  # Convert hhid to character type to retain leading zeros
+    hhid = sprintf("%05d", as.numeric(hhid)),  # Ensure hhid has leading zeros if necessary
+    visit = 'v7',
+    efficacy_status = 'out'
+  ) 
+
+num_v7_not_visited <- length(unique(v7_extid_not_visited$extid))
+
+
+
+###### REMOVED INDIVIDUALS
+
+
+v7_removed_extid_data <- v7 %>%
+  filter(efficacy_status %in% c('refusal', 'eos') | efficacy_reason %in% c('migrated', 'died')) %>%
+  mutate(removal_reason = paste(efficacy_status, efficacy_reason, sep = " "))
+
+v7_removed_extids <- length(unique(v7_removed_extid_data$extid))
+
+v7_removed_extid_table <- v7_removed_extid_data %>%
+  arrange(visit) %>%
+  group_by(removal_reason) %>%
+  summarise('N' = n()) %>%
+  arrange(removal_reason) %>%
+  add_row(removal_reason = 'total', 
+            'N' = sum(.$'N')) %>% 
+  rename('Removal Reason' = removal_reason)
+
+# add the missed extids back in and remove the 100 refusal houses
+v7_clean <- v7 %>%
+  anti_join(v7_removed_extid_data, by = "extid") %>%
+  bind_rows(v7_extid_not_visited) 
+
+num_v7_clean <- length(unique(v7_clean$extid))
+
+v7_clean_extid_table <- v7_clean %>%
+  arrange(visit) %>%
+  group_by(efficacy_status) %>%
+  summarise('N' = n()) %>%
+  arrange(efficacy_status) %>%
+  add_row(efficacy_status = 'total', 
+            'N' = sum(.$'N')) %>% 
+  rename('Efficacy Status' = efficacy_status)
+
+
 ```
 
 ```{r enrolled}
@@ -1966,7 +2028,7 @@ After removing migrations, deaths, refusals, and eos, we enter V6 with a target 
 
 #### V6 
 
-In V5 `r v6_total_visited` children were visited. If the target for efficacy was `r num_v5_clean`, then this means that `r num_v5_clean - v6_total_visited` less children were visited than expected. See below:
+In V6 `r v6_total_visited` children were visited. If the target for efficacy was `r num_v5_clean`, then this means that `r num_v5_clean - v6_total_visited` less children were visited than expected. See below:
 
  * `r num_v5_clean` (V6 Target) - `r v6_total_visited` (V6 Visited) = `r num_v5_clean - v6_total_visited`
 
@@ -1984,11 +2046,35 @@ knitr::kable(v6_removed_extid_table)
 
 After removing migrations, deaths, refusals, and eos, we enter V7 with a target of `r num_v6_clean`. See below:
 
-  * `r v6_total_visited` (V5 submissions) + `r num_v6_not_visited` (extids not visited) - `r v6_removed_extids` (removed extids) = `r  sum(v6_total_visited + num_v6_not_visited - v6_removed_extids)`
+  * `r v6_total_visited` (V6 submissions) + `r num_v6_not_visited` (extids not visited) - `r v6_removed_extids` (removed extids) = `r  sum(v6_total_visited + num_v6_not_visited - v6_removed_extids)`
 
 ***
 
-#### V7 TBD
+#### V7 
+
+In V7 `r v7_total_visited` children were visited. If the target for efficacy was `r num_v6_clean`, then this means that `r num_v6_clean - v7_total_visited` less children were visited than expected. See below:
+
+ * `r num_v6_clean` (V7 Target) - `r v7_total_visited` (V7 Visited) = `r num_v6_clean - v7_total_visited`
+
+This number can be explained by the following:
+  
+  * `r num_v7_not_visited` children were not visited in V7 (aka missed the visit).  
+  
+While we expected to visit `r num_v6_clean` children, we actually only visited `r v7_total_visited` children because `r num_v7_not_visited` children should have been visited but were missed. Now that we have determined why our target number for V7 is different than the number of people we actually visited, we have completed the study.
+
+Below we can find the reason people did not become completion (migrations, deaths, refusals, and eos reasons):
+
+```{r not_visited_table_v7}
+knitr::kable(v7_removed_extid_table)
+```
+
+We can also see how many people did finish the study:
+
+```{r clean_table_v7}
+knitr::kable(v7_clean_extid_table)
+```
+
+***
 
 ### Enrolment Figures
 ```{r trial_total}
@@ -2022,6 +2108,151 @@ reactable(not_enrol_ref_table, columns = list(), pagination = FALSE)
 ```{r target_show}
 reactable(target_table, columns = list(), pagination = FALSE)
 ```
+
+## V7 Numbers
+```{r v7_total_show}
+reactable(total_efficacy_status_v7, columns = list(
+  `Percent complete` = colDef(align = 'right')
+))
+
+# make a note of duplicates
+if (any(duplicated(total_efficacy_v7$extid))) {
+  cat('Note: Excluding the duplicates, the real total number of people visited is',
+      length(unique(total_efficacy_v7$extid)), '.\n')
+} else {
+  cat("Note: There are no duplicates based on extid in the data.")
+}
+```
+
+### in
+```{r v7_in_show}
+reactable(in_type_v7, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+```
+
+### eos
+```{r v7_eos_show}
+reactable(eos_reasons_v7, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# generate a message that says which reasons do not appear
+# Specify the names you want to check for
+names_to_check <- c('decline participation', 
+                    'not agree to efficacy procedures', 
+                    'not a resident', 
+                    'enrolled in other trials')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_eos_v7$efficacy_reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for eos:", paste0(not_found_names, collapse = " / ", "."))
+}
+```
+
+
+### out
+```{r v7_out_show}
+reactable(out_reasons_v7, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# generate a message that says which reasons do not appear
+# Specify the names you want to check for
+names_to_check <- c('migrated', 
+                    'died', 
+                    'absent',
+                    'not enrolled yet')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_out_v7$efficacy_reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for out status:", paste0(not_found_names, collapse = " / ", "."))
+}
+```
+
+### refusal
+```{r v7_refusal_show}
+reactable(refusal_reasons_v7, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# generate a message that says which reasons do not appear
+# Specify the names you want to check for
+names_to_check <- c('thumbprint status', 
+                    'sign icf status', 
+                    'minor assent status')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% efficacy_refusal_v7$efficacy_reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following are not reasons for refusals:", paste0(not_found_names, collapse = "/ ", "."))
+}
+```
+
+###  rdt results
+#### total rdt results in v7
+```{r rdt-results-totals-v7}
+reactable(eff_rdt_prop_totals_v7, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# make a note of blank test responses
+if (sum(eff_results_v7$combination == 'blank test responses') >= 1) {
+  cat('Note:', sum(eff_results_v7$combination == 'blank test responses'), 'blank test responses have been excluded from this table.\n')
+} else {
+  cat('Note: No blank test responses were recorded.\n')
+}
+```
+
+#### rdt results by cluster in v7
+```{r rdt-results-by-cluster-v7}
+element_id <- 'efficacy-rdt-results-by-cluster-v7'
+
+v7_eff_cluster_rdt_results_readable <- reactable(eff_cluster_rdt_results_v7, columns = list(), 
+                                              highlight = TRUE,
+                                              resizable = TRUE,
+                                              bordered = TRUE,
+                                              striped = TRUE,
+                                              filterable=TRUE,
+                                              elementId = element_id
+                                              )
+
+wrap_download(
+  v7_eff_cluster_rdt_results_readable, 
+  element_id,
+  'efficacy_rdt_results_by_cluster.csv')
+```
+
+
 
 ## V6 Numbers
 ```{r v6_total_show}
