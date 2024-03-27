@@ -12,7 +12,7 @@ date: '`r Sys.time()`'
 Notes:
 
 - Report is refreshed hourly 9-5pm EAT, once 12AM EAT
-- Please reach out to nikamgorski@gmail.com for bug reports
+- Please reach out to nika.gorski@isglobal.org for bug reports
 
 
 ```{r, echo=FALSE, message=FALSE}
@@ -1892,18 +1892,18 @@ efficacy_v2_in <- eff %>%
 
 ```
 
-## Efficacy Trial Profile  
+# Efficacy Trial Profile  
 
 This is the efficacy trial profile which breaks down the children visited from beginning to end. It starts at efficacy pre-selection and ends at V7. The aim is to track every child and understand why they are present or not at each stage and to understand where they go.  
 
 ***
 
-### Efficacy Preselection
+## Efficacy Preselection
 Efficacy started with `r efficacy_selected` pre-selected children. Therefore, the target for V1 is `r efficacy_selected` children.  
   
 ***
 
-#### V1
+### V1
 
 In V1 `r v1_total_visited` children were visited. If the target for efficacy was `r efficacy_selected`, then this means that `r efficacy_selected - v1_total_visited` less children were visited than expected. See below:
 
@@ -1930,7 +1930,7 @@ After removing migrations, deaths, refusals, and eos from above, we enter V2 wit
   
 ***
 
-#### V2
+### V2
 
 In V2 `r v2_total_visited` children were visited. If the target for efficacy was `r num_v1_clean`, then this means that `r num_v1_clean - v2_total_visited` less children were visited than expected. See below:
 
@@ -1954,7 +1954,7 @@ After removing migrations, deaths, refusals, and eos, we enter V3 with a target 
   
 ***
 
-#### V3
+### V3
 
 In V3 `r v3_total_visited` children were visited. If the target for efficacy was `r num_v2_clean`, then this means that `r num_v2_clean - v3_total_visited` less children were visited than expected. See below:
 
@@ -1978,7 +1978,7 @@ After removing migrations, deaths, refusals, and eos, we enter V4 with a target 
   
 ***
 
-#### V4
+### V4
 
 In V4 `r v4_total_visited` children were visited. If the target for efficacy was `r num_v3_clean`, then this means that `r num_v3_clean - v4_total_visited` less children were visited than expected. See below:
 
@@ -2002,7 +2002,7 @@ After removing migrations, deaths, refusals, and eos, we enter V5 with a target 
   
 ***
 
-#### V5
+### V5
 
 In V5 `r v5_total_visited` children were visited. If the target for efficacy was `r num_v4_clean`, then this means that `r num_v4_clean - v5_total_visited` less children were visited than expected. See below:
 
@@ -2026,7 +2026,7 @@ After removing migrations, deaths, refusals, and eos, we enter V6 with a target 
   
 ***
 
-#### V6 
+### V6 
 
 In V6 `r v6_total_visited` children were visited. If the target for efficacy was `r num_v5_clean`, then this means that `r num_v5_clean - v6_total_visited` less children were visited than expected. See below:
 
@@ -2050,7 +2050,7 @@ After removing migrations, deaths, refusals, and eos, we enter V7 with a target 
 
 ***
 
-#### V7 
+### V7 
 
 In V7 `r v7_total_visited` children were visited. If the target for efficacy was `r num_v6_clean`, then this means that `r num_v6_clean - v7_total_visited` less children were visited than expected. See below:
 
@@ -2076,12 +2076,12 @@ knitr::kable(v7_clean_extid_table)
 
 ***
 
-### Enrolment Figures
+## Enrolment Figures
 ```{r trial_total}
 reactable(total_trial_table, columns = list(), pagination = FALSE)
 ```
 
-#### Enrolled Participants
+### Enrolled Participants
 ```{r trial_enrolled}
 reactable(enrolled_table, columns = list(), pagination = FALSE)
 
@@ -2092,7 +2092,7 @@ reactable(trial_by_visit, columns = list(), pagination = FALSE)
 reactable(enrol_in_table, columns = list(), pagination = FALSE)
 ```
 
-#### Not Enrolled Participants
+### Not Enrolled Participants
 ```{r trial_not_enrolled}
 reactable(not_enrolled_table, columns = list(), pagination = FALSE)
 
@@ -2104,12 +2104,12 @@ reactable(not_enrol_ref_table, columns = list(), pagination = FALSE)
 ```
 
 
-## Efficacy targets
+# Efficacy targets
 ```{r target_show}
 reactable(target_table, columns = list(), pagination = FALSE)
 ```
 
-## V7 Numbers
+# V7 Numbers
 ```{r v7_total_show}
 reactable(total_efficacy_status_v7, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2124,14 +2124,14 @@ if (any(duplicated(total_efficacy_v7$extid))) {
 }
 ```
 
-### in
+## in
 ```{r v7_in_show}
 reactable(in_type_v7, columns = list(
   `Percent` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
-### eos
+## eos
 ```{r v7_eos_show}
 reactable(eos_reasons_v7, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2161,7 +2161,7 @@ if (length(not_found_names) > 0) {
 ```
 
 
-### out
+## out
 ```{r v7_out_show}
 reactable(out_reasons_v7, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2190,7 +2190,7 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-### refusal
+## refusal
 ```{r v7_refusal_show}
 reactable(refusal_reasons_v7, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2218,8 +2218,8 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-###  rdt results
-#### total rdt results in v7
+##  rdt results
+### total rdt results in v7
 ```{r rdt-results-totals-v7}
 reactable(eff_rdt_prop_totals_v7, columns = list(
   `Percent` = colDef(align = 'right')
@@ -2233,7 +2233,7 @@ if (sum(eff_results_v7$combination == 'blank test responses') >= 1) {
 }
 ```
 
-#### rdt results by cluster in v7
+### rdt results by cluster in v7
 ```{r rdt-results-by-cluster-v7}
 element_id <- 'efficacy-rdt-results-by-cluster-v7'
 
@@ -2254,7 +2254,7 @@ wrap_download(
 
 
 
-## V6 Numbers
+# V6 Numbers
 ```{r v6_total_show}
 reactable(total_efficacy_status_v6, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2269,14 +2269,14 @@ if (any(duplicated(total_efficacy_v6$extid))) {
 }
 ```
 
-### in
+## in
 ```{r v6_in_show}
 reactable(in_type_v6, columns = list(
   `Percent` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
-### eos
+## eos
 ```{r v6_eos_show}
 reactable(eos_reasons_v6, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2306,7 +2306,7 @@ if (length(not_found_names) > 0) {
 ```
 
 
-### out
+## out
 ```{r v6_out_show}
 reactable(out_reasons_v6, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2335,7 +2335,7 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-### refusal
+## refusal
 ```{r v6_refusal_show}
 reactable(refusal_reasons_v6, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2363,8 +2363,8 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-###  rdt results
-#### total rdt results in v6
+##  rdt results
+### total rdt results in v6
 ```{r rdt-results-totals-v6}
 reactable(eff_rdt_prop_totals_v6, columns = list(
   `Percent` = colDef(align = 'right')
@@ -2378,7 +2378,7 @@ if (sum(eff_results_v6$combination == 'blank test responses') >= 1) {
 }
 ```
 
-#### rdt results by cluster in v6
+### rdt results by cluster in v6
 ```{r rdt-results-by-cluster-v6}
 element_id <- 'efficacy-rdt-results-by-cluster-v6'
 
@@ -2398,7 +2398,7 @@ wrap_download(
 ```
 
 
-## V5 Numbers
+# V5 Numbers
 ```{r v5_total_show}
 reactable(total_efficacy_status_v5, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2413,14 +2413,14 @@ if (any(duplicated(total_efficacy_v5$extid))) {
 }
 ```
 
-### in
+## in
 ```{r v5_in_show}
 reactable(in_type_v5, columns = list(
   `Percent` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
-### eos
+## eos
 ```{r v5_eos_show}
 reactable(eos_reasons_v5, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2450,7 +2450,7 @@ if (length(not_found_names) > 0) {
 ```
 
 
-### out
+## out
 ```{r v5_out_show}
 reactable(out_reasons_v5, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2479,7 +2479,7 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-### refusal
+## refusal
 ```{r v5_refusal_show}
 reactable(refusal_reasons_v5, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2507,8 +2507,8 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-###  rdt results
-#### total rdt results in v5
+##  rdt results
+### total rdt results in v5
 ```{r rdt-results-totals-v5}
 reactable(eff_rdt_prop_totals_v5, columns = list(
   `Percent` = colDef(align = 'right')
@@ -2522,7 +2522,7 @@ if (sum(eff_results_v5$combination == 'blank test responses') >= 1) {
 }
 ```
 
-#### rdt results by cluster in v5
+### rdt results by cluster in v5
 ```{r rdt-results-by-cluster-v5}
 element_id <- 'efficacy-rdt-results-by-cluster-v5'
 
@@ -2543,7 +2543,7 @@ wrap_download(
 
 
 
-## V4 Numbers
+# V4 Numbers
 ```{r v4_total_show}
 reactable(total_efficacy_status_v4, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2558,14 +2558,14 @@ if (any(duplicated(total_efficacy_v4$extid))) {
 }
 ```
 
-### in
+## in
 ```{r v4_in_show}
 reactable(in_type_v4, columns = list(
   `Percent` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
-### eos
+## eos
 ```{r v4_eos_show}
 reactable(eos_reasons_v4, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2594,7 +2594,7 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-### out
+## out
 ```{r v4_out_show}
 reactable(out_reasons_v4, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2623,7 +2623,7 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-### refusal
+## refusal
 ```{r v4_refusal_show}
 reactable(refusal_reasons_v4, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2651,8 +2651,8 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-###  rdt results
-#### total rdt results in v4
+##  rdt results
+### total rdt results in v4
 ```{r rdt-results-totals-v4}
 reactable(eff_rdt_prop_totals_v4, columns = list(
   `Percent` = colDef(align = 'right')
@@ -2666,7 +2666,7 @@ if (sum(eff_results_v4$combination == 'blank test responses') >= 1) {
 }
 ```
 
-#### rdt results by cluster in v4
+### rdt results by cluster in v4
 ```{r rdt-results-by-cluster-v4}
 element_id <- 'efficacy-rdt-results-by-cluster-v4'
 
@@ -2687,7 +2687,7 @@ wrap_download(
 
 
 
-## V3 Numbers
+# V3 Numbers
 ```{r v3_total_show}
 reactable(total_efficacy_status_v3, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2702,14 +2702,14 @@ if (any(duplicated(total_efficacy_v3$extid))) {
 }
 ```
 
-### in
+## in
 ```{r v3_in_show}
 reactable(in_type_v3, columns = list(
   `Percent` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
-### eos
+## eos
 ```{r v3_eos_show}
 reactable(eos_reasons_v3, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2738,7 +2738,7 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-#### follow up visit
+### follow up visit
 ```{r v3_eos_followup_show}
 
 reactable(eos_reasons_followup_v3, columns = list(
@@ -2747,7 +2747,7 @@ reactable(eos_reasons_followup_v3, columns = list(
 
 ```
 
-#### enrolment visit
+### enrolment visit
 ```{r v3_eos_enrolment}
 
 reactable(eos_reasons_enrolment_v3, columns = list(
@@ -2757,7 +2757,7 @@ reactable(eos_reasons_enrolment_v3, columns = list(
 ```
 
 
-### out
+## out
 ```{r v3_out_show}
 reactable(out_reasons_v3, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2786,7 +2786,7 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-### refusal
+## refusal
 ```{r v3_refusal_show}
 reactable(refusal_reasons_v3, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2814,8 +2814,8 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-###  rdt results
-#### total rdt results in v3
+##  rdt results
+### total rdt results in v3
 ```{r rdt-results-totals-v3}
 reactable(eff_rdt_prop_totals_v3, columns = list(
   `Percent` = colDef(align = 'right')
@@ -2829,7 +2829,7 @@ if (sum(eff_results_v3$combination == 'blank test responses') >= 1) {
 }
 ```
 
-#### rdt results by cluster in v3
+### rdt results by cluster in v3
 ```{r rdt-results-by-cluster-v3}
 element_id <- 'efficacy-rdt-results-by-cluster-v3'
 
@@ -2850,7 +2850,7 @@ wrap_download(
 
 
 
-## V2 Numbers
+# V2 Numbers
 ```{r v2_total_show}
 reactable(total_efficacy_status_v2, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2865,14 +2865,14 @@ if (any(duplicated(total_efficacy_v2$extid))) {
 }
 ```
 
-### in
+## in
 ```{r in_show}
 reactable(in_type_v2, columns = list(
   `Percent` = colDef(align = 'right')
 ), pagination = FALSE) #pagination makes the entire table show on one page
 ```
 
-### eos
+## eos
 ```{r v2_eos_show}
 reactable(eos_reasons_v2, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2901,7 +2901,7 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-#### follow up visit
+### follow up visit
 ```{r v2_eos_followup_show}
 
 reactable(eos_reasons_followup_v2, columns = list(
@@ -2910,7 +2910,7 @@ reactable(eos_reasons_followup_v2, columns = list(
 
 ```
 
-#### enrolment visit
+### enrolment visit
 ```{r v2_eos_enrolment}
 
 reactable(eos_reasons_enrolment_v2, columns = list(
@@ -2920,7 +2920,7 @@ reactable(eos_reasons_enrolment_v2, columns = list(
 ```
 
 
-### out
+## out
 ```{r v2_out_show}
 reactable(out_reasons_v2, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2949,7 +2949,7 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-### refusal
+## refusal
 ```{r v2_refusal_show}
 reactable(refusal_reasons_v2, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -2977,8 +2977,8 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-###  rdt results
-#### total rdt results in v2
+##  rdt results
+### total rdt results in v2
 ```{r rdt-results-totals-v2}
 reactable(eff_rdt_prop_totals_v2, columns = list(
   `Percent` = colDef(align = 'right')
@@ -2992,7 +2992,7 @@ if (sum(eff_results_v2$combination == 'blank test responses') >= 1) {
 }
 ```
 
-#### rdt results by cluster in v2
+### rdt results by cluster in v2
 ```{r rdt-results-by-cluster-v2}
 element_id <- 'efficacy-rdt-results-by-cluster-v2'
 
@@ -3012,7 +3012,7 @@ wrap_download(
 ```
 
 
-## V1 Numbers
+# V1 Numbers
 ```{r v1_total_show}
 reactable(total_efficacy_status_v1, columns = list(
   `Percent complete` = colDef(align = "right")
@@ -3026,7 +3026,7 @@ if (any(duplicated(total_efficacy_v1$extid))) {
 }
 ```
 
-### eos
+## eos
 ```{r v1_eos_show}
 reactable(eos_reasons_v1, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -3052,7 +3052,7 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-### out
+## out
 ```{r v1_out_show}
 reactable(out_reasons_v1, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -3078,7 +3078,7 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-### refusal
+## refusal
 ```{r v1_refusal_show}
 reactable(refusal_reasons_v1, columns = list(
   `Percent complete` = colDef(align = 'right')
@@ -3104,8 +3104,8 @@ if (length(not_found_names) > 0) {
 }
 ```
 
-###  rdt results
-#### total rdt results in v1
+##  rdt results
+### total rdt results in v1
 ```{r rdt-results-totals-v1}
 reactable(eff_rdt_prop_totals_v1, columns = list(
   `Percent` = colDef(align = 'right')
@@ -3120,7 +3120,7 @@ if (sum(eff_results_v1$combination == 'blank test responses') >= 1) {
 
 ```
 
-#### rdt results by cluster in v1
+### rdt results by cluster in v1
 ```{r rdt-results-by-cluster-v1}
 element_id <- 'efficacy-rdt-results-by-cluster-v1'
 
@@ -3139,7 +3139,7 @@ wrap_download(
   'v2_efficacy_rdt_results_by_cluster.csv')
 ```
 
-## extid explorer
+# extid explorer
 ```{r extid-explorer}
 element_id <- 'extid-explorerer'
 
