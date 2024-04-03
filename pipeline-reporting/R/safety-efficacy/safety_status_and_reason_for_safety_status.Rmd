@@ -614,12 +614,8 @@ num_hhid_v2_og_visited <- length(unique(v2safety_og$hhid))
 
 
 # missed V2
-v2_not_visited <- anti_join(v1_clean, v2safety, by='extid') %>% 
-    select(cluster, extid, hhid) %>%
-    mutate(visit = 'V2',
-           safety_status = 'out',
-           safety_reason = 'missed V2',
-           starting_safety_status = 'out')
+v2_not_visited <- anti_join(v2_target_real, v2safety, by='extid') %>% 
+    select(cluster, extid, hhid, visit, safety_status, safety_reason, starting_safety_status)
 
 num_extid_v2_not_visited <- length(unique(v2_not_visited$extid))
 num_hhid_v2_not_visited <- length(unique(v2_not_visited$hhid))
@@ -857,22 +853,26 @@ num_hhid_v3_og_visited <- length(unique(v3safety_og$hhid))
 
 
 # missed V3
-v3_not_visited <- anti_join(v2_clean, v3safety, by='extid') %>% 
-    select(cluster, extid, hhid) %>%
-    mutate(visit = 'V3',
-           safety_status = 'out',
-           safety_reason = 'missed V3',
-           starting_safety_status = 'out')
+v3_not_visited <- anti_join(v3_target_real, v3safety, by='extid') %>% 
+    select(cluster, extid, hhid, visit, safety_status, safety_reason, starting_safety_status) 
 
 num_extid_v3_not_visited <- length(unique(v3_not_visited$extid))
 num_hhid_v3_not_visited <- length(unique(v3_not_visited$hhid))
 
 v3_hhid_visited_extid_not <- semi_join(v3_not_visited, v3safety, by='hhid')
     num_v3_hhid_visited_extid_not <- length(unique(v3_hhid_visited_extid_not$hhid))
+    
+    
+# add the missing extids back in
+    
+v3_safety_with_missed <- v3safety %>%
+  bind_rows(v3_not_visited)
+  num_extid_v3_safety_with_missed <- length(unique(v3_safety_with_missed$extid))
+  num_hhid_v3_safety_with_missed <- length(unique(v3_safety_with_missed$hhid))
   
   
 # hhs with at least one person in
-  v3_removals <- v3safety %>%
+  v3_removals <- v3_safety_with_missed %>%
     filter(visit == 'V3') %>%
     group_by(hhid) %>%
     filter(!any(safety_status == 'in')) %>%
@@ -880,7 +880,7 @@ v3_hhid_visited_extid_not <- semi_join(v3_not_visited, v3safety, by='hhid')
   num_extid_v3_removals <- length(unique(v3_removals$extid))
   num_hhid_v3_removals <- length(unique(v3_removals$hhid))
 
-  v3_kept <- v3safety %>%
+  v3_kept <- v3_safety_with_missed %>%
     filter(visit == 'V3') %>%
     group_by(hhid) %>%
     filter(any(safety_status == 'in')) %>%
@@ -890,34 +890,49 @@ v3_hhid_visited_extid_not <- semi_join(v3_not_visited, v3safety, by='hhid')
 
 
 # migrations 
-v3_migrations <- v3safety %>%
+v3_migrations <- v3_safety_with_missed %>%
   filter(safety_reason == 'migrated')
   num_extid_v3_migrations <- length(unique(v3_migrations$extid))
   num_hhid_v3_migrations <- length(unique(v3_migrations$hhid))
 
-v3_migrated_hhs <- v3safety %>%
+v3_migrated_hhs <- v3_safety_with_missed %>%
     group_by(hhid) %>%
     filter(all(extid %in% v3_migrations$extid),
            safety_reason %in% c('migrated'))
   num_hhid_v3_all_migrations <- length(unique(v3_migrated_hhs$hhid))
   
+v3_migrations_kept <- v3_kept %>%
+  filter(safety_reason == 'migrated')
+  num_extid_v3_migrations_kept <- length(unique(v3_migrations_kept$extid))
+  
+v3_migrations_rem <- v3_removals %>%
+  filter(safety_reason == 'migrated')
+  num_extid_v3_migrations_rem <- length(unique(v3_migrations_rem$extid))
   
   
 # deaths
-v3_death <- v3safety %>%
+v3_death <- v3_safety_with_missed %>%
   filter(safety_reason == 'died')
   num_extid_v3_death <- length(unique(v3_death$extid))
   num_hhid_v3_death <- length(unique(v3_death$hhid))
 
-v3_death_hhs <- v3safety %>%
+v3_death_hhs <- v3_safety_with_missed %>%
     group_by(hhid) %>%
     filter(all(extid %in% v3_death$extid),
            safety_reason %in% c('died'))
   num_hhid_v3_all_death <- length(unique(v3_death_hhs$hhid))
   
+v3_death_kept <- v3_kept %>%
+  filter(safety_reason == 'migrated')
+  num_extid_v3_death_kept <- length(unique(v3_death_kept$extid))
+  
+v3_death_rem <- v3_removals %>%
+  filter(safety_reason == 'migrated')
+  num_extid_v3_death_rem <- length(unique(v3_death_rem$extid))
+  
   
   # pregnancies
-  v3_pregnancies <- v3safety %>%
+  v3_pregnancies <- v3_safety_with_missed %>%
     filter(pregnancy_status == 'in',
            !extid %in% v2_pregnancies$extid)
   
@@ -926,22 +941,20 @@ v3_death_hhs <- v3safety %>%
     
   
 # create safety clean by removing deaths, migrations, and 100% refusal households
-  v3_clean <- v3safety %>%
+  v3_clean <- v3_safety_with_missed %>%
     filter(!extid %in% c(v3_removals$extid, 
                          v3_death$extid, 
                          v3_migrations$extid))
   num_extid_v3_clean <- length(unique(v3_clean$extid))
   num_hhid_v3_clean <- length(unique(v3_clean$hhid))
   
-# make a safety v3 target by adding missed extids and removing eos, refusal, migrated and died
+# make a safety v3 target by removing eos, refusal, migrated and died
   v4_target <- v3_clean %>%
-    bind_rows(v3_not_visited) %>%
     filter(safety_status %in% c('in', 'out'),
            !safety_reason %in% c('migrated', 'died'))
   num_hhid_v4_target <- length(unique(v4_target$hhid))
   
-  v4_target_real <- v3_clean %>%
-    bind_rows(v3_not_visited)
+  v4_target_real <- v3_clean
   num_hhid_v4_target_real <- length(unique(v4_target_real$hhid))
   num_extid_v4_target_real <- length(unique(v4_target_real$extid))
   
@@ -2092,7 +2105,11 @@ When we dive deeper to confirm that `r num_hhid_v3_target_real - num_hhid_v3_tot
 
 > _NOTE: `r num_v3_hhid_visited_extid_not` households were visited but only had Safety New members enrolled. The other members of the household had no data submitted for that visit._
 
-Now that we have determined why the target hh and visited hh numbers differ, we will begin to find the V4 target number. To create the V4 target, we will only keep households that have at least one member in. Therefore, we must remove the hh below:
+Now that we have determined why the target hh and visited hh numbers differ, we will begin to find the V4 target number. To create the V4 target, first we need to add back in the individuals that missed the visit.
+
+* `r num_hhid_v3_total_visited` visited + `r num_hhid_v3_not_visited - num_v3_hhid_visited_extid_not` missed households = `r num_hhid_v3_safety_with_missed`
+
+Next, we will only keep households that have at least one member in. Therefore, we must remove the hh below:
 
 * `r num_hhid_v3_removals` households that did not have at least one person in,  
 * `r num_hhid_v3_all_migrations` households had all individuals migrate, and  
@@ -2103,7 +2120,7 @@ This means that `r num_hhid_v3_removals + num_hhid_v3_all_migrations + num_hhid_
 
 The V3 Clean data will then have the following households:
 
-* `r num_hhid_v3_total_visited` visited - `r num_hhid_v3_removals` houses without at least 1 person in = `r num_hhid_v3_total_visited - num_hhid_v3_removals` V3 Clean
+* `r num_hhid_v3_total_visited` visited - `r num_hhid_v3_removals` houses without at least 1 person in `r num_hhid_v3_not_visited - num_v3_hhid_visited_extid_not` not visited = `r num_hhid_v3_total_visited - num_hhid_v3_removals + (num_hhid_v3_not_visited - num_v3_hhid_visited_extid_not)` V3 Clean
 
 Finally, to create the V4 target we want to keep all households with at least one person in (including households that were not visited in V3):
 
@@ -2120,15 +2137,24 @@ In the target for V3, new people were not accounted for, only the OG people. So 
 * `r num_extid_v3_target_real` (calculated target) - `r num_extid_v3_og_visited` (OG visited) = `r num_extid_v3_target_real - num_extid_v3_og_visited` (missed people)
 * These individuals are coming from the `r length(unique(v3_not_visited$hhid)) - length(unique(v3_hhid_visited_extid_not$hhid))` missed households + `r length(unique(v3_hhid_visited_extid_not$hhid))` households which had no Safety submissions (just Safety New Members).
 
-Now that we understand why the target is different, let's clean V3 by removing all people that do not belong to a household with at least one person in: 
+Now that we understand why the target is different, let's add the missing people back into the dataset:
 
-*   _insert equation_
+* `r num_extid_v3_total_visited` (OG visited) + `r num_extid_v3_not_visited` (missed people) = `r num_extid_v3_safety_with_missed`
 
-Now when we remove migrations, deaths, and people in 100% refusal households, we get a V3 Clean of `r num_extid_v3_clean`.  
+clean V3 by removing all people that do not belong to a household with at least one person in: 
 
-* _insert equation_
+* `r num_extid_v3_removals` households that did not have at least one person in.
 
-Now that the data has been cleaned, we will calculate the V4 Target number by adding the people missed in V3 to the V3 Clean. The V4 Target will reflect the number of people who can be visited in the next visit (out and in people).
+Of the above,
+
+* `r num_extid_v3_death_rem` died and `r num_extid_v3_migrations_rem` migrated.
+* Note, in total `r num_extid_v3_migrations` individuals migrated and `r num_extid_v3_death` died in V3.
+
+Now when we remove all households that do not have at least one person in, we get a V3 Clean of `r num_extid_v3_clean`.  
+
+* `r num_extid_v3_total_visited` visited - `r num_extid_v3_removals` houses without at least 1 person in `r num_extid_v3_not_visited` not visited - `r num_extid_v3_death_kept` deaths - `r num_extid_v3_migrations_kept` migrations = `r num_extid_v3_total_visited - num_extid_v3_removals + num_extid_v3_not_visited - num_extid_v3_migrations_kept - num_extid_v3_death_kept` V3 Clean # fix this!!!!!
+
+Now that the data has been cleaned, we will calculate the V4 Target number which will reflect the number of people who can be visited during the next visit (out and in people).
 
 * `r num_v3_in_target` in + `r num_v4_target_out` out = `r num_v3_in_target + num_v4_target_out` V4 Target   
 
