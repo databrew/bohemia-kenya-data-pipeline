@@ -888,6 +888,68 @@ v3_safety_with_missed <- v3safety %>%
   num_extid_v3_kept <- length(unique(v3_kept$extid))
   num_hhid_v3_kept <- length(unique(v3_kept$hhid))
 
+# eos
+v3_eos <- v3safety %>%
+  filter(safety_status == 'eos')
+  num_extid_v3_eos <- length(unique(v3_eos$extid))
+  num_hhid_v3_eos <- length(unique(v3_eos$hhid))
+  
+v3_eos_with_missed <- v3_safety_with_missed %>%
+  filter(safety_status == 'eos') %>%
+  anti_join(v3_eos, by='extid')
+  num_extid_v3_eos_with <- length(unique(v3_eos_with_missed$extid))
+  num_hhid_v3_eos_with <- length(unique(v3_eos_with_missed$hhid))
+  
+v3_eos_mig <- v3_eos %>%
+  filter(safety_reason == 'migrated')
+  num_extid_v3_eos_mig <- length(unique(v3_eos_mig$extid))
+  
+v3_eos_died <- v3_eos %>%
+  filter(safety_reason == 'died')
+  num_extid_v3_eos_died <- length(unique(v3_eos_died$extid))
+  
+v3_eos_rem <- v3_removals %>%
+  filter(safety_status == 'eos',
+         !safety_reason %in% c('died', 'migrated'))
+  num_extid_v3_eos_rem <- length(unique(v3_eos_rem$extid))
+  
+# out
+v3_out <- v3safety %>%
+  filter(safety_status == 'out')
+  num_extid_v3_out <- length(unique(v3_out$extid))
+  
+v3_out_with_missed <- v3_safety_with_missed %>%
+  filter(safety_status == 'out') %>%
+  anti_join(v3_out, by='extid')
+  num_extid_v3_out_with <- length(unique(v3_out_with_missed$extid))
+  
+v3_out_mig <- v3_out %>%
+  filter(safety_reason == 'migrated')
+  num_extid_v3_out_mig <- length(unique(v3_out_mig$extid))
+  
+v3_out_died <- v3_out %>%
+  filter(safety_reason == 'died')
+  num_extid_v3_out_died <- length(unique(v3_out_died$extid))
+  
+v3_out_rem <- v3_removals %>%
+  filter(safety_status == 'out',
+         !safety_reason %in% c('died', 'migrated'))
+  num_extid_v3_out_rem <- length(unique(v3_out_rem$extid))
+
+# refusals
+v3_ref <- v3safety %>%
+  filter(safety_status == 'refusal')
+  num_extid_v3_ref <- length(unique(v3_ref$extid))
+  
+v3_ref_with_missed <- v3_safety_with_missed %>%
+  filter(safety_status == 'refusal') %>%
+  anti_join(v3_ref, by='extid')
+  num_extid_v3_ref_with <- length(unique(v3_ref_with_missed$extid))
+  
+v3_ref_rem <- v3_removals %>%
+  filter(safety_status == 'refusal')
+  num_extid_v3_ref_rem <- length(unique(v3_ref_rem$extid))
+
 
 # migrations 
 v3_migrations <- v3_safety_with_missed %>%
@@ -923,11 +985,11 @@ v3_death_hhs <- v3_safety_with_missed %>%
   num_hhid_v3_all_death <- length(unique(v3_death_hhs$hhid))
   
 v3_death_kept <- v3_kept %>%
-  filter(safety_reason == 'migrated')
+  filter(safety_reason == 'died')
   num_extid_v3_death_kept <- length(unique(v3_death_kept$extid))
   
 v3_death_rem <- v3_removals %>%
-  filter(safety_reason == 'migrated')
+  filter(safety_reason == 'died')
   num_extid_v3_death_rem <- length(unique(v3_death_rem$extid))
   
   
@@ -973,13 +1035,13 @@ v3_death_rem <- v3_removals %>%
     add_row(safety_status = 'total', 'V3 Clean' = sum(.$'V3 Clean'))
   
   v4safety_target_statuses <- v4_target %>%
-    filter(safety_status == 'in',
+    filter(safety_status %in% c('in', 'out'),
            !safety_reason %in% c('migrated', 'died')) %>%
     group_by(safety_status) %>%
     summarize(`V4 Target` = n()) %>%
     add_row(safety_status = 'eos', `V4 Target` = 0) %>%
-    add_row(safety_status = 'refusal', `V4 Target` = 0) %>%
     add_row(safety_status = 'out', `V4 Target` = 0) %>%
+    add_row(safety_status = 'refusal', `V4 Target` = 0) %>%
     add_row(safety_status = 'total', `V4 Target` = sum(.$'V4 Target'))
   
   v4safety_target_calculated_statuses <- v3safety %>%
@@ -1020,7 +1082,7 @@ v3_death_rem <- v3_removals %>%
     filter(!extid %in% c(v3_out_died$extid, v3_out_mig$extid, v3_not_visited$extid)) 
   num_v4_target_out_start <- length(unique(v4_target_out_start$extid))
   
-  v4_target_out <- v3_target %>%
+  v4_target_out <- v4_target %>%
     filter(safety_status == 'out') 
   num_v4_target_out <- length(unique(v4_target_out$extid))
 
@@ -2139,20 +2201,16 @@ In the target for V3, new people were not accounted for, only the OG people. So 
 
 Now that we understand why the target is different, let's add the missing people back into the dataset:
 
-* `r num_extid_v3_total_visited` (OG visited) + `r num_extid_v3_not_visited` (missed people) = `r num_extid_v3_safety_with_missed`
+* `r num_extid_v3_og_visited` (OG visited) + `r num_extid_v3_not_visited` (missed people) = `r num_extid_v3_og_visited + num_extid_v3_not_visited`
 
-clean V3 by removing all people that do not belong to a household with at least one person in: 
+Next, let's clean V3 by removing all people that do not belong to a household with at least one person in and by removing all deaths and migrations: 
 
 * `r num_extid_v3_removals` households that did not have at least one person in.
-
-Of the above,
-
-* `r num_extid_v3_death_rem` died and `r num_extid_v3_migrations_rem` migrated.
-* Note, in total `r num_extid_v3_migrations` individuals migrated and `r num_extid_v3_death` died in V3.
+* _Of the removals `r num_extid_v3_death_rem` died and `r num_extid_v3_migrations_rem` migrated. However, in total `r num_extid_v3_migrations` individuals migrated and `r num_extid_v3_death` died in V3._
 
 Now when we remove all households that do not have at least one person in, we get a V3 Clean of `r num_extid_v3_clean`.  
 
-* `r num_extid_v3_total_visited` visited - `r num_extid_v3_removals` houses without at least 1 person in `r num_extid_v3_not_visited` not visited - `r num_extid_v3_death_kept` deaths - `r num_extid_v3_migrations_kept` migrations = `r num_extid_v3_total_visited - num_extid_v3_removals + num_extid_v3_not_visited - num_extid_v3_migrations_kept - num_extid_v3_death_kept` V3 Clean # fix this!!!!!
+* `r num_extid_v3_total_visited` visited - `r num_extid_v3_removals` houses without at least 1 person in `r num_extid_v3_not_visited` not visited - `r num_extid_v3_death_kept` deaths - `r num_extid_v3_migrations_kept` migrations = `r num_extid_v3_total_visited - num_extid_v3_removals + num_extid_v3_not_visited - num_extid_v3_migrations_kept - num_extid_v3_death_kept` V3 Clean 
 
 Now that the data has been cleaned, we will calculate the V4 Target number which will reflect the number of people who can be visited during the next visit (out and in people).
 
@@ -2168,9 +2226,10 @@ To double check everything that has been done, the V3 visited people's safety st
 knitr::kable(v3statuses)
 ```
 
-* OUT: 
-* REFUSAL: 
-* `r v3_preg_pfu` women were starting safety status in, took drug, and became pregnant, meaning that they will leave safety and enter pfu. On the table above, they became status eos. Please visit the [PFU Report](https://d27fg4iv55pk9u.cloudfront.net/safety-efficacy/pfu_status_and_reason.html#V3_Numbers) to track these women.
+* EOS: `r num_extid_v3_eos` V3 Visited eos + `r num_extid_v3_eos_with` missed eos people - `r num_extid_v3_eos_rem` eos people apart of households with no one in - `r num_extid_v3_eos_died` died - `r num_extid_v3_eos_mig` migrated = `r num_extid_v3_eos + num_extid_v3_eos_with- num_extid_v3_eos_rem - num_extid_v3_eos_mig - num_extid_v3_eos_died`
+* OUT: `r num_extid_v3_out` V3 Visited out + `r num_extid_v3_out_with` missed out people - `r num_extid_v3_out_rem` out people apart of households with no one in - `r num_extid_v3_out_died` died - `r num_extid_v3_out_mig` migrated = `r num_extid_v3_out + num_extid_v3_out_with- num_extid_v3_out_rem - num_extid_v3_out_mig - num_extid_v3_out_died`
+* REFUSAL: `r num_extid_v3_ref` V3 Visited refusals - `r num_extid_v3_ref_rem` refusal people apart of households with no one in = `r num_extid_v3_ref - num_extid_v3_ref_rem`
+* PREGNANCIES: `r v3_preg_pfu` women were starting safety status in, took drug, and became pregnant, meaning that they will leave safety and enter pfu. On the table above, they became status eos. Please visit the [PFU Report](https://d27fg4iv55pk9u.cloudfront.net/safety-efficacy/pfu_status_and_reason.html#V3_Numbers) to track these women.
 
 We can check this in the following table:
 
