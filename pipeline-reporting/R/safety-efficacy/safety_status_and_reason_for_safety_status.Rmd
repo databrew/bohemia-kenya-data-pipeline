@@ -2266,7 +2266,7 @@ In total `r num_extid_v4_total_visited` people were visited in Safety V4 of whic
 In the target for V4, new people were not accounted for, only the OG people. So when we compare the V4 calculated target and V4 OG visited we find that `r num_extid_v4_not_visited` people were not visited:  
 
 * `r num_extid_v4_target_real` (calculated target) - `r num_extid_v4_og_visited` (OG visited) = `r num_extid_v4_target_real - num_extid_v4_og_visited` (missed people)
-* These individuals are coming from the `r length(unique(v4_not_visited$hhid)) - length(unique(v4_hhid_visited_extid_not$hhid))` missed households + `r length(unique(v4_hhid_visited_extid_not$hhid))` households which had no Safety submissions (just Safety New Members).
+* These individuals are coming from the `r length(unique(v4_not_visited$hhid)) - length(unique(v4_hhid_visited_extid_not$hhid))` missed households and `r length(unique(v4_hhid_visited_extid_not$hhid))` households which had no Safety submissions (just Safety New Members).
 
 Now that we understand why the target is different, let's look at how many people completed safety below:
 
@@ -2274,8 +2274,6 @@ Now that we understand why the target is different, let's look at how many peopl
 knitr::kable(v4statuses)
 ```
 
-* OUT: 
-* REFUSAL: 
 * `r v4_preg_pfu` women were starting safety status in, took drug, and became pregnant, meaning that they will leave safety and enter pfu. On the table above, they became status eos. Please visit the [PFU Report](https://d27fg4iv55pk9u.cloudfront.net/safety-efficacy/pfu_status_and_reason.html#V4_Numbers) to track these women.
 
 We can check this in the following table:
