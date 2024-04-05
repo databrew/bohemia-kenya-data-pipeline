@@ -370,7 +370,7 @@ num_hhid_v0_clean <- length(unique(v0_clean$hhid))
 ##### V1
 v1safety <- data %>%
   filter(visit == 'V1') %>%
-  select(visit, extid, hhid, cluster, starting_safety_status, safety_status, safety_reason, assignment, type)
+  select(visit, extid, hhid, cluster, starting_safety_status, safety_status, safety_reason, assignment, type, pregnancy_status)
 num_extid_v1_total_visited <- length(unique(v1safety$extid))
 num_hhid_v1_total_visited <- length(unique(v1safety$hhid))
 
@@ -473,6 +473,13 @@ v1_death_hhs <- v1safety %>%
   v1_died_hhs_not_100 <- v1_death %>%
     filter(!extid %in% v1_100_refusal_dataset$extid)
   num_extid_v1_died_hhs_not_100 <- length(unique(v1_died_hhs_not_100$extid))
+  
+  
+  # pregnancies
+  v1_pregnancies <- v1safety %>%
+    filter(pregnancy_status == 'in')
+  
+  v1_preg_pfu <- length(unique(v1_pregnancies$extid))
 
     
   
