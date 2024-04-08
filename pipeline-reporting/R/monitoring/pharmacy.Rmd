@@ -707,8 +707,7 @@ col_list <- c('run_date',
 
 
 data_list$safety <- safety_hist %>% 
-    dplyr::filter(participant_take_drug == 'yes', num_ivermectin_tablets_taken>0) %>% 
-    tidyr::drop_na(num_tablets_per_weight) %>%
+    dplyr::filter(participant_take_drug != 'no') %>% 
     dplyr::select(
       run_date,
       instanceID, 
@@ -760,8 +759,7 @@ data_list$safety <- safety_hist %>%
     tidyr::pivot_wider(names_from = action, values_from = value)
 
 data_list$safetynew <- safetynew_hist %>% 
-    dplyr::filter(participant_take_drug == 'yes', (num_albendzole_pills>0 | num_ivermectin_tablets_taken>0)) %>% 
-    tidyr::drop_na(num_tablets_per_weight) %>%
+    dplyr::filter(participant_take_drug != 'no') %>% 
     dplyr::select(
       run_date,
       instanceID, 
