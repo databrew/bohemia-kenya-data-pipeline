@@ -1156,7 +1156,8 @@ v4_hhid_visited_extid_not <- semi_join(v4_not_visited, v4safety, by='hhid')
   # pregnancies
   v4_pregnancies <- v4safety %>%
     filter(pregnancy_status == 'in',
-           !extid %in% v3_pregnancies$extid)
+           !extid %in% v3_pregnancies$extid,
+           safety_reason != 'previously eos')
   
   v4_preg_pfu <- length(unique(v4_pregnancies$extid))
   
@@ -1977,6 +1978,80 @@ target_table <- target_table %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
 ```
+
+```{r flowchart_assignment_1}
+library(Gmisc, quietly = TRUE)
+library(glue)
+library(htmlTable)
+library(grid)
+library(magrittr)
+
+# calculate households visited per arm
+hhid_visited_1 <- data %>%
+  filter(!is.na(visit), 
+         assignment == 1) %>%
+  summarise(hh_visited_1 = n_distinct(hhid)) %>%
+  pull(hh_visited_1)
+
+hhid_visited_2 <- data %>%
+  filter(visit != 'NA',
+         assignment == 2) %>%
+  summarise(hh_visited_2 = n_distinct(hhid)) %>%
+  pull(hh_visited_2)
+
+# calculate subjects visited per arm
+extid_visited_1 <- data %>%
+  filter(!is.na(visit), 
+         assignment == 1) %>%
+  summarise(ext_visited_1 = n_distinct(extid)) %>%
+  pull(ext_visited_1)
+
+extid_visited_2 <- data %>%
+  filter(visit != 'NA',
+         assignment == 2) %>%
+  summarise(ext_visited_2 = n_distinct(extid)) %>%
+  pull(ext_visited_2)
+
+# calculate non-enrolled subjects
+non_enrolled_1 <- not_enrolled %>%
+  filter(assignment == 1) %>%
+  summarise(ext_not_enrolled_1 = n_distinct(extid)) %>%
+  pull(ext_not_enrolled_1)
+
+non_enrolled_2 <- not_enrolled %>%
+  filter(assignment == 2) %>%
+  summarise(ext_not_enrolled_2 = n_distinct(extid)) %>%
+  pull(ext_not_enrolled_2)
+
+grid.newpage()
+first_title <- hhid_visited_1
+first <- boxGrob(paste(first_title, 'households visited in arm 1 clusters'),
+               width = .8, height = .8,
+               x = 0, y = 0,
+               bjust = c("left", "bottom"))
+
+second_title <- extid_visited_1
+second <- boxGrob(paste(second_title, 'visited subjects in arm 1 clusters'),
+               width = .8, height = .8,
+               x = 0, y = 0,
+               bjust = c("left", "bottom"))
+
+third_title <- non_enrolled_1
+third <- boxGrob(paste(third_title, 'non-enrolled subjects'),
+               width = .8, height = .8,
+               x = 0, y = 0,
+               bjust = c("left", "bottom"))
+
+third_side_title <- 'insert'
+third_side <- boxGrob(third_title,
+               width = .8, height = .8,
+               x = 0, y = 0,
+               bjust = c("left", "bottom"))
+
+# connect the boxes
+connectGrob(first, second, 'vertical')
+```
+
 
 ## Safety Trial Profile  
 
