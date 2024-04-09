@@ -280,7 +280,9 @@ get_pfu_targets <- function(){
     dplyr::filter(start_time < departure_time | is.na(departure_time)) %>%
     dplyr::left_join(all_refusals) %>%
     dplyr::filter(is.na(is_refusal)) %>%
-    dplyr::filter(is_pregnant)
+    dplyr::filter(is_pregnant) %>%
+    # remove per nika
+    dplyr::filter(extid != '14024-02')
 
   # v1 to v4
   v1_4 <- dt %>%
@@ -510,7 +512,7 @@ safety_merged_tbl <- safety %>%
                 !is.na(visit))
 
 # pkfollowup merged table
-pkfollowup_merged_tbl <- pkfollowup %>%
+pkfollowup_merged_tbl <- pk_followup %>%
   dplyr::mutate(visit = 'V5') %>%
   dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>%
   dplyr::left_join(village_mapping, by = 'hhid')  %>%
