@@ -37,6 +37,13 @@ pad_hhid <- function(data){
   }
 }
 
+
+get_expand_missing_visit_data <- function(data){
+  visit <- data$visit %>% unique()
+  extid <- data$extid %>% unique()
+  tidyr::expand_grid(visit, extid)
+}
+
 get_safety_nobody_in <- function() {
   dplyr::bind_rows(
     safetynew_merged_tbl  %>%
@@ -54,17 +61,22 @@ get_safety_nobody_in <- function() {
 
 get_ever_pregnant <- function(){
   ever_pregnant <-
-    safety %>%
-    dplyr::inner_join(safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
-    filter(!is.na(pregnancy_status)) %>%
-    filter(pregnancy_status == 'in') %>%
-    dplyr::mutate(is_pregnant = TRUE) %>%
-    dplyr::select(visit, start_time, extid, is_pregnant,pregnancy_status) %>%
-    dplyr::left_join(pfu %>%
-                       dplyr::filter(pregnancy_status == 'eos') %>%
-                       dplyr::select(extid, eos_time = start_time),
-                     by = c('extid')) %>%
-    dplyr::filter(is.na(eos_time) | start_time < eos_time)
+    dplyr::bind_rows(
+      safety %>%
+        dplyr::inner_join(safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
+        dplyr::select(visit, start_time, extid, pregnancy_status),
+      pkfollowup_merged_tbl %>%
+        dplyr::select(visit, start_time, extid, pregnancy_status),
+    ) %>%
+      filter(!is.na(pregnancy_status)) %>%
+      filter(pregnancy_status == 'in') %>%
+      dplyr::mutate(is_pregnant = TRUE) %>%
+      dplyr::select(visit, start_time, extid, is_pregnant,pregnancy_status) %>%
+      dplyr::left_join(pfu %>%
+                         dplyr::filter(pregnancy_status == 'eos') %>%
+                         dplyr::select(extid, eos_time = start_time),
+                       by = c('extid')) %>%
+      dplyr::filter(is.na(eos_time) | start_time < eos_time)
   return(ever_pregnant)
 }
 
@@ -199,7 +211,6 @@ get_safety_targets <- function(){
     dplyr::ungroup() %>%
     dplyr::mutate(visit = 'V1')
 
-
   curated_data <- dplyr::bind_rows(
     safetynew_merged_tbl  %>%
       dplyr::select(visit, start_time, extid, hhid, safety_status),
@@ -250,16 +261,14 @@ get_safety_targets <- function(){
 # 5. IF INDIVIDUALS EOS, remove in next visit
 # 6. IF ALL INDIVIDUALS EOS, no need to remove household in next visit as we can still trigger safetynew
 get_pfu_targets <- function(){
-  master_list <- list()
 
   departures <- get_departures()
-
-  master_list$cascade_target <- dplyr::bind_rows(
-    safetynew_merged_tbl  %>%
-      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, safety_status),
+  dt <- dplyr::bind_rows(
     safety_merged_tbl  %>%
-      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, safety_status),
-  )  %>%
+      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid),
+    pkfollowup_merged_tbl  %>%
+      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid),
+    ) %>%
     dplyr::left_join(get_ever_pregnant() %>% dplyr::select(-start_time),
                      by = c('visit', 'extid')) %>%
     dplyr::mutate(is_pregnant = tidyr::replace_na(is_pregnant, FALSE)) %>%
@@ -272,12 +281,51 @@ get_pfu_targets <- function(){
     dplyr::left_join(all_refusals) %>%
     dplyr::filter(is.na(is_refusal)) %>%
     dplyr::filter(is_pregnant) %>%
-    dplyr::group_by(visit, assignment, cluster, village) %>%
+    # remove per nika
+    dplyr::filter(extid != '14024-02')
+
+  # v1 to v4
+  v1_4 <- dt %>%
+    dplyr::filter(visit %in% c('V2', 'V3', 'V4')) %>%
+    dplyr::group_by(visit) %>%
     dplyr::summarise(
       hh_target = n_distinct(hhid),
       ind_target = n_distinct(extid))
 
-  target <- master_list %>% purrr::reduce(dplyr::bind_rows)
+  # the rest of it
+  pfu_visit_ls <- c('V2', 'V3', 'V4', 'V5', 'V6', 'V7')
+  rest_of_the_visit_ls <- c('V5', 'V6', 'V7')
+  extids <- dt$extid %>% unique()
+
+  # create visit and extid skeleton
+  extid_visit_placeholder <- expand_grid(visit = pfu_visit_ls, extid = extids)
+
+  # synthetically move visits V1-> V2 as a placehodler for future visits
+  next_pfu <- pfu %>%
+    dplyr::mutate(
+      next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,
+      visit = glue::glue('V{next_visit_num}')) %>%
+    dplyr::select(visit, extid, pfu_pregnancy_status = pregnancy_status)
+
+  # use placeholder
+  v5_and_the_rest <- extid_visit_placeholder %>%
+    dplyr::left_join(dt) %>%
+    dplyr::left_join(next_pfu) %>%
+    dplyr::group_by(extid) %>%
+    tidyr::fill(is_pregnant, .direction = 'down') %>%
+    tidyr::fill(assignment, .direction = 'down') %>%
+    tidyr::fill(cluster, .direction = 'down') %>%
+    tidyr::fill(village, .direction = 'down') %>%
+    tidyr::fill(hhid, .direction = 'down') %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(visit %in% rest_of_the_visit_ls) %>%
+    dplyr::group_by(visit) %>%
+    dplyr::filter(coalesce(pregnancy_status, pfu_pregnancy_status) != 'eos') %>%
+    dplyr::summarise(
+      hh_target = n_distinct(hhid),
+      ind_target = n_distinct(extid))
+
+  target <- dplyr::bind_rows(v1_4, v5_and_the_rest)
 
   return(target)
 }
@@ -423,6 +471,11 @@ pk_individuals <- cloudbrewr::aws_s3_get_table(
   pad_hhid()
 
 
+pk_followup <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = glue::glue('kwale/clean-form/pkfollowup/pkfollowup.csv')) %>%
+  pad_hhid()
+
 pfu <- cloudbrewr::aws_s3_get_table(
   bucket = 'databrew.org',
   key = 'kwale/clean-form/pfu/pfu.csv'
@@ -458,6 +511,18 @@ safety_merged_tbl <- safety %>%
   dplyr::filter(end_time == max_time,
                 !is.na(visit))
 
+# pkfollowup merged table
+pkfollowup_merged_tbl <- pk_followup %>%
+  dplyr::mutate(visit = 'V5') %>%
+  dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>%
+  dplyr::left_join(village_mapping, by = 'hhid')  %>%
+  # get most recent submission
+  dplyr::group_by(visit, extid) %>%
+  dplyr::mutate(max_time = max(end_time)) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(end_time == max_time,
+                !is.na(visit))
+
 # prep safety new
 safetynew_merged_tbl <- safetynew %>%
   dplyr::inner_join(safetynew_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
@@ -484,6 +549,14 @@ efficacy_merged_tbl <- efficacy %>%
   dplyr::ungroup() %>%
   dplyr::filter(end_time == max_time,
                 !is.na(visit))
+
+# merge pfu tables
+pfu_merged_tbl <- pfu %>%
+  dplyr::filter(pregnancy_status != 'eos') %>%
+  dplyr::select(visit, start_time, extid, hhid, cluster, starting_pregnancy_status) %>%
+  dplyr::left_join(assignment, by = c('cluster' = 'cluster_number')) %>%
+  dplyr::left_join(village_mapping, by = 'hhid')  %>%
+  dplyr::filter(!cluster %in% CLUSTER_TO_REMOVE)
 
 
 # Consolidate all goals
