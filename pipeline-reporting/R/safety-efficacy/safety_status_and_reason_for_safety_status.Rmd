@@ -37,6 +37,11 @@ library(fontawesome)
 library(shiny)
 library(ggplot2)
 library(tidyr)
+library(Gmisc, quietly = TRUE)
+library(glue)
+library(htmlTable)
+library(grid)
+library(magrittr)
 
 ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
 DATA_STAGING_BUCKET_NAME <- 'databrew.org'
@@ -583,7 +588,7 @@ v1_death_hhs <- v1safety %>%
   
   
 # tracking safety statuses
-  v1_status_pathway <- v1safety %>%
+  v1_status_pathway_data <- v1safety %>%
     mutate(pathway = case_when(
       starting_safety_status == 'out' & safety_status == 'out' ~ 'out to out',
       starting_safety_status == 'out' & safety_status == 'refusal' ~ 'out to refusal',
@@ -594,7 +599,9 @@ v1_death_hhs <- v1safety %>%
       starting_safety_status == 'in' & safety_status == 'in' ~ 'in to in',
       starting_safety_status == 'in' & safety_status == 'completion' ~ 'in to completion',
       TRUE ~ 'other'
-    )) %>%
+    )) 
+  
+  v1_status_pathway <- v1_status_pathway_data %>%
     group_by(pathway) %>%
     summarize(count = n()) %>%
     add_row(pathway = 'total', count = sum(.$count))
@@ -1214,6 +1221,29 @@ v4_hhid_visited_extid_not <- semi_join(v4_not_visited, v4safety, by='hhid')
 
 ```
 
+```{r safety_trial_overall}
+
+status_pathway <- v1_status_pathway_data %>%
+  select(extid, pathway) %>%
+  rename(path_v1 = pathway) %>%
+  merge(v2_status_pathway_data, by='extid') %>%
+  select(extid, path_v1, pathway) %>%
+  rename(path_v2 = pathway) %>%
+  merge(v3_status_pathway_data, by='extid') %>%
+  select(extid, path_v1, path_v2, pathway) %>%
+  rename(path_v3 = pathway) %>%
+  merge(v4_status_pathway_data, by='extid') %>%
+  select(extid, path_v1, path_v2, path_v3, pathway) %>%
+  rename(path_v4 = pathway) %>%
+  filter(rowSums(select(., starts_with("path")) == "out to in") >= 2 |
+         rowSums(select(., starts_with("path")) == "out to refusal") >= 2 |
+         rowSums(select(., starts_with("path")) == "out to eos") >= 2 |
+         rowSums(select(., starts_with("path")) == "in to eos") >= 2 |
+         rowSums(select(., starts_with("path")) == "in to completion") >= 2)
+#write.csv(status_pathway, file='V1.0 repeat status pathways.csv')
+
+
+```
 
 
 ```{r enrolled}
@@ -1304,7 +1334,6 @@ v4_hhid_visited_extid_not <- semi_join(v4_not_visited, v4safety, by='hhid')
   v4_pregnant_women_stat <- length(unique(v4_pregnant_women$extid))
 
 ```
-
 ```{r not_enrolled}
 
 # not enrolled participants
@@ -1813,7 +1842,7 @@ target_table <- target_table %>%
   
 ```
 
-```{r v1_out}
+```{r out}
 
 ## V1 #####################
 
@@ -1980,11 +2009,6 @@ target_table <- target_table %>%
 ```
 
 ```{r flowchart_assignment_1}
-library(Gmisc, quietly = TRUE)
-library(glue)
-library(htmlTable)
-library(grid)
-library(magrittr)
 
 # calculate households visited per arm
 hhid_visited_1 <- data %>%
@@ -1993,12 +2017,6 @@ hhid_visited_1 <- data %>%
   summarise(hh_visited_1 = n_distinct(hhid)) %>%
   pull(hh_visited_1)
 
-hhid_visited_2 <- data %>%
-  filter(visit != 'NA',
-         assignment == 2) %>%
-  summarise(hh_visited_2 = n_distinct(hhid)) %>%
-  pull(hh_visited_2)
-
 # calculate subjects visited per arm
 extid_visited_1 <- data %>%
   filter(!is.na(visit), 
@@ -2006,6 +2024,55 @@ extid_visited_1 <- data %>%
   summarise(ext_visited_1 = n_distinct(extid)) %>%
   pull(ext_visited_1)
 
+# calculate non-enrolled subjects
+non_enrolled_1 <- not_enrolled %>%
+  filter(assignment == 1) %>%
+  summarise(ext_not_enrolled_1 = n_distinct(extid)) %>%
+  pull(ext_not_enrolled_1)
+
+
+# Initiate the boxes that we want to connect
+first_title <- hhid_visited_1
+first <- boxGrob(paste(first_title, 'households visited in arm 1 clusters'),
+                 x = .1, y = .9)
+
+second_title <- extid_visited_1
+second <- boxGrob(paste(second_title, 'visited subjects in arm 1 clusters'),
+                  x = .1, y = .5)
+
+third_title <- non_enrolled_1
+third <- boxGrob(paste(third_title, 'non-enrolled subjects'),
+               x = .5, y = .5)
+
+third_side_title <- 'insert'
+third_side <- boxGrob(third_title,
+               x = .1, y = 0,
+               bjust = c("left", "bottom"))
+
+
+# initiate plotting
+grid.newpage()
+
+
+# Connect the boxes and print/plot them
+connectGrob(first, second, 'vertical')
+connectGrob(second, third, 'horizontal')
+
+# print the grobs
+first
+second
+third
+```
+
+```{r flowchart_assignment_2}
+# calculate hhs visited per arm
+hhid_visited_2 <- data %>%
+  filter(visit != 'NA',
+         assignment == 2) %>%
+  summarise(hh_visited_2 = n_distinct(hhid)) %>%
+  pull(hh_visited_2)
+
+# calculate subjects visited per arm
 extid_visited_2 <- data %>%
   filter(visit != 'NA',
          assignment == 2) %>%
@@ -2013,43 +2080,10 @@ extid_visited_2 <- data %>%
   pull(ext_visited_2)
 
 # calculate non-enrolled subjects
-non_enrolled_1 <- not_enrolled %>%
-  filter(assignment == 1) %>%
-  summarise(ext_not_enrolled_1 = n_distinct(extid)) %>%
-  pull(ext_not_enrolled_1)
-
 non_enrolled_2 <- not_enrolled %>%
   filter(assignment == 2) %>%
   summarise(ext_not_enrolled_2 = n_distinct(extid)) %>%
   pull(ext_not_enrolled_2)
-
-grid.newpage()
-first_title <- hhid_visited_1
-first <- boxGrob(paste(first_title, 'households visited in arm 1 clusters'),
-               width = .8, height = .8,
-               x = 0, y = 0,
-               bjust = c("left", "bottom"))
-
-second_title <- extid_visited_1
-second <- boxGrob(paste(second_title, 'visited subjects in arm 1 clusters'),
-               width = .8, height = .8,
-               x = 0, y = 0,
-               bjust = c("left", "bottom"))
-
-third_title <- non_enrolled_1
-third <- boxGrob(paste(third_title, 'non-enrolled subjects'),
-               width = .8, height = .8,
-               x = 0, y = 0,
-               bjust = c("left", "bottom"))
-
-third_side_title <- 'insert'
-third_side <- boxGrob(third_title,
-               width = .8, height = .8,
-               x = 0, y = 0,
-               bjust = c("left", "bottom"))
-
-# connect the boxes
-connectGrob(first, second, 'vertical')
 ```
 
 
@@ -2228,7 +2262,7 @@ knitr::kable(v2statuses)
 
 * OUT: `r num_v2_out` V2 Visited out - `r num_v2_out_died` died - `r num_v2_out_mig` migrated =  `r num_v2_out - num_v2_out_died - num_v2_out_mig` V2 Clean out + `r num_extid_v2_not_visited` missed people = `r num_v3_target_out_start + num_extid_v2_not_visited` OUT (participants who can still enter the study)
 * REFUSAL: `r num_v2_refusal` - `r num_v2_ref_removed` people in 100% removal households = `r num_v2_refusal - num_v2_ref_removed` REFUSAL (participants who refused but belong to hh that are still part of the study).
-* `r v2_preg_pfu` women were starting safety status in, took drug, and became pregnant, meaning that they will leave safety and enter pfu. On the table above, they became status eos. Please visit the [PFU Report](https://d27fg4iv55pk9u.cloudfront.net/safety-efficacy/pfu_status_and_reason.html#V2_Numbers) to track these women.
+* 32 women were starting safety status in, took drug, and became pregnant, meaning that they will leave safety and enter pfu. On the table above, they became status eos. Please visit the [PFU Report](https://d27fg4iv55pk9u.cloudfront.net/safety-efficacy/pfu_status_and_reason.html#V2_Numbers) to track these women. _Note: extid 14024-02 was removed from the count of `r v2_preg_pfu` pregnant women because she did not take drug._
 
 We can check this in the following table:
 

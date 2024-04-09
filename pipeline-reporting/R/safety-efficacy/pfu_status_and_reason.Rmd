@@ -555,6 +555,7 @@ pregnancy_v7 <- data %>%
 ```{r target_show}
 reactable(target_table, columns = list(), pagination = FALSE)
 ```
+_Note: these targets are currently being edited by Nika and Aryton and the individual and household target may be slightly off._
 
 # V7 Numbers
 ```{r v7_table_status}
