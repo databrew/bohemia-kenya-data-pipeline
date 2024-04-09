@@ -284,17 +284,17 @@ get_pfu_targets <- function(){
     # remove per nika
     dplyr::filter(extid != '14024-02')
 
-  # v1 to v4
-  v1_4 <- dt %>%
-    dplyr::filter(visit %in% c('V2', 'V3', 'V4')) %>%
-    dplyr::group_by(visit) %>%
-    dplyr::summarise(
-      hh_target = n_distinct(hhid),
-      ind_target = n_distinct(extid))
+  # # v1 to v4
+  # v1_4 <- dt %>%
+  #   dplyr::filter(visit %in% c('V2', 'V3', 'V4')) %>%
+  #   dplyr::group_by(visit) %>%
+  #   dplyr::summarise(
+  #     hh_target = n_distinct(hhid),
+  #     ind_target = n_distinct(extid))
 
   # the rest of it
   pfu_visit_ls <- c('V2', 'V3', 'V4', 'V5', 'V6', 'V7')
-  rest_of_the_visit_ls <- c('V5', 'V6', 'V7')
+  rest_of_the_visit_ls <- c('V2', 'V3', 'V4','V5', 'V6', 'V7')
   extids <- dt$extid %>% unique()
 
   # create visit and extid skeleton
@@ -325,7 +325,7 @@ get_pfu_targets <- function(){
       hh_target = n_distinct(hhid),
       ind_target = n_distinct(extid))
 
-  target <- dplyr::bind_rows(v1_4, v5_and_the_rest)
+  target <- dplyr::bind_rows(v5_and_the_rest)
 
   return(target)
 }
