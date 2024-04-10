@@ -284,17 +284,9 @@ get_pfu_targets <- function(){
     # remove per nika
     dplyr::filter(extid != '14024-02')
 
-  # v1 to v4
-  v1_4 <- dt %>%
-    dplyr::filter(visit %in% c('V2', 'V3', 'V4')) %>%
-    dplyr::group_by(visit) %>%
-    dplyr::summarise(
-      hh_target = n_distinct(hhid),
-      ind_target = n_distinct(extid))
-
   # the rest of it
   pfu_visit_ls <- c('V2', 'V3', 'V4', 'V5', 'V6', 'V7')
-  rest_of_the_visit_ls <- c('V5', 'V6', 'V7')
+  rest_of_the_visit_ls <- c('V2', 'V3', 'V4','V5', 'V6', 'V7')
   extids <- dt$extid %>% unique()
 
   # create visit and extid skeleton
@@ -308,7 +300,7 @@ get_pfu_targets <- function(){
     dplyr::select(visit, extid, pfu_pregnancy_status = pregnancy_status)
 
   # use placeholder
-  v5_and_the_rest <- extid_visit_placeholder %>%
+  target <- extid_visit_placeholder %>%
     dplyr::left_join(dt) %>%
     dplyr::left_join(next_pfu) %>%
     dplyr::group_by(extid) %>%
@@ -324,8 +316,6 @@ get_pfu_targets <- function(){
     dplyr::summarise(
       hh_target = n_distinct(hhid),
       ind_target = n_distinct(extid))
-
-  target <- dplyr::bind_rows(v1_4, v5_and_the_rest)
 
   return(target)
 }
