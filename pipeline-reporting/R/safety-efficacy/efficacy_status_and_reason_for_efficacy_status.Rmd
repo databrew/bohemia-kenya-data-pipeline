@@ -1903,7 +1903,7 @@ Efficacy started with `r efficacy_selected` pre-selected children. Therefore, th
   
 ***
 
-### V1
+## V1
 
 In V1 `r v1_total_visited` children were visited. If the target for efficacy was `r efficacy_selected`, then this means that `r efficacy_selected - v1_total_visited` less children were visited than expected. See below:
 
@@ -1930,7 +1930,7 @@ After removing migrations, deaths, refusals, and eos from above, we enter V2 wit
   
 ***
 
-### V2
+## V2
 
 In V2 `r v2_total_visited` children were visited. If the target for efficacy was `r num_v1_clean`, then this means that `r num_v1_clean - v2_total_visited` less children were visited than expected. See below:
 
@@ -1954,7 +1954,7 @@ After removing migrations, deaths, refusals, and eos, we enter V3 with a target 
   
 ***
 
-### V3
+## V3
 
 In V3 `r v3_total_visited` children were visited. If the target for efficacy was `r num_v2_clean`, then this means that `r num_v2_clean - v3_total_visited` less children were visited than expected. See below:
 
@@ -1978,7 +1978,7 @@ After removing migrations, deaths, refusals, and eos, we enter V4 with a target 
   
 ***
 
-### V4
+## V4
 
 In V4 `r v4_total_visited` children were visited. If the target for efficacy was `r num_v3_clean`, then this means that `r num_v3_clean - v4_total_visited` less children were visited than expected. See below:
 
@@ -2002,7 +2002,7 @@ After removing migrations, deaths, refusals, and eos, we enter V5 with a target 
   
 ***
 
-### V5
+## V5
 
 In V5 `r v5_total_visited` children were visited. If the target for efficacy was `r num_v4_clean`, then this means that `r num_v4_clean - v5_total_visited` less children were visited than expected. See below:
 
@@ -2026,7 +2026,7 @@ After removing migrations, deaths, refusals, and eos, we enter V6 with a target 
   
 ***
 
-### V6 
+## V6 
 
 In V6 `r v6_total_visited` children were visited. If the target for efficacy was `r num_v5_clean`, then this means that `r num_v5_clean - v6_total_visited` less children were visited than expected. See below:
 
@@ -2050,7 +2050,7 @@ After removing migrations, deaths, refusals, and eos, we enter V7 with a target 
 
 ***
 
-### V7 
+## V7 
 
 In V7 `r v7_total_visited` children were visited. If the target for efficacy was `r num_v6_clean`, then this means that `r num_v6_clean - v7_total_visited` less children were visited than expected. See below:
 
