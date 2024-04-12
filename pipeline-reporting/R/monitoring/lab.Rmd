@@ -476,7 +476,7 @@ wrap_download(
 ```
 
 
-### c). Missing / Waiting to be logged into lab database Samples
+### c). Pending / Waiting to be logged into lab database Samples
 ```{r}
 efficacy_field <- samples_in_eff_by_run %>% 
     dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
