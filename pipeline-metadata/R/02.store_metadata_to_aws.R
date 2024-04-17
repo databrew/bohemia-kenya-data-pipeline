@@ -71,108 +71,108 @@ cloudbrewr::aws_s3_bulk_store(
 )
 
 
-#### Reshape metadata to parquet
+# #### Reshape metadata to parquet
 unlink('parquet', recursive = TRUE, force = TRUE)
 dir.create('parquet')
 
 version <- as.character(lubridate::today())
 
-# safety metadata household
-safety_metadata_hh <- fread('safety_metadata/household_data.csv') %>%
-  tidyr::drop_na(visits_done) %>%
-  dplyr::rowwise() %>%
-  mutate(
-    most_recent_visit = stringr::str_split(visits_done, ", ") %>% .[[1]] %>% purrr::reduce(max)
-  ) %>%
-  dplyr::select(
-    arm,
-    hhid,
-    num_members,
-    cluster,
-    household_head,
-    village,
-    ward,
-    most_recent_visit,
-    visits_done) %>%
-  tibble::tibble() %>%
-  pad_hhid() %>%
-  dplyr::mutate(across(where(is.numeric), ~tidyr::replace_na(., -1))) %>%
-  dplyr::mutate(across(where(is.character), ~tidyr::replace_na(., '')))
-
-# safety metadata individual
-safety_metadata_ind <- fread('safety_metadata/individual_data.csv') %>%
-  dplyr::select(hhid,
-                extid,
-                firstname,
-                lastname,
-                sex,
-                dob,
-                dead,
-                migrated,
-                village,
-                ward,
-                cluster,
-                starts_with('starting')) %>%
-  pad_hhid()
-
-# merge safety data
-safety_arrow <- safety_metadata_hh %>%
-  dplyr::select(hhid, household_head, most_recent_visit, num_members, visits_done) %>%
-  dplyr::inner_join(safety_metadata_ind, by = c('hhid')) %>%
-  create_parquet()
-
-dir_target <- 'parquet/safety'
-dir_target_hist <- glue::glue('parquet/safety_hist/run_date={version}')
-
-dir.create(dir_target, recursive = TRUE)
-dir.create(dir_target_hist, recursive = TRUE)
-arrow::write_parquet(
-  safety_arrow,
-  glue::glue("{dir_target}/safety.parquet"))
-arrow::write_parquet(
-  safety_arrow,
-  glue::glue("{dir_target_hist}/safety.parquet"))
-
-
-# efficacy metadata individual
-efficacy_arrow <- fread('efficacy_metadata/individual_data.csv') %>%
-  dplyr::select(hhid,
-                extid,
-                firstname,
-                lastname,
-                sex,
-                dob,
-                dead,
-                migrated,
-                village,
-                ward,
-                cluster,
-                starts_with('starting'),
-                starts_with('efficacy')) %>%
-  tidyr::drop_na(efficacy_visits_done) %>%
-  dplyr::rowwise() %>%
-  dplyr::mutate(
-    most_recent_visit = stringr::str_split(efficacy_visits_done, ", ") %>% .[[1]] %>% purrr::reduce(max)
-  ) %>%
-  dplyr::ungroup() %>%
-  pad_hhid() %>%
-  dplyr::mutate(efficacy_most_recent_present_date =
-                  stringr::str_remove(efficacy_most_recent_present_date, "."),
-                efficacy_most_recent_present_date = case_when(efficacy_most_recent_present_date == "" ~ NA),
-                efficacy_most_recent_present_date = lubridate::date(efficacy_most_recent_present_date)) %>%
-  create_parquet()
-
-dir_target <- 'parquet/efficacy'
-dir_target_hist <- glue::glue('parquet/efficacy_hist/run_date={version}')
-
-dir.create(dir_target, recursive = TRUE)
-dir.create(dir_target_hist, recursive = TRUE)
-arrow::write_parquet(
-  efficacy_arrow,
-  glue::glue("{dir_target}/efficacy.parquet"))
-arrow::write_parquet(
-  efficacy_arrow,
-  glue::glue("{dir_target_hist}/efficacy.parquet"))
+# # safety metadata household
+# safety_metadata_hh <- fread('safety_metadata/household_data.csv') %>%
+#   tidyr::drop_na(visits_done) %>%
+#   dplyr::rowwise() %>%
+#   mutate(
+#     most_recent_visit = stringr::str_split(visits_done, ", ") %>% .[[1]] %>% purrr::reduce(max)
+#   ) %>%
+#   dplyr::select(
+#     arm,
+#     hhid,
+#     num_members,
+#     cluster,
+#     household_head,
+#     village,
+#     ward,
+#     most_recent_visit,
+#     visits_done) %>%
+#   tibble::tibble() %>%
+#   pad_hhid() %>%
+#   dplyr::mutate(across(where(is.numeric), ~tidyr::replace_na(., -1))) %>%
+#   dplyr::mutate(across(where(is.character), ~tidyr::replace_na(., '')))
+#
+# # safety metadata individual
+# safety_metadata_ind <- fread('safety_metadata/individual_data.csv') %>%
+#   dplyr::select(hhid,
+#                 extid,
+#                 firstname,
+#                 lastname,
+#                 sex,
+#                 dob,
+#                 dead,
+#                 migrated,
+#                 village,
+#                 ward,
+#                 cluster,
+#                 starts_with('starting')) %>%
+#   pad_hhid()
+#
+# # merge safety data
+# safety_arrow <- safety_metadata_hh %>%
+#   dplyr::select(hhid, household_head, most_recent_visit, num_members, visits_done) %>%
+#   dplyr::inner_join(safety_metadata_ind, by = c('hhid')) %>%
+#   create_parquet()
+#
+# dir_target <- 'parquet/safety'
+# dir_target_hist <- glue::glue('parquet/safety_hist/run_date={version}')
+#
+# dir.create(dir_target, recursive = TRUE)
+# dir.create(dir_target_hist, recursive = TRUE)
+# arrow::write_parquet(
+#   safety_arrow,
+#   glue::glue("{dir_target}/safety.parquet"))
+# arrow::write_parquet(
+#   safety_arrow,
+#   glue::glue("{dir_target_hist}/safety.parquet"))
+#
+#
+# # efficacy metadata individual
+# efficacy_arrow <- fread('efficacy_metadata/individual_data.csv') %>%
+#   dplyr::select(hhid,
+#                 extid,
+#                 firstname,
+#                 lastname,
+#                 sex,
+#                 dob,
+#                 dead,
+#                 migrated,
+#                 village,
+#                 ward,
+#                 cluster,
+#                 starts_with('starting'),
+#                 starts_with('efficacy')) %>%
+#   tidyr::drop_na(efficacy_visits_done) %>%
+#   dplyr::rowwise() %>%
+#   dplyr::mutate(
+#     most_recent_visit = stringr::str_split(efficacy_visits_done, ", ") %>% .[[1]] %>% purrr::reduce(max)
+#   ) %>%
+#   dplyr::ungroup() %>%
+#   pad_hhid() %>%
+#   dplyr::mutate(efficacy_most_recent_present_date =
+#                   stringr::str_remove(efficacy_most_recent_present_date, "."),
+#                 efficacy_most_recent_present_date = case_when(efficacy_most_recent_present_date == "" ~ NA),
+#                 efficacy_most_recent_present_date = lubridate::date(efficacy_most_recent_present_date)) %>%
+#   create_parquet()
+#
+# dir_target <- 'parquet/efficacy'
+# dir_target_hist <- glue::glue('parquet/efficacy_hist/run_date={version}')
+#
+# dir.create(dir_target, recursive = TRUE)
+# dir.create(dir_target_hist, recursive = TRUE)
+# arrow::write_parquet(
+#   efficacy_arrow,
+#   glue::glue("{dir_target}/efficacy.parquet"))
+# arrow::write_parquet(
+#   efficacy_arrow,
+#   glue::glue("{dir_target_hist}/efficacy.parquet"))
 
 
 
