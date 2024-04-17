@@ -333,6 +333,7 @@ get_efficacy_targets <- function(){
 
   # create targets
   v0_target <- efficacy_selection %>%
+    pad_hhid() %>%
     dplyr::left_join(v0_merged_tbl) %>%
     dplyr::group_by(assignment, cluster, village) %>%
     dplyr::summarise(
@@ -351,38 +352,84 @@ get_efficacy_targets <- function(){
   # 3. If a household have all EOS, don't remove it since there can be new members
   # create targets coming from safety new
   curated_data <- dplyr::bind_rows(
+    efficacy_selection %>%
+      dplyr::mutate(efficacy_status = 'in', visit = 'V0') %>%
+      # remove aged out kids
+      dplyr::filter(!extid %in% c('74052-06', '18039-03', '02042-03', '02042-02', '26007-03', '56118-06')) %>%
+      pad_hhid(),
     efficacy_merged_tbl  %>%
-      dplyr::select(visit, start_time, assignment, cluster, village, extid, hhid, efficacy_status)
-  )
+      dplyr::select(visit,
+                    start_time,
+                    assignment,
+                    cluster,
+                    village,
+                    extid,
+                    hhid,
+                    efficacy_status,
+                    person_migrated_eos,
+                    person_unenrolled_migrated,
+                    person_unenrolled_died,
+                    starting_efficacy_status,
+                    efficacy_status)) %>%
+    dplyr::mutate(
+      visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")),
+      next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,
+      enrollment = case_when(
+        starting_efficacy_status == 'out' &
+          efficacy_status != 'out' ~ 'enrollment',
+        starting_efficacy_status == 'out' &
+          efficacy_status == 'out' ~ 'not yet enrolled',
+        TRUE ~ 'follow up'
+    )) %>%
+    dplyr::mutate(efficacy_removal = case_when(
+                           (person_migrated_eos == 1 |
+                            person_unenrolled_migrated == 1 |
+                            person_unenrolled_died == 1 |
+                            efficacy_status == 'refusal' |
+                            efficacy_status == 'eos' |
+                            (enrollment == 'not yet enrolled' & visit_num >=3)) ~ TRUE,
+                           TRUE ~ FALSE
+                  ))
 
-  # add in skipped visits manually
-  v3_manual_adjustment <- curated_data %>%
-    dplyr::filter(extid %in% c('68013-04')) %>%
-    dplyr::mutate(visit = 'V3') %>%
-    dplyr::group_by(visit, assignment, cluster, village, extid, hhid) %>%
-    dplyr::summarise(start_time = max(start_time)) %>% dplyr::ungroup()
+  # the rest of it
+  efficacy_visit_ls <- c('V1','V2', 'V3', 'V4', 'V5', 'V6', 'V7')
+  rest_of_the_visit_ls <- c('V1', 'V2', 'V3', 'V4','V5', 'V6', 'V7')
+  extids <- curated_data$extid %>% unique()
 
-  # remove v3 out
-  v3_remove_out <- curated_data %>%
-    dplyr::filter(visit == 'V3', efficacy_status != 'in') %>%
-    dplyr::distinct(visit,extid)
+  # create visit and extid skeleton
+  extid_visit_placeholder <- expand_grid(visit = efficacy_visit_ls, extid = extids)
 
-
-  master_list$cascade_target <- dplyr::bind_rows(
-    curated_data,
-    v3_manual_adjustment) %>%
-    dplyr::anti_join(v3_remove_out) %>%
-    dplyr::group_by(visit, assignment, cluster, village) %>%
-    dplyr::summarise(
-      hh_target = n_distinct(hhid),
-      ind_target = n_distinct(extid)) %>%
+  # synthetically move visits V1-> V2 as a placehodler for future visits
+  next_eff <- curated_data %>%
     dplyr::mutate(
       next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,
       visit = glue::glue('V{next_visit_num}')) %>%
-    dplyr::filter(next_visit_num < 8) %>% # stop cascading goals
-    dplyr::select(-next_visit_num)
+    dplyr::select(visit, extid, next_efficacy_removal = efficacy_removal) %>%
+    dplyr::filter(visit != 'V8')
 
-  target <- master_list %>% purrr::reduce(dplyr::bind_rows)
+  # use placeholder
+  master_list$rest_of_the_goals <- extid_visit_placeholder %>%
+    dplyr::left_join(curated_data) %>%
+    dplyr::left_join(next_eff) %>%
+    dplyr::group_by(extid) %>%
+    tidyr::fill(efficacy_status, .direction = 'down') %>%
+    tidyr::fill(assignment, .direction = 'down') %>%
+    tidyr::fill(cluster, .direction = 'down') %>%
+    tidyr::fill(village, .direction = 'down') %>%
+    tidyr::fill(hhid, .direction = 'down') %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(visit %in% rest_of_the_visit_ls) %>%
+    dplyr::filter(!coalesce(efficacy_removal, next_efficacy_removal)) %>%
+    dplyr::mutate(
+      next_visit_num = as.numeric(stringr::str_extract(visit, "[0-9]+")) + 1,
+      visit = glue::glue('V{next_visit_num}')) %>%
+    dplyr::filter(visit %in% c('V2', 'V3', 'V4', 'V5', 'V6', 'V7')) %>%
+    dplyr::group_by(visit, assignment, cluster, village) %>%
+    dplyr::summarise(
+      hh_target = n_distinct(hhid),
+      ind_target = n_distinct(extid))
+
+  target <- master_list %>% purrr::reduce(bind_rows)
 
   return(target)
 }
@@ -470,6 +517,12 @@ pfu <- cloudbrewr::aws_s3_get_table(
   bucket = 'databrew.org',
   key = 'kwale/clean-form/pfu/pfu.csv'
 ) %>%
+  pad_hhid()
+
+dropped_hhid <- cloudbrewr::aws_s3_get_table(
+  bucket ='bohemia-lake-db',
+  key = glue::glue('bohemia_ext_data/v0_dropped_hhid/v0_dropped_hhid.csv')) %>%
+  dplyr::select(hhid = dropped_hhid) %>%
   pad_hhid()
 
 # cluster to remove
