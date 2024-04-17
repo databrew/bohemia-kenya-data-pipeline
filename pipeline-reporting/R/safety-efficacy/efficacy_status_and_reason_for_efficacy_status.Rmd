@@ -76,7 +76,8 @@ absence1stattempt <- cloudbrewr::aws_s3_get_table(
 assignment <- cloudbrewr::aws_s3_get_table(
   bucket ='bohemia-lake-db',
   key = 'bohemia_ext_data/assignments/assignments.csv') %>%
-  pad_hhid()
+  pad_hhid() %>%
+  rename(cluster = cluster_number)
 
 v0_dem_repeat <- cloudbrewr::aws_s3_get_table(
     bucket = DATA_STAGING_BUCKET_NAME,
@@ -186,9 +187,6 @@ individuals <- efficacy %>%
             TRUE ~ NA_character_  # To handle cases that don't match any condition
     ))
   
-  assignment <- assignment %>%
-    rename(cluster = cluster_number)
-  
     total_eff <- left_join(eff, assignment, by='cluster')
   
   
@@ -205,7 +203,7 @@ individuals <- efficacy %>%
 # create the dataset for the extid explorer
   data_investigation <- data %>%
     filter(!is.na(visit)) %>% # removes extids not in Efficacy
-    select(visit, extid, efficacy_status, enrolment, efficacy_reason, sex_v0, sex_efficacy, dob_v0, dob_efficacy, todays_date_v0, todays_date_efficacy)
+    select(visit, extid, efficacy_status, enrolment, efficacy_reason, sex_v0, sex_efficacy, dob_v0, dob_efficacy, todays_date_v0, todays_date_efficacy, assignment)
   
   data <- data %>% distinct(extid, visit, .keep_all = TRUE)
 
