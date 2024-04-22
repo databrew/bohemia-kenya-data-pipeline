@@ -202,6 +202,7 @@ get_safety_targets <- function(){
 
   # create targets
   v0_target <- v0_merged_tbl %>%
+    dplyr::filter(!hhid %in% dropped_hhid$hhid) %>%
     dplyr::group_by(assignment, cluster = geo_cluster_num, village) %>%
     dplyr::summarise(
       hh_target = n_distinct(hhid),

@@ -25,6 +25,21 @@ create_s3_bucket <- function(bucket_name){
 }
 
 
+odk_submission_export_wrapper <- function(pid, fid) {
+  tryCatch({
+    msg <- as.character(glue::glue('fetching fid:{fid} from pid:{pid}'))
+    logger::log_info(msg)
+    ruODK::submission_export(pid = pid,
+                             fid = fid,
+                             local_dir = '/tmp',
+                             overwrite = TRUE)
+  }, error = function(e){
+    msg <- as.character(glue::glue('{fid} is throwing an error: {e$message}'))
+    logger::log_error(msg)
+  })
+}
+
+
 #' @description: Function to save files to s3 bucket
 #'
 #' @param s3obj instantiation of s3 object
@@ -47,13 +62,12 @@ create_s3_upload_manifest <- function(bucket_name = 'databrew.org',
       dplyr::rowwise() %>%
       dplyr::mutate(
         project_name = project,
-        zip_path = ruODK::submission_export(pid = project_id,
-                                            fid = fid,
-                                            local_dir = '/tmp',
-                                            overwrite = TRUE))
+        zip_path = odk_submission_export_wrapper(pid = project_id, fid = fid))
+
     # unload manifest files into zip files
     manifest$zip_path %>%
       purrr::map_dfr(function(z){
+        print(z)
         form_id = tools::file_path_sans_ext(basename(z))
         project_name <- stringr::str_replace_all(project, " ", "_") %>% tolower()
         dir <- as.character(glue::glue("{output_dir}/{project_name}/raw-form/{form_id}"))
