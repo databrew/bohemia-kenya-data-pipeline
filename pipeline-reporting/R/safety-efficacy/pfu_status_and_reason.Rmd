@@ -70,6 +70,12 @@ tryCatch({
 
 
 # load in the data
+assignment <- cloudbrewr::aws_s3_get_table(
+  bucket ='bohemia-lake-db',
+  key = 'bohemia_ext_data/assignments/assignments.csv') %>%
+  pad_hhid() %>%
+  rename(cluster = cluster_number)
+
 pfu <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
   key = glue::glue('{PROJECT_SOURCE}/clean-form/pfu/pfu.csv')) %>%
@@ -159,12 +165,15 @@ pfu_reason <- pfu_enrolment %>%
 
 # create the dataset that will be used for this script
   # this will exclude the people who were manually removed
-  data <- merge(pfu_reason, v0dem, by = c('extid'), all = TRUE)
+  data <- merge(pfu_reason, v0dem, by = c('extid'), all = TRUE) %>% 
+    left_join(assignment, by='cluster')
   
 # create the dataset for the extid explorer
   data_investigation <- data %>%
     filter(!is.na(visit)) %>% # removes extids not in Efficacy
-    select(visit, extid, pregnancy_status, pregnancy_status_reason, enrolment, sex_v0, sex_pregnancy, dob_v0, dob_pregnancy, todays_date_v0, todays_date_pregnancy)
+    select(visit, extid, pregnancy_status, pregnancy_status_reason, enrolment,
+           sex_v0, sex_pregnancy, dob_v0, dob_pregnancy, todays_date_v0,
+           todays_date_pregnancy, assignment)
   
   # a trial profile tracks where every person went
   by_visit <- pfu_reason %>%

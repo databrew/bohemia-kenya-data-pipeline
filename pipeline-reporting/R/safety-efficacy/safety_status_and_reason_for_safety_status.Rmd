@@ -82,7 +82,8 @@ absence1stattempt <- cloudbrewr::aws_s3_get_table(
 assignment <- cloudbrewr::aws_s3_get_table(
   bucket ='bohemia-lake-db',
   key = 'bohemia_ext_data/assignments/assignments.csv') %>%
-  pad_hhid()
+  pad_hhid() %>%
+  rename(cluster = cluster_number)
 
 v0_dem_repeat <- cloudbrewr::aws_s3_get_table(
   bucket = DATA_STAGING_BUCKET_NAME,
@@ -264,9 +265,6 @@ absence1stattempt <- absence1stattempt %>%
              TRUE ~ NA_character_  # To handle cases that don't match any condition
            )) 
   
-  assignment <- assignment %>%
-    rename(cluster = cluster_number)
-  
   total_safety <- left_join(total_safety, assignment, by='cluster') %>%
     filter(extid != '2437-61',
            safety_status != 'UNDEFINED')
@@ -294,7 +292,7 @@ absence1stattempt <- absence1stattempt %>%
            safety_status != 'UNDEFINED') %>% 
     select(visit, extid, safety_status, safety_reason, 
            enrolment, sex_v0, sex_safety, dob_v0, 
-           dob_safety_visit, todays_date_v0, todays_date_safety)
+           dob_safety_visit, todays_date_v0, todays_date_safety, assignment)
   
 # a trial profile tracks where every person went
   by_visit <- data %>%

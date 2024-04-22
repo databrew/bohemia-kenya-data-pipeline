@@ -14,4 +14,3 @@ production:
   secret_name: 'prod/odk-credentials'
   odk_projects:
     - 'kwale'
-    - 'kwale_training'
