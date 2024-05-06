@@ -286,8 +286,8 @@ get_pfu_targets <- function(){
     dplyr::filter(extid != '14024-02')
 
   # the rest of it
-  pfu_visit_ls <- c('V2', 'V3', 'V4', 'V5', 'V6', 'V7')
-  rest_of_the_visit_ls <- c('V2', 'V3', 'V4','V5', 'V6', 'V7')
+  pfu_visit_ls <- c('V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8')
+  rest_of_the_visit_ls <- c('V2', 'V3', 'V4','V5', 'V6', 'V7', 'V8')
   extids <- dt$extid %>% unique()
 
   # create visit and extid skeleton
