@@ -214,7 +214,8 @@ reactable(
     highlight = TRUE,
     resizable = TRUE,
     bordered = TRUE,
-    striped = TRUE)
+    striped = TRUE,
+    defaultSorted=list(`report_name` = 'desc'))
 ```
 
 
