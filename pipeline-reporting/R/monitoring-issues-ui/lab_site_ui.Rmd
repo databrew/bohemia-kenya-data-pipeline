@@ -203,7 +203,7 @@ reactable(
     resizable = TRUE,
     bordered = TRUE,
     filterable = TRUE,
-    defaultSorted = 'report_name',
+    defaultSorted=list(`report_name` = 'desc'),
     wrap = FALSE,
     striped = TRUE)
 ```

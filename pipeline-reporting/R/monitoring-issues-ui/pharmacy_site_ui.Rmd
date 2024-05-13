@@ -200,7 +200,7 @@ reactable(
                            htmltools::tags$a(href = url, target = "_blank", 'URL')
                         })
     ),
-    defaultSorted = 'report_name',
+    defaultSorted=list(`report_name` = 'desc'),
     showPagination = TRUE,
     wrap = TRUE,
     highlight = TRUE,
