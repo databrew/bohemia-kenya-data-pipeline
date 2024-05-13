@@ -131,20 +131,6 @@ INPUT_KEY <- list(
     safetynew_repeat_individual = glue::glue('{SE_FOLDER_TARGET}/safetynew/safetynew-repeat_individual.csv'),
     efficacy =  glue::glue('{SE_FOLDER_TARGET}/efficacy/efficacy.csv')
   )
-
-
-tryCatch({
-  logger::log_info('Attempt AWS login')
-  # login to AWS - this will be bypassed if executed in CI/CD environment
-  cloudbrewr::aws_login(
-    role_name = 'cloudbrewr-aws-role',
-    profile_name =  'cloudbrewr-aws-role',
-    pipeline_stage = ENV_PIPELINE_STAGE)
-
-}, error = function(e){
-  logger::log_error('AWS Login Failed')
-  stop(e$message)
-})
 ```
 
 
@@ -252,9 +238,16 @@ lab2_incidences_mapping <- lab2 %>%
     dplyr::mutate(across(where(is.character), ~na_if(., ""))) %>% 
     dplyr::mutate(across(where(is.character), ~na_if(., "none"))) %>%
     dplyr::mutate(incidences = case_when(
-      sample_status == "Quarantine" ~ quarantine_incidence_select, TRUE ~ NA_character_
+      sample_status == "Quarantine" ~ quarantine_incidence_select, 
+      TRUE ~ NA_character_
     )) %>% 
-    dplyr::select(extid, instanceID, SubmissionDate, sample, sample_status, incidences, study) %>% 
+    dplyr::select(extid, 
+                  instanceID, 
+                  SubmissionDate, 
+                  sample, 
+                  sample_status, 
+                  incidences, 
+                  study) %>% 
     dplyr::mutate(source = 'lab2')
 
 
@@ -363,7 +356,7 @@ samples_in_lab_by_run <- lab_hist  %>%
   dplyr::filter(run_date >= MIN_DATE)
 ```
 
-### a). Pending Samples
+### a). Lab Pending Samples
 ```{r}
 from_lab <- samples_in_lab_by_run %>% 
     dplyr::group_by(run_date, study) %>% 
@@ -419,7 +412,7 @@ wrap_download(
 
 
 
-### b). Quarantined samples – anomaly report for each scenario:
+### b). Lab Quarantined samples – anomaly report for each scenario:
 ```{r}
 tbl <- samples_in_lab_by_run %>%
     dplyr::group_by(run_date, study) %>% 
@@ -476,7 +469,7 @@ wrap_download(
 ```
 
 
-### c). Pending / Waiting to be logged into lab database Samples
+### c). Field Sample Pending / Waiting to be logged into Lab
 ```{r}
 efficacy_field <- samples_in_eff_by_run %>% 
     dplyr::mutate(week_start = lubridate::floor_date(run_date, "week")) %>% 
@@ -485,10 +478,10 @@ efficacy_field <- samples_in_eff_by_run %>%
                                             lubridate::date(SubmissionDate), units = "days"))) %>% 
     dplyr::group_by(run_date) %>% 
     dplyr::summarise(
-      `Missing Samples` = n_distinct(sample),
-      `Missing Samples 0-10 days` = n_distinct(sample[age<=10]),
-      `Missing Samples 10-20 days` = n_distinct(sample[age>10 & age<=20]),
-      `Missing Samples >20 days` = n_distinct(sample[age>20])) %>%
+      `Pending / Waiting to be logged` = n_distinct(sample),
+      `Pending / Waiting to be logged 0-10 days` = n_distinct(sample[age<=10]),
+      `Pending / Waiting to be logged 10-20 days` = n_distinct(sample[age>10 & age<=20]),
+      `Pending / Waiting to be logged >20 days` = n_distinct(sample[age>20])) %>%
     dplyr::mutate(study = 'efficacy')
 
 
@@ -499,10 +492,10 @@ pk_field <- samples_in_pk_by_run %>%
                                             lubridate::date(SubmissionDate), units = "days"))) %>% 
     dplyr::group_by(run_date) %>% 
     dplyr::summarise(
-      `Missing Samples` = n_distinct(sample),
-      `Missing Samples 0-10 days` = n_distinct(sample[age<=10]),
-      `Missing Samples 10-20 days` = n_distinct(sample[age>10 & age<=20]),
-      `Missing Samples >20 days` = n_distinct(sample[age>20])) %>%
+      `Pending / Waiting to be logged` = n_distinct(sample),
+      `Pending / Waiting to be logged 0-10 days` = n_distinct(sample[age<=10]),
+      `Pending / Waiting to be logged 10-20 days` = n_distinct(sample[age>10 & age<=20]),
+      `Pending / Waiting to be logged >20 days` = n_distinct(sample[age>20])) %>%
     dplyr::mutate(study = 'pk')
 
 
@@ -512,10 +505,10 @@ tbl <- dplyr::bind_rows(efficacy_field, pk_field)
 reactable(tbl, 
           groupBy = c('run_date'),
           columns = list(
-            `Missing Samples` = colDef(aggregate = "sum"),
-            `Missing Samples 0-10 days` = colDef(aggregate = "sum"),
-            `Missing Samples 10-20 days` = colDef(aggregate = "sum"),
-            `Missing Samples >20 days` = colDef(aggregate = "sum")
+            `Pending / Waiting to be logged` = colDef(aggregate = "sum"),
+            `Pending / Waiting to be logged 0-10 days` = colDef(aggregate = "sum"),
+            `Pending / Waiting to be logged 10-20 days` = colDef(aggregate = "sum"),
+            `Pending / Waiting to be logged >20 days` = colDef(aggregate = "sum")
           ),
           defaultSorted=list(run_date = 'desc'))
 ```
@@ -557,4 +550,59 @@ wrap_download(
   glue::glue('{version}-missing_lab_samples_detail.csv'))
 ```
 
+### d). Lab Samples Logged vs Waiting to be Logged
+
+```{r}
+missing <- dplyr::bind_rows(efficacy_field, pk_field)
+logged <- samples_in_lab_by_run %>%
+    dplyr::group_by(run_date, study) %>% 
+    dplyr::summarise(
+        `Logged in Lab` = n_distinct(sample),
+    ) %>% dplyr::ungroup()
+
+
+expected_vs_waiting <- missing %>% 
+    dplyr::left_join(logged) %>% 
+    dplyr::select(run_date, study, 
+                  `Logged in Lab`, 
+                  `Pending / Waiting to be logged`)
+
+
+reactable(expected_vs_waiting, 
+          groupBy = c('run_date'),
+          columns = list(
+            `Logged in Lab` = colDef(aggregate = "sum"),
+            `Pending / Waiting to be logged` = colDef(aggregate = "sum")
+          ),
+          defaultSorted=list(run_date = 'desc'))
+```
+
+```{r}
+element_id <- 'logged_samples_in_lab'
+
+tbl <- samples_in_lab_by_run %>% 
+    dplyr::mutate(week_start = lubridate::floor_date(lubridate::now(), "week")) %>% 
+    dplyr::filter(run_date == curr_week) %>%
+    dplyr::mutate(age = as.numeric(difftime(lubridate::date(run_date), 
+                                            lubridate::date(SubmissionDate), 
+                                            units = "days")),
+                  source = 'Lab') %>% 
+    dplyr::distinct(sample, .keep_all = TRUE) %>%
+    dplyr::select(-week_start)
+
+tbl <- reactable(tbl, 
+    highlight = TRUE,
+    resizable = TRUE,
+    bordered = TRUE,
+    striped = TRUE,
+    filterable = TRUE,
+    elementId = element_id,
+    groupBy = c('study')
+)
+
+wrap_download(
+  tbl, 
+  element_id,
+  glue::glue('{version}-logged_samples_lab_summary.csv'))
+```
 
