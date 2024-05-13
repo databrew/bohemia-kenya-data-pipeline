@@ -287,7 +287,7 @@ get_pfu_targets <- function(){
 
   # the rest of it
   pfu_visit_ls <- c('V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12', 'V13')
-  rest_of_the_visit_ls <- c('V2', 'V3', 'V4','V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12', 'V13'))
+  rest_of_the_visit_ls <- c('V2', 'V3', 'V4','V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12', 'V13')
   extids <- dt$extid %>% unique()
 
   # create visit and extid skeleton
