@@ -42,6 +42,7 @@ library(glue)
 library(htmlTable)
 library(grid)
 library(magrittr)
+library(DiagrammeR)
 
 ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
 DATA_STAGING_BUCKET_NAME <- 'databrew.org'
@@ -2034,51 +2035,227 @@ non_enrolled_1 <- not_enrolled %>%
   summarise(ext_not_enrolled_1 = n_distinct(extid)) %>%
   pull(ext_not_enrolled_1)
 
+  # migrated or died
+  not_enrol_mig_died_1 <- not_enrolled %>%
+    filter(assignment == 1,
+           (reason_V1 == 'migrated' |
+              reason_V1 == 'died') |
+             (reason_V2 == 'migrated' |
+                reason_V2 == 'died') |
+             (reason_V3 == 'migrated' |
+                reason_V3 == 'died') |
+             (reason_V4 == 'migrated' |
+                reason_V4 == 'died'))
+  num_not_enrol_mig_died_1 <- not_enrol_mig_died_1 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # refusal
+  not_enrol_ref_1 <- not_enrolled %>%
+    filter(assignment == 1,
+           reason_V1 != 'does not speak English or Swahili' | 
+             reason_V2 != 'does not speak English or Swahili' | 
+             reason_V3 != 'does not speak English or Swahili' | 
+             reason_V4 != 'does not speak English or Swahili',
+           status_V1 == 'refusal' | status_V2 == 'refusal' | 
+             status_V3 == 'refusal' | status_V4 == 'refusal') 
+  num_not_enrol_ref_1 <- not_enrol_ref_1 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # not eligible (Not screened (Don't pass obvious screening _OR_ Screening failure (Don't pass inclusion criteria, EOS at enrollment))
+  not_enrol_inclusion_1 <- not_enrolled %>% 
+    filter(assignment == 1,
+           !extid %in% not_enrol_ref_1$extid,
+           !extid %in% not_enrol_mig_died_1$extid,
+           reason_V1 %in% c('not resident', 'under weight', 'study drug', 'concom meds',
+                              'severe illness', 'baby under 1 week', 'pregnant', 
+                              'pregnancy test refusal', 'other trials', 'visited loa loa') 
+             & status_V1 == 'eos' | 
+             reason_V2 %in% c('not resident', 'under weight', 'study drug', 'concom meds',
+                              'severe illness', 'baby under 1 week', 'pregnant', 
+                              'pregnancy test refusal', 'other trials', 'visited loa loa') 
+           & status_V2 == 'eos' | 
+    reason_V3 %in% c('not resident', 'under weight', 'study drug', 'concom meds',
+                              'severe illness', 'baby under 1 week', 'pregnant', 
+                     'pregnancy test refusal', 'other trials', 'visited loa loa') 
+    & status_V3 == 'eos' | 
+  reason_V4 %in% c('not resident', 'under weight', 'study drug', 'concom meds',
+                              'severe illness', 'baby under 1 week', 'pregnant', 
+                   'pregnancy test refusal', 'other trials', 'visited loa loa') & status_V4 == 'eos')
+  
+  not_enrol_obvious_1 <- not_enrolled %>% 
+    filter(assignment == 1,
+           !extid %in% not_enrol_ref_1$extid,
+           !extid %in% not_enrol_mig_died_1$extid,
+           reason_V1 %in% c('pregnant', 'severe illness', 'baby under 1 week', 
+                     'A baby that cannot walk yet') 
+             & status_V1 == 'out' | 
+             reason_V2 %in% c('pregnant', 'severe illness', 'baby under 1 week', 
+                     'A baby that cannot walk yet') 
+           & status_V2 == 'out' | 
+    reason_V3 %in% c('pregnant', 'severe illness', 'baby under 1 week', 
+                     'A baby that cannot walk yet') 
+    & status_V3 == 'out' | 
+  reason_V4 %in% c('pregnant', 'severe illness', 'baby under 1 week', 
+                     'A baby that cannot walk yet') & status_V4 == 'out')
 
-# Initiate the boxes that we want to connect
-first_title <- hhid_visited_1
-first <- boxGrob(paste(first_title, 'households visited in arm 1 clusters'),
-                 x = .1, y = .9)
+  
+  not_enrol_eligible_1 <- bind_rows(not_enrol_inclusion_1, not_enrol_obvious_1)
+  
+  num_not_enrol_eligible_1 <- not_enrol_eligible_1 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # other
+  not_enrol_other_1 <- not_enrolled %>% 
+    filter(assignment == 1,
+           !extid %in% not_enrol_ref_1$extid,
+           !extid %in% not_enrol_mig_died_1$extid,
+           !extid %in% not_enrol_eligible_1$extid,
+           (reason_V1 %in% c('does not speak English or Swahili', 
+                           'a person who does not want to participate', 
+                           'no witness', 'participant withdrew informed consent (refuse drug)',
+                           'not agree to safety procedures') |
+          reason_V2 %in% c('does not speak English or Swahili', 
+                         'a person who does not want to participate', 
+                         'no witness', 'participant withdrew informed consent (refuse drug)',
+                           'not agree to safety procedures') |
+          reason_V3 %in% c('does not speak English or Swahili', 
+                         'a person who does not want to participate', 
+                         'no witness', 'participant withdrew informed consent (refuse drug)',
+                           'not agree to safety procedures') |
+          reason_V4 %in% c('does not speak English or Swahili', 
+                         'a person who does not want to participate', 
+                         'no witness', 'participant withdrew informed consent (refuse drug)',
+                           'not agree to safety procedures')))
+  num_not_enrol_other_1 <- not_enrol_other_1 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+   # absent
+  not_enrol_absent_1 <- not_enrolled %>% 
+    filter(assignment == 1,
+           !extid %in% not_enrol_ref_1$extid,
+           !extid %in% not_enrol_mig_died_1$extid,
+           !extid %in% not_enrol_eligible_1$extid,
+           !extid %in% not_enrol_other_1$extid,
+           reason_V1 == 'absent' | reason_V2 == 'absent' | 
+             reason_V3 == 'absent' | reason_V4 == 'absent') 
+  num_not_enrol_absent_1 <- not_enrol_absent_1 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
 
-second_title <- extid_visited_1
-second <- boxGrob(paste(second_title, 'visited subjects in arm 1 clusters'),
-                  x = .1, y = .5)
+  # 'does not speak English or Swahili', 'a person who does not want to participate', 'no witness', 'participant withdrew informed consent (refuse drug)'
 
-third_title <- non_enrolled_1
-third <- boxGrob(paste(third_title, 'non-enrolled subjects'),
-               x = .5, y = .5)
+# calculate enrolled subjects
+enrolled_1 <- enrolled %>%
+  filter(assignment == 1) %>%
+  summarise(ext_enrolled_1 = n_distinct(extid)) %>%
+  pull(ext_enrolled_1)
 
-third_side_title <- 'insert'
-third_side <- boxGrob(third_title,
-               x = .1, y = 0,
-               bjust = c("left", "bottom"))
+  enrolled_treated_v1_1 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V1',
+           took_drug == 'yes') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_treated_v2_1 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V2',
+           took_drug == 'yes') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_treated_v3_1 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V3',
+           took_drug == 'yes') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_comp_1 <- data %>% 
+    filter(assignment ==1,
+           safety_status == 'completion') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_1 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment == 1, 
+           enrolment == 'follow up',
+           safety_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # number of women who became pregnant at a follow up visit and took drug in the prior visit
+  enrolled_preg_1 <- data %>% 
+    filter(assignment == 1,
+           pregnancy_status == 'in') %>% 
+    group_by(extid) %>% 
+    arrange(visit) %>% 
+    slice_head() 
+  
+  # Define a function to extract numeric part from visit strings
+  extract_numeric <- function(visit_string) {
+    as.numeric(sub("V", "", visit_string))
+  }
+  
+  enrolled_preg_1$visit_numeric <- extract_numeric(enrolled_preg_1$visit)
+  
+  took_drug_1 <- data %>% 
+  filter(extid %in% enrolled_preg_1$extid,
+         extract_numeric(visit) == enrolled_preg_1$visit_numeric - 1,
+         took_drug == 'yes') %>% 
+    distinct(extid) %>% 
+    nrow()
+    
 
+# create flowchart
+flowchart_1 <- glue("
+  digraph flowchart {{
+    node [fontname = Helvetica, shape = box, style = filled, color = lightblue];
 
-# initiate plotting
-grid.newpage()
+    households_visited [label = '{hhid_visited_1} households visited'];
+    visited_subjects [label = '{extid_visited_1} visited subjects'];
+    non_enrolled [label = '{non_enrolled_1} non-enrolled subjects'];
+    enrolled [label = '{enrolled_1} enrolled subjects'];
+    non_reasons [label = 'Absent {num_not_enrol_absent_1}\nMigrated/Died {num_not_enrol_mig_died_1}\nRefusal {num_not_enrol_ref_1}\nNot eligible {num_not_enrol_eligible_1}\nOther {num_not_enrol_other_1}'];
+    reasons [label = '{enrolled_treated_v1_1} treated subjects in V1\n{enrolled_treated_v2_1} treated subjects in V2\n{enrolled_treated_v3_1} treated subjects in V3\n{enrolled_comp_1} completed the study'];
+    eos_fu [label = '{enrolled_eos_fu_1} did not complete the study'];
+    pregnant [label = '{took_drug_1} women became pregnant (PFU)'];
 
+    # Define edges
+    households_visited -> visited_subjects;
+    visited_subjects -> non_enrolled;
+    visited_subjects -> enrolled;
+    non_enrolled -> non_reasons;
+    enrolled -> reasons;
+    reasons -> eos_fu;
+    eos_fu -> pregnant;
+  }}
+")
 
-# Connect the boxes and print/plot them
-connectGrob(first, second, 'vertical')
-connectGrob(second, third, 'horizontal')
-
-# print the grobs
-first
-second
-third
 ```
 
 ```{r flowchart_assignment_2}
-# calculate hhs visited per arm
+
+# calculate households visited per arm
 hhid_visited_2 <- data %>%
-  filter(visit != 'NA',
+  filter(!is.na(visit), 
          assignment == 2) %>%
   summarise(hh_visited_2 = n_distinct(hhid)) %>%
   pull(hh_visited_2)
 
 # calculate subjects visited per arm
 extid_visited_2 <- data %>%
-  filter(visit != 'NA',
+  filter(!is.na(visit), 
          assignment == 2) %>%
   summarise(ext_visited_2 = n_distinct(extid)) %>%
   pull(ext_visited_2)
@@ -2088,6 +2265,215 @@ non_enrolled_2 <- not_enrolled %>%
   filter(assignment == 2) %>%
   summarise(ext_not_enrolled_2 = n_distinct(extid)) %>%
   pull(ext_not_enrolled_2)
+
+  # migrated or died
+  not_enrol_mig_died_2 <- not_enrolled %>%
+    filter(assignment == 2,
+           (reason_V1 == 'migrated' |
+              reason_V1 == 'died') |
+             (reason_V2 == 'migrated' |
+                reason_V2 == 'died') |
+             (reason_V3 == 'migrated' |
+                reason_V3 == 'died') |
+             (reason_V4 == 'migrated' |
+                reason_V4 == 'died'))
+  num_not_enrol_mig_died_2 <- not_enrol_mig_died_2 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # refusal
+  not_enrol_ref_2 <- not_enrolled %>%
+    filter(assignment == 2,
+           reason_V1 != 'does not speak English or Swahili' | 
+             reason_V2 != 'does not speak English or Swahili' | 
+             reason_V3 != 'does not speak English or Swahili' | 
+             reason_V4 != 'does not speak English or Swahili',
+           status_V1 == 'refusal' | status_V2 == 'refusal' | 
+             status_V3 == 'refusal' | status_V4 == 'refusal') 
+  num_not_enrol_ref_2 <- not_enrol_ref_2 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # not eligible (Not screened (Don't pass obvious screening _OR_ Screening failure (Don't pass inclusion criteria, EOS at enrollment))
+  not_enrol_inclusion_2 <- not_enrolled %>% 
+    filter(assignment == 2,
+           !extid %in% not_enrol_ref_2$extid,
+           !extid %in% not_enrol_mig_died_2$extid,
+           reason_V1 %in% c('not resident', 'under weight', 'study drug', 'concom meds',
+                              'severe illness', 'baby under 1 week', 'pregnant', 
+                              'pregnancy test refusal', 'other trials', 'visited loa loa') 
+             & status_V1 == 'eos' | 
+             reason_V2 %in% c('not resident', 'under weight', 'study drug', 'concom meds',
+                              'severe illness', 'baby under 1 week', 'pregnant', 
+                              'pregnancy test refusal', 'other trials', 'visited loa loa') 
+           & status_V2 == 'eos' | 
+    reason_V3 %in% c('not resident', 'under weight', 'study drug', 'concom meds',
+                              'severe illness', 'baby under 1 week', 'pregnant', 
+                     'pregnancy test refusal', 'other trials', 'visited loa loa') 
+    & status_V3 == 'eos' | 
+  reason_V4 %in% c('not resident', 'under weight', 'study drug', 'concom meds',
+                              'severe illness', 'baby under 1 week', 'pregnant', 
+                   'pregnancy test refusal', 'other trials', 'visited loa loa') & status_V4 == 'eos')
+  
+  not_enrol_obvious_2 <- not_enrolled %>% 
+    filter(assignment == 2,
+           !extid %in% not_enrol_ref_2$extid,
+           !extid %in% not_enrol_mig_died_2$extid,
+           reason_V1 %in% c('pregnant', 'severe illness', 'baby under 1 week', 
+                     'A baby that cannot walk yet') 
+             & status_V1 == 'out' | 
+             reason_V2 %in% c('pregnant', 'severe illness', 'baby under 1 week', 
+                     'A baby that cannot walk yet') 
+           & status_V2 == 'out' | 
+    reason_V3 %in% c('pregnant', 'severe illness', 'baby under 1 week', 
+                     'A baby that cannot walk yet') 
+    & status_V3 == 'out' | 
+  reason_V4 %in% c('pregnant', 'severe illness', 'baby under 1 week', 
+                     'A baby that cannot walk yet') & status_V4 == 'out')
+
+  
+  not_enrol_eligible_2 <- bind_rows(not_enrol_inclusion_2, not_enrol_obvious_2)
+  
+  num_not_enrol_eligible_2 <- not_enrol_eligible_2 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # other
+  not_enrol_other_2 <- not_enrolled %>% 
+    filter(assignment == 2,
+           !extid %in% not_enrol_ref_2$extid,
+           !extid %in% not_enrol_mig_died_2$extid,
+           !extid %in% not_enrol_eligible_2$extid,
+           (reason_V1 %in% c('does not speak English or Swahili', 
+                           'a person who does not want to participate', 
+                           'no witness', 'participant withdrew informed consent (refuse drug)',
+                           'not agree to safety procedures') |
+          reason_V2 %in% c('does not speak English or Swahili', 
+                         'a person who does not want to participate', 
+                         'no witness', 'participant withdrew informed consent (refuse drug)',
+                           'not agree to safety procedures') |
+          reason_V3 %in% c('does not speak English or Swahili', 
+                         'a person who does not want to participate', 
+                         'no witness', 'participant withdrew informed consent (refuse drug)',
+                           'not agree to safety procedures') |
+          reason_V4 %in% c('does not speak English or Swahili', 
+                         'a person who does not want to participate', 
+                         'no witness', 'participant withdrew informed consent (refuse drug)',
+                           'not agree to safety procedures')))
+  num_not_enrol_other_2 <- not_enrol_other_2 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+   # absent
+  not_enrol_absent_2 <- not_enrolled %>% 
+    filter(assignment == 2,
+           !extid %in% not_enrol_ref_2$extid,
+           !extid %in% not_enrol_mig_died_2$extid,
+           !extid %in% not_enrol_eligible_2$extid,
+           !extid %in% not_enrol_other_2$extid,
+           reason_V1 == 'absent' | reason_V2 == 'absent' | 
+             reason_V3 == 'absent' | reason_V4 == 'absent') 
+  num_not_enrol_absent_2 <- not_enrol_absent_2 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+
+  # 'does not speak English or Swahili', 'a person who does not want to participate', 'no witness', 'participant withdrew informed consent (refuse drug)'
+
+# calculate enrolled subjects
+enrolled_2 <- enrolled %>%
+  filter(assignment == 2) %>%
+  summarise(ext_enrolled_2 = n_distinct(extid)) %>%
+  pull(ext_enrolled_2)
+
+  enrolled_treated_v1_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V1',
+           took_drug == 'yes') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_treated_v2_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V2',
+           took_drug == 'yes') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_treated_v3_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V3',
+           took_drug == 'yes') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_comp_2 <- data %>% 
+    filter(assignment ==2,
+           safety_status == 'completion') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment == 2, 
+           enrolment == 'follow up',
+           safety_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # number of women who became pregnant at a follow up visit and took drug in the prior visit
+  enrolled_preg_2 <- data %>% 
+    filter(assignment == 2,
+           pregnancy_status == 'in') %>% 
+    group_by(extid) %>% 
+    arrange(visit) %>% 
+    slice_head() 
+  
+  # Define a function to extract numeric part from visit strings
+  extract_numeric <- function(visit_string) {
+    as.numeric(sub("V", "", visit_string))
+  }
+  
+  enrolled_preg_2$visit_numeric <- extract_numeric(enrolled_preg_2$visit)
+  
+  took_drug_2 <- data %>% 
+  filter(extid %in% enrolled_preg_2$extid,
+         extract_numeric(visit) == enrolled_preg_2$visit_numeric - 1,
+         took_drug == 'yes') %>% 
+    distinct(extid) %>% 
+    nrow()
+    
+
+# create flowchart
+flowchart_2 <- glue("
+  digraph flowchart {{
+    node [fontname = Helvetica, shape = box, style = filled, color = lightblue];
+
+    households_visited [label = '{hhid_visited_2} households visited'];
+    visited_subjects [label = '{extid_visited_2} visited subjects'];
+    non_enrolled [label = '{non_enrolled_2} non-enrolled subjects'];
+    enrolled [label = '{enrolled_2} enrolled subjects'];
+    non_reasons [label = 'Absent {num_not_enrol_absent_2}\nMigrated/Died {num_not_enrol_mig_died_2}\nRefusal {num_not_enrol_ref_2}\nNot eligible {num_not_enrol_eligible_2}\nOther {num_not_enrol_other_2}'];
+    reasons [label = '{enrolled_treated_v1_2} treated subjects in V1\n{enrolled_treated_v2_2} treated subjects in V2\n{enrolled_treated_v3_2} treated subjects in V3\n{enrolled_comp_2} completed the study'];
+    eos_fu [label = '{enrolled_eos_fu_2} did not complete the study'];
+    pregnant [label = '{took_drug_2} women became pregnant (PFU)'];
+
+    # Define edges
+    households_visited -> visited_subjects;
+    visited_subjects -> non_enrolled;
+    visited_subjects -> enrolled;
+    non_enrolled -> non_reasons;
+    enrolled -> reasons;
+    reasons -> eos_fu;
+    eos_fu -> pregnant;
+  }}
+")
+
+
 ```
 
 
@@ -2429,6 +2815,20 @@ reactable(not_enrol_out_table, columns = list(), pagination = FALSE)
 
 reactable(not_enrol_ref_table, columns = list(), pagination = FALSE)
 ```
+
+## Flowcharts
+These flowcharts are still under review and being edited.
+
+### Arm 1
+```{r}
+grViz(flowchart_1)
+```
+
+### Arm 2
+```{r}
+grViz(flowchart_2)
+```
+
 
 ## Safety targets
 ```{r target_show}
