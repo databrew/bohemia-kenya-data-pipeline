@@ -1,0 +1,26 @@
+p.caption {
+  color: #777;
+  margin-top: 10px;
+}
+p code {
+  white-space: inherit;
+}
+pre {
+  word-break: normal;
+  word-wrap: normal;
+}
+pre code {
+  white-space: inherit;
+}
+
+.book.with-summary .book-header.fixed {
+    left: 500px;
+}
+
+.book.with-summary .book-body {
+    left: 500px;
+}
+
+.book .book-summary {
+    width: 500px;
+}

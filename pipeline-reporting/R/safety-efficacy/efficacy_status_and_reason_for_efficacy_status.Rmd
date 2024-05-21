@@ -36,6 +36,12 @@ library(cloudbrewr)
 library(fontawesome)
 library(shiny)
 library(tidyr)
+library(Gmisc, quietly = TRUE)
+library(glue)
+library(htmlTable)
+library(grid)
+library(magrittr)
+library(DiagrammeR)
 
 ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
 DATA_STAGING_BUCKET_NAME <- 'databrew.org'
@@ -125,8 +131,8 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
 }
 ```
 
-```{r data creation}
-# create the merged v0 data
+```{r df creation}
+# create the merged v0 df
   v0dem <- left_join(v0_dem_repeat, v0_demography, by=c('PARENT_KEY' = 'KEY'))  %>%
     select(extid, dob, sex, todays_date) %>%
     rename(dob_v0 = dob,
@@ -190,32 +196,34 @@ individuals <- efficacy %>%
     total_eff <- left_join(eff, assignment, by='cluster')
   
   
-# create the dataset that will be used for this script
+# create the dfset that will be used for this script
   # this will exclude the people who were manually removed
-  data <- left_join(total_eff, v0dem, by = c('extid')) %>%
+  df <- left_join(total_eff, v0dem, by = c('extid')) %>%
     filter(extid != '74052-06', # dob change led to not efficacy eligible (aka out of 5-15 years)
            extid != '18039-03', # "
            extid != '02042-03', # "
            extid != '02042-02', # "
            extid != '26007-03', # "
-           extid != '56118-06') # these extids have been removed from the data
+           extid != '56118-06') # these extids have been removed from the df
   
-# create the dataset for the extid explorer
-  data_investigation <- data %>%
+# create the dfset for the extid explorer
+  df_investigation <- df %>%
     filter(!is.na(visit)) %>% # removes extids not in Efficacy
     select(visit, extid, efficacy_status, enrolment, efficacy_reason, sex_v0, sex_efficacy, dob_v0, dob_efficacy, todays_date_v0, todays_date_efficacy, assignment)
   
-  data <- data %>% distinct(extid, visit, .keep_all = TRUE)
+  #df <- df %>% distinct(extid, visit, .keep_all = TRUE)
 
   
   # a trial profile tracks where every person went
-  by_visit <- data %>%
+  by_visit <- df %>%
     pivot_wider(id_cols = c(extid, hhid, cluster, assignment), 
                 names_from = visit,
                 values_from = c(efficacy_status, efficacy_reason)) %>%
     select(extid, hhid, efficacy_status_V1, efficacy_status_V2, efficacy_status_V3,
-           efficacy_status_V4, efficacy_status_V5, efficacy_reason_V1, efficacy_reason_V2, efficacy_reason_V3, 
-           efficacy_reason_V4, efficacy_reason_V5, assignment, cluster) %>%
+           efficacy_status_V4, efficacy_status_V5, efficacy_status_V6, efficacy_status_V7,
+           efficacy_reason_V1, efficacy_reason_V2, efficacy_reason_V3, 
+           efficacy_reason_V4, efficacy_reason_V5, efficacy_reason_V6, efficacy_reason_V7, 
+           assignment, cluster) %>%
     rename(status_V1 = efficacy_status_V1,
            reason_V1 = efficacy_reason_V1,
            status_V2 = efficacy_status_V2,
@@ -225,11 +233,16 @@ individuals <- efficacy %>%
            status_V4 = efficacy_status_V4,
            reason_V4 = efficacy_reason_V4,
            status_V5 = efficacy_status_V5,
-           reason_V5 = efficacy_reason_V5)
+           reason_V5 = efficacy_reason_V5,
+           status_V6 = efficacy_status_V6,
+           reason_V6 = efficacy_reason_V6,
+           status_V7 = efficacy_status_V7,
+           reason_V7 = efficacy_reason_V7)
 ```
+
 ```{r trial_by_visit}
 # show the assignment of people who were in at each visit
-trial_by_visit <- data %>%
+trial_by_visit <- df %>%
   filter(efficacy_status == 'in') %>%
   group_by(visit, assignment) %>%
     summarise('N' = n()) %>%
@@ -284,13 +297,13 @@ num_v1_not_visited <- length(unique(v1_extid_not_visited$extid))
 ###### REMOVED INDIVIDUALS
 
 
-v1_removed_extid_data <- v1 %>%
+v1_removed_extid_df <- v1 %>%
   filter(efficacy_status %in% c('refusal', 'eos') | efficacy_reason %in% c('migrated', 'died')) %>%
   mutate(removal_reason = paste(efficacy_status, efficacy_reason, sep = " "))
 
-v1_removed_extids <- length(unique(v1_removed_extid_data$extid))
+v1_removed_extids <- length(unique(v1_removed_extid_df$extid))
 
-v1_removed_extid_table <- v1_removed_extid_data %>%
+v1_removed_extid_table <- v1_removed_extid_df %>%
   arrange(visit) %>%
   group_by(removal_reason) %>%
   summarise('N' = n()) %>%
@@ -303,11 +316,30 @@ v1_removed_extid_table <- v1_removed_extid_data %>%
 
 # add the missed extids back in and remove the 100 refusal houses
 v1_clean <- v1 %>%
-  anti_join(v1_removed_extid_data, by = "extid") %>%
+  anti_join(v1_removed_extid_df, by = "extid") %>%
   bind_rows(v1_extid_not_visited) 
 
 num_v1_clean <- length(unique(v1_clean$extid))
 
+
+
+# make a table of out and in children of those visited and target
+v1_out_in_table_visited <- v1 %>% 
+  group_by(efficacy_status) %>% 
+  summarise(Visited = n()) %>% 
+  add_row(efficacy_status = 'Total',
+          Visited = sum(.$Visited)) %>% 
+  rename('Efficacy status' = efficacy_status)
+
+v1_out_in_table_target <- v1_clean %>% 
+  group_by(efficacy_status) %>% 
+  summarise(Target = n()) %>% 
+  add_row(efficacy_status = 'Total',
+          Target = sum(.$Target)) %>% 
+  rename('Efficacy status' = efficacy_status)
+
+v1_status_table <- left_join(v1_out_in_table_visited, v1_out_in_table_target, by = 'Efficacy status') %>% 
+  mutate(Target = ifelse(is.na(Target) == 'TRUE', '0', Target))
 
 
 ################ V2 ##################
@@ -337,13 +369,13 @@ num_v2_not_visited <- length(unique(v2_extid_not_visited$extid))
 ###### REMOVED INDIVIDUALS
 
 
-v2_removed_extid_data <- v2 %>%
+v2_removed_extid_df <- v2 %>%
   filter(efficacy_status %in% c('refusal', 'eos') | efficacy_reason %in% c('migrated', 'died')) %>%
   mutate(removal_reason = paste(efficacy_status, efficacy_reason, sep = " "))
 
-v2_removed_extids <- length(unique(v2_removed_extid_data$extid))
+v2_removed_extids <- length(unique(v2_removed_extid_df$extid))
 
-v2_removed_extid_table <- v2_removed_extid_data %>%
+v2_removed_extid_table <- v2_removed_extid_df %>%
   arrange(visit) %>%
   group_by(removal_reason) %>%
   summarise('N' = n()) %>%
@@ -354,16 +386,36 @@ v2_removed_extid_table <- v2_removed_extid_data %>%
 
 # add the missed extids back in and remove the 100 refusal houses
 v2_clean <- v2 %>%
-  anti_join(v2_removed_extid_data, by = "extid") %>%
+  anti_join(v2_removed_extid_df, by = "extid") %>%
   bind_rows(v2_extid_not_visited) 
 
 num_v2_clean <- length(unique(v2_clean$extid))
 
 
 
+# make a table of out and in children of those visited and target
+v2_out_in_table_visited <- v2 %>% 
+  group_by(efficacy_status) %>% 
+  summarise(Visited = n()) %>% 
+  add_row(efficacy_status = 'Total',
+          Visited = sum(.$Visited)) %>% 
+  rename('Efficacy status' = efficacy_status)
+
+v2_out_in_table_target <- v2_clean %>% 
+  group_by(efficacy_status) %>% 
+  summarise(Target = n()) %>% 
+  add_row(efficacy_status = 'Total',
+          Target = sum(.$Target)) %>% 
+  rename('Efficacy status' = efficacy_status)
+
+v2_status_table <- left_join(v2_out_in_table_visited, v2_out_in_table_target, by = 'Efficacy status') %>% 
+  mutate(Target = ifelse(is.na(Target) == 'TRUE', '0', Target))
+
+
+
 # v3 ###############################
 
-v3 <- data %>% 
+v3 <- df %>% 
   filter(visit == 'V3') %>% 
   select(extid, hhid, visit, efficacy_status, efficacy_reason, enrolment)
 
@@ -392,14 +444,14 @@ num_v3_not_visited_keep <- length(unique(v3_not_visited_keep$extid))
 ###### REMOVED INDIVIDUALS
 
 
-v3_removed_extid_data <- v3 %>%
+v3_removed_extid_df <- v3 %>%
   filter(efficacy_status %in% c('refusal', 'eos', 'out') | efficacy_reason %in% c('migrated', 'died') | enrolment == 'not yet enrolled') %>%
   mutate(removal_reason = ifelse(efficacy_status == 'out' & enrolment == 'not yet enrolled', 'never enrolled', 
                                   paste(efficacy_status, efficacy_reason, sep = " ")))
 
-v3_removed_extids <- length(unique(v3_removed_extid_data$extid))
+v3_removed_extids <- length(unique(v3_removed_extid_df$extid))
 
-v3_removed_extid_table <- v3_removed_extid_data %>%
+v3_removed_extid_table <- v3_removed_extid_df %>%
   arrange(visit) %>%
   group_by(removal_reason) %>%
   summarise('N' = n()) %>%
@@ -408,13 +460,13 @@ v3_removed_extid_table <- v3_removed_extid_data %>%
             'N' = sum(.$'N')) %>% 
   rename('Removal Reason' = removal_reason)
 
-v3_never_enrolled <- v3_removed_extid_data %>%
+v3_never_enrolled <- v3_removed_extid_df %>%
   filter(enrolment == 'not yet enrolled')
 num_v3_never_enrolled <- length(unique(v3_never_enrolled$extid))
 
 # add the missed extids back in and remove the 100 refusal houses and not enrolled individuals
 v3_clean <- v3 %>%
-  anti_join(v3_removed_extid_data, by = "extid") %>%
+  anti_join(v3_removed_extid_df, by = "extid") %>%
   bind_rows(v3_not_visited_keep) 
   
 
@@ -422,9 +474,29 @@ num_v3_clean <- length(unique(v3_clean$extid))
 
 
 
+# make a table of out and in children of those visited and target
+v3_out_in_table_visited <- v3 %>% 
+  group_by(efficacy_status) %>% 
+  summarise(Visited = n()) %>% 
+  add_row(efficacy_status = 'Total',
+          Visited = sum(.$Visited)) %>% 
+  rename('Efficacy status' = efficacy_status)
+
+v3_out_in_table_target <- v3_clean %>% 
+  group_by(efficacy_status) %>% 
+  summarise(Target = n()) %>% 
+  add_row(efficacy_status = 'Total',
+          Target = sum(.$Target)) %>% 
+  rename('Efficacy status' = efficacy_status)
+
+v3_status_table <- left_join(v3_out_in_table_visited, v3_out_in_table_target, by = 'Efficacy status') %>% 
+  mutate(Target = ifelse(is.na(Target) == 'TRUE', '0', Target))
+
+
+
 # v4 ###############################
 
-v4 <- data %>% 
+v4 <- df %>% 
   filter(visit == 'V4') %>% 
   select(extid, hhid, visit, efficacy_status, efficacy_reason)
 
@@ -450,13 +522,13 @@ num_v4_not_visited <- length(unique(v4_extid_not_visited$extid))
 ###### REMOVED INDIVIDUALS
 
 
-v4_removed_extid_data <- v4 %>%
+v4_removed_extid_df <- v4 %>%
   filter(efficacy_status %in% c('refusal', 'eos') | efficacy_reason %in% c('migrated', 'died')) %>%
   mutate(removal_reason = paste(efficacy_status, efficacy_reason, sep = " "))
 
-v4_removed_extids <- length(unique(v4_removed_extid_data$extid))
+v4_removed_extids <- length(unique(v4_removed_extid_df$extid))
 
-v4_removed_extid_table <- v4_removed_extid_data %>%
+v4_removed_extid_table <- v4_removed_extid_df %>%
   arrange(visit) %>%
   group_by(removal_reason) %>%
   summarise('N' = n()) %>%
@@ -467,7 +539,7 @@ v4_removed_extid_table <- v4_removed_extid_data %>%
 
 # add the missed extids back in and remove the 100 refusal houses
 v4_clean <- v4 %>%
-  anti_join(v4_removed_extid_data, by = "extid") %>%
+  anti_join(v4_removed_extid_df, by = "extid") %>%
   bind_rows(v4_extid_not_visited) 
 
 num_v4_clean <- length(unique(v4_clean$extid))
@@ -502,13 +574,13 @@ num_v5_not_visited <- length(unique(v5_extid_not_visited$extid))
 ###### REMOVED INDIVIDUALS
 
 
-v5_removed_extid_data <- v5 %>%
+v5_removed_extid_df <- v5 %>%
   filter(efficacy_status %in% c('refusal', 'eos') | efficacy_reason %in% c('migrated', 'died')) %>%
   mutate(removal_reason = paste(efficacy_status, efficacy_reason, sep = " "))
 
-v5_removed_extids <- length(unique(v5_removed_extid_data$extid))
+v5_removed_extids <- length(unique(v5_removed_extid_df$extid))
 
-v5_removed_extid_table <- v5_removed_extid_data %>%
+v5_removed_extid_table <- v5_removed_extid_df %>%
   arrange(visit) %>%
   group_by(removal_reason) %>%
   summarise('N' = n()) %>%
@@ -519,7 +591,7 @@ v5_removed_extid_table <- v5_removed_extid_data %>%
 
 # add the missed extids back in and remove the 100 refusal houses
 v5_clean <- v5 %>%
-  anti_join(v5_removed_extid_data, by = "extid") %>%
+  anti_join(v5_removed_extid_df, by = "extid") %>%
   bind_rows(v5_extid_not_visited) 
 
 num_v5_clean <- length(unique(v5_clean$extid))
@@ -554,13 +626,13 @@ num_v6_not_visited <- length(unique(v6_extid_not_visited$extid))
 ###### REMOVED INDIVIDUALS
 
 
-v6_removed_extid_data <- v6 %>%
+v6_removed_extid_df <- v6 %>%
   filter(efficacy_status %in% c('refusal', 'eos') | efficacy_reason %in% c('migrated', 'died')) %>%
   mutate(removal_reason = paste(efficacy_status, efficacy_reason, sep = " "))
 
-v6_removed_extids <- length(unique(v6_removed_extid_data$extid))
+v6_removed_extids <- length(unique(v6_removed_extid_df$extid))
 
-v6_removed_extid_table <- v6_removed_extid_data %>%
+v6_removed_extid_table <- v6_removed_extid_df %>%
   arrange(visit) %>%
   group_by(removal_reason) %>%
   summarise('N' = n()) %>%
@@ -571,7 +643,7 @@ v6_removed_extid_table <- v6_removed_extid_data %>%
 
 # add the missed extids back in and remove the 100 refusal houses
 v6_clean <- v6 %>%
-  anti_join(v6_removed_extid_data, by = "extid") %>%
+  anti_join(v6_removed_extid_df, by = "extid") %>%
   bind_rows(v6_extid_not_visited) 
 
 num_v6_clean <- length(unique(v6_clean$extid))
@@ -606,13 +678,13 @@ num_v7_not_visited <- length(unique(v7_extid_not_visited$extid))
 ###### REMOVED INDIVIDUALS
 
 
-v7_removed_extid_data <- v7 %>%
+v7_removed_extid_df <- v7 %>%
   filter(efficacy_status %in% c('refusal', 'eos') | efficacy_reason %in% c('migrated', 'died')) %>%
   mutate(removal_reason = paste(efficacy_status, efficacy_reason, sep = " "))
 
-v7_removed_extids <- length(unique(v7_removed_extid_data$extid))
+v7_removed_extids <- length(unique(v7_removed_extid_df$extid))
 
-v7_removed_extid_table <- v7_removed_extid_data %>%
+v7_removed_extid_table <- v7_removed_extid_df %>%
   arrange(visit) %>%
   group_by(removal_reason) %>%
   summarise('N' = n()) %>%
@@ -623,7 +695,7 @@ v7_removed_extid_table <- v7_removed_extid_data %>%
 
 # add the missed extids back in and remove the 100 refusal houses
 v7_clean <- v7 %>%
-  anti_join(v7_removed_extid_data, by = "extid") %>%
+  anti_join(v7_removed_extid_df, by = "extid") %>%
   bind_rows(v7_extid_not_visited) 
 
 num_v7_clean <- length(unique(v7_clean$extid))
@@ -641,21 +713,21 @@ v7_clean_extid_table <- v7_clean %>%
 ```
 
 ```{r enrolled}
-# create a dataset of enrolled participants (people who became efficacy status in)
-  enrolled <- data %>%
+# create a dfset of enrolled participants (people who became efficacy status in)
+  enrolled <- df %>%
     filter(enrolment == 'enrolment',
            efficacy_status == 'in') 
 
   amount_enrolled <- length(unique(enrolled$extid))
   
-  enrolled_data <- data %>%
+  enrolled_df <- df %>%
     filter(extid %in% enrolled$extid) %>%
     arrange(desc(visit)) %>%
     group_by(extid) %>%
     slice(1) %>%
     ungroup() 
   
-  enrolled_table <- enrolled_data %>%
+  enrolled_table <- enrolled_df %>%
     arrange(visit) %>%
     group_by(efficacy_status, assignment) %>%
     summarise('N' = n()) %>%
@@ -677,9 +749,11 @@ v7_clean_extid_table <- v7_clean %>%
            status_V2 == 'eos' |
              status_V3 == 'eos' |
              status_V4 == 'eos' |
-             status_V5 == 'eos')
+             status_V5 == 'eos' |
+             status_V6 == 'eos' |
+             status_V7 == 'eos')
   
-  enrol_eos_data <- data %>%
+  enrol_eos_df <- df %>%
     filter(extid %in% enrol_eos$extid,
            efficacy_status == 'eos') %>%
     arrange(visit) %>%
@@ -687,7 +761,7 @@ v7_clean_extid_table <- v7_clean %>%
     slice(1) %>%
     ungroup() 
   
-  enrol_eos_table <- enrol_eos_data %>%
+  enrol_eos_table <- enrol_eos_df %>%
     arrange(visit) %>%
     group_by(efficacy_reason, assignment) %>%
     summarise('N' = n()) %>%
@@ -706,10 +780,10 @@ v7_clean_extid_table <- v7_clean %>%
   # enrolled in
   enrol_in <- by_visit %>%
     filter(extid %in% enrolled$extid,
-           !(extid %in% enrol_eos_data$extid),
-           status_V5 == 'in' | is.na(status_V5))
+           !(extid %in% enrol_eos_df$extid),
+           status_V7 == 'completion' | is.na(status_V7))
   
-  enrol_in_data <- data %>%
+  enrol_in_df <- df %>%
     filter(extid %in% enrol_in$extid,
            efficacy_status == 'in') %>%
     arrange(visit) %>%
@@ -717,19 +791,19 @@ v7_clean_extid_table <- v7_clean %>%
     slice(1) %>%
     ungroup()
   
-  enrol_in_table <- enrol_in_data %>%
+  enrol_in_table <- enrol_in_df %>%
     arrange(visit) %>%
     group_by(efficacy_status, assignment) %>%
     summarise('N' = n()) %>%
     group_by(efficacy_status) %>%
     pivot_wider(names_from = assignment, values_from = N, values_fill = 0) %>%
     ungroup() %>%
-    rename('Enrolled reason' = efficacy_status) %>%
+    rename('Enrolled completion' = efficacy_status) %>%
     mutate(Total = `1` + `2`) %>%
     rename('Assignment 1' = '1',
            'Assignment 2' = '2')
   
-  merged <- merge(enrol_eos_data, enrol_in, by='extid', all = TRUE)
+  merged <- merge(enrol_eos_df, enrol_in, by='extid', all = TRUE)
   
   
   # enrolled completion # will be used later
@@ -737,7 +811,7 @@ v7_clean_extid_table <- v7_clean %>%
   #   filter(extid %in% enrolled$extid,
   #          status_V7 == 'completion')
   # 
-  # enrol_comp_table <- data %>%
+  # enrol_comp_table <- df %>%
   #   filter(extid %in% enrol_comp$extid,
   #          efficacy_status == 'completion') %>%
   #   arrange(visit) %>%
@@ -762,14 +836,14 @@ v7_clean_extid_table <- v7_clean %>%
 
   amount_not_enrolled <- length(unique(not_enrolled$extid))
   
-  not_enrolled_data <- data %>%
+  not_enrolled_df <- df %>%
     filter(extid %in% not_enrolled$extid) %>%
     arrange(desc(visit)) %>%
     group_by(extid) %>%
     slice(1) %>%
     ungroup() 
   
-  not_enrolled_table <- not_enrolled_data %>%
+  not_enrolled_table <- not_enrolled_df %>%
     arrange(visit) %>%
     group_by(efficacy_status, assignment) %>%
     summarise('N' = n()) %>%
@@ -797,7 +871,7 @@ v7_clean_extid_table <- v7_clean %>%
     (status_V5 == 'eos' | is.na(status_V5))
   )
   
-  not_enrol_eos_data <- data %>%
+  not_enrol_eos_df <- df %>%
     filter(extid %in% not_enrol_eos$extid,
            efficacy_status == 'eos') %>%
     arrange(visit) %>%
@@ -805,7 +879,7 @@ v7_clean_extid_table <- v7_clean %>%
     slice(1) %>%
     ungroup() 
   
-  not_enrol_eos_table <- not_enrol_eos_data %>%
+  not_enrol_eos_table <- not_enrol_eos_df %>%
     arrange(visit) %>%
     group_by(efficacy_reason, assignment) %>%
     summarise('N' = n()) %>%
@@ -836,7 +910,7 @@ v7_clean_extid_table <- v7_clean %>%
              (status_V5 == 'out' | 
                 is.na(status_V5)))
   
-  not_enrol_out_data <- data %>%
+  not_enrol_out_df <- df %>%
     filter(extid %in% not_enrol_out$extid,
            efficacy_status == 'out') %>%
     arrange(visit) %>%
@@ -844,7 +918,7 @@ v7_clean_extid_table <- v7_clean %>%
     slice(1) %>%
     ungroup() 
   
-  not_enrol_out_table <- not_enrol_out_data %>%
+  not_enrol_out_table <- not_enrol_out_df %>%
     arrange(visit) %>%
     group_by(efficacy_reason, assignment) %>%
     summarise('N' = n()) %>%
@@ -862,11 +936,11 @@ v7_clean_extid_table <- v7_clean %>%
 
 # REFUSAL
   
-  not_enrol_ref <- data %>%
+  not_enrol_ref <- df %>%
     filter(extid %in% not_enrolled$extid,
            efficacy_status == 'refusal')
   
-  not_enrol_ref_data <- data %>%
+  not_enrol_ref_df <- df %>%
     filter(extid %in% not_enrol_ref$extid,
            efficacy_status == 'refusal') %>%
     arrange(visit) %>%
@@ -874,7 +948,7 @@ v7_clean_extid_table <- v7_clean %>%
     slice(1) %>%
     ungroup() 
   
-  not_enrol_ref_table <- not_enrol_ref_data %>%
+  not_enrol_ref_table <- not_enrol_ref_df %>%
     arrange(visit) %>%
     group_by(efficacy_reason, assignment) %>%
     summarise('N' = n()) %>%
@@ -893,7 +967,7 @@ v7_clean_extid_table <- v7_clean %>%
 ```
 
 ```{r not_and_enrolled}
-trial_profile <- data %>%
+trial_profile <- df %>%
   mutate(enrolled = case_when(
     extid %in% enrolled$extid ~ 'enrolled',
     extid %in% not_enrolled$extid ~ 'not enrolled'
@@ -952,7 +1026,7 @@ target_table <- target_table %>%
 ## this will create the table of how many people are in, out, refusal, or eos in efficacy v1
 
 # only take the necessary columns from efficacy
-total_efficacy <- data %>%
+total_efficacy <- df %>%
   select(KEY, extid, visit, efficacy_status)
 
 # since this is only a table for V1 we will only keep V1 people
@@ -972,7 +1046,7 @@ total_efficacy_v1 <- total_efficacy %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%'))
 
 # totals for V2
-total_efficacy_v2 <- data %>%
+total_efficacy_v2 <- df %>%
   filter(visit == 'V2')
 
   total_efficacy_status_v2 <- total_efficacy_v2 %>%
@@ -986,7 +1060,7 @@ total_efficacy_v2 <- data %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
   
 # totals for V3
-total_efficacy_v3 <- data %>%
+total_efficacy_v3 <- df %>%
   filter(visit == 'V3')
 
   total_efficacy_status_v3 <- total_efficacy_v3 %>%
@@ -1001,7 +1075,7 @@ total_efficacy_v3 <- data %>%
   
   
 # totals for V4
-total_efficacy_v4 <- data %>%
+total_efficacy_v4 <- df %>%
   filter(visit == 'V4')
 
   total_efficacy_status_v4 <- total_efficacy_v4 %>%
@@ -1016,7 +1090,7 @@ total_efficacy_v4 <- data %>%
   
 
 # totals for V5
-total_efficacy_v5 <- data %>%
+total_efficacy_v5 <- df %>%
   filter(visit == 'V5')
 
   total_efficacy_status_v5 <- total_efficacy_v5 %>%
@@ -1031,7 +1105,7 @@ total_efficacy_v5 <- data %>%
   
   
 # totals for V6
-total_efficacy_v6 <- data %>%
+total_efficacy_v6 <- df %>%
   filter(visit == 'V6')
 
   total_efficacy_status_v6 <- total_efficacy_v6 %>%
@@ -1046,7 +1120,7 @@ total_efficacy_v6 <- data %>%
   
   
 # totals for V7
-total_efficacy_v7 <- data %>%
+total_efficacy_v7 <- df %>%
   filter(visit == 'V7')
 
   total_efficacy_status_v7 <- total_efficacy_v7 %>%
@@ -1185,7 +1259,7 @@ efficacy_v2_in <- eff %>%
 ## this will create a table of how many people are eos and why they are eos
 
 ## V1 ############################# 
-  efficacy_eos_v1 <- data %>%
+  efficacy_eos_v1 <- df %>%
     filter(visit == 'V1',
            efficacy_status == 'eos')
   
@@ -1203,7 +1277,7 @@ efficacy_v2_in <- eff %>%
 
 ## V2 ###########################
   
-  efficacy_eos_v2 <- data %>%
+  efficacy_eos_v2 <- df %>%
     filter(visit == 'V2',
            efficacy_status == 'eos')
   
@@ -1218,7 +1292,7 @@ efficacy_v2_in <- eff %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
-# create datasets to make an enrolment and follow up eos table
+# create dfsets to make an enrolment and follow up eos table
   total_eff_eos_enrolment_v2 <- efficacy_eos_v2 %>%
     filter(enrolment == 'enrolment')
   total_eff_eos_followup_v2 <- efficacy_eos_v2 %>%
@@ -1249,7 +1323,7 @@ efficacy_v2_in <- eff %>%
   
 ## V3 ###########################
   
-  efficacy_eos_v3 <- data %>%
+  efficacy_eos_v3 <- df %>%
     filter(visit == 'V3',
            efficacy_status == 'eos')
   
@@ -1264,7 +1338,7 @@ efficacy_v2_in <- eff %>%
     mutate('Percent complete' = round(`Percent complete`, 2)) %>%
     mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
-# create datasets to make an enrolment and follow up eos table
+# create dfsets to make an enrolment and follow up eos table
   total_eff_eos_enrolment_v3 <- efficacy_eos_v3 %>%
     filter(enrolment == 'enrolment')
   total_eff_eos_followup_v3 <- efficacy_eos_v3 %>%
@@ -1295,7 +1369,7 @@ efficacy_v2_in <- eff %>%
   
 ## V4 ###########################
   
-  efficacy_eos_v4 <- data %>%
+  efficacy_eos_v4 <- df %>%
     filter(visit == 'V4',
            efficacy_status == 'eos')
   
@@ -1313,7 +1387,7 @@ efficacy_v2_in <- eff %>%
   
 ## V5 ###########################
   
-  efficacy_eos_v5 <- data %>%
+  efficacy_eos_v5 <- df %>%
     filter(visit == 'V5',
            efficacy_status == 'eos')
   
@@ -1331,7 +1405,7 @@ efficacy_v2_in <- eff %>%
   
 ## V6 ###########################
   
-  efficacy_eos_v6 <- data %>%
+  efficacy_eos_v6 <- df %>%
     filter(visit == 'V6',
            efficacy_status == 'eos')
   
@@ -1349,7 +1423,7 @@ efficacy_v2_in <- eff %>%
   
 ## V7 ###########################
   
-  efficacy_eos_v7 <- data %>%
+  efficacy_eos_v7 <- df %>%
     filter(visit == 'V7',
            efficacy_status == 'eos')
   
@@ -1370,7 +1444,7 @@ efficacy_v2_in <- eff %>%
 ## this will create a table of how many people are out and why they are out
 
 ## V1 ########################### 
-  efficacy_out_v1 <- data %>%
+  efficacy_out_v1 <- df %>%
     filter(visit == 'V1',
            efficacy_status == 'out')
   
@@ -1386,7 +1460,7 @@ efficacy_v2_in <- eff %>%
    
 ## V2 ##############################
   
-  efficacy_out_v2 <- data %>%
+  efficacy_out_v2 <- df %>%
     filter(visit == 'V2',
            efficacy_status == 'out')
   
@@ -1404,7 +1478,7 @@ efficacy_v2_in <- eff %>%
   
 ## V3 ##############################
   
-  efficacy_out_v3 <- data %>%
+  efficacy_out_v3 <- df %>%
     filter(visit == 'V3',
            efficacy_status == 'out')
   
@@ -1422,7 +1496,7 @@ efficacy_v2_in <- eff %>%
   
 ## V4 ##############################
   
-  efficacy_out_v4 <- data %>%
+  efficacy_out_v4 <- df %>%
     filter(visit == 'V4',
            efficacy_status == 'out')
   
@@ -1440,7 +1514,7 @@ efficacy_v2_in <- eff %>%
   
 ## V5 ##############################
   
-  efficacy_out_v5 <- data %>%
+  efficacy_out_v5 <- df %>%
     filter(visit == 'V5',
            efficacy_status == 'out')
   
@@ -1458,7 +1532,7 @@ efficacy_v2_in <- eff %>%
   
 ## V6 ##############################
   
-  efficacy_out_v6 <- data %>%
+  efficacy_out_v6 <- df %>%
     filter(visit == 'V6',
            efficacy_status == 'out')
   
@@ -1476,7 +1550,7 @@ efficacy_v2_in <- eff %>%
   
 ## V7 ##############################
   
-  efficacy_out_v7 <- data %>%
+  efficacy_out_v7 <- df %>%
     filter(visit == 'V7',
            efficacy_status == 'out')
   
@@ -1496,7 +1570,7 @@ efficacy_v2_in <- eff %>%
 ## this will create a table of how many people are refusal and why they are refusal
 
 ## V1 ########################### 
-  efficacy_refusal_v1 <- data %>%
+  efficacy_refusal_v1 <- df %>%
     filter(visit == 'V1',
            efficacy_status == 'refusal')
   
@@ -1512,7 +1586,7 @@ efficacy_v2_in <- eff %>%
    
 ## V2 ##############################
   
-  efficacy_refusal_v2 <- data %>%
+  efficacy_refusal_v2 <- df %>%
     filter(visit == 'V2',
            efficacy_status == 'refusal')
   
@@ -1529,7 +1603,7 @@ efficacy_v2_in <- eff %>%
 
 ## V3 ##############################
   
-  efficacy_refusal_v3 <- data %>%
+  efficacy_refusal_v3 <- df %>%
     filter(visit == 'V3',
            efficacy_status == 'refusal')
   
@@ -1546,7 +1620,7 @@ efficacy_v2_in <- eff %>%
 
 ## V4 ##############################
   
-  efficacy_refusal_v4 <- data %>%
+  efficacy_refusal_v4 <- df %>%
     filter(visit == 'V4',
            efficacy_status == 'refusal')
   
@@ -1563,7 +1637,7 @@ efficacy_v2_in <- eff %>%
   
 ## V5 ##############################
   
-  efficacy_refusal_v5 <- data %>%
+  efficacy_refusal_v5 <- df %>%
     filter(visit == 'V5',
            efficacy_status == 'refusal')
   
@@ -1580,7 +1654,7 @@ efficacy_v2_in <- eff %>%
   
 ## V6 ##############################
   
-  efficacy_refusal_v6 <- data %>%
+  efficacy_refusal_v6 <- df %>%
     filter(visit == 'V6',
            efficacy_status == 'refusal')
   
@@ -1597,7 +1671,7 @@ efficacy_v2_in <- eff %>%
   
 ## V7 ##############################
   
-  efficacy_refusal_v7 <- data %>%
+  efficacy_refusal_v7 <- df %>%
     filter(visit == 'V7',
            efficacy_status == 'refusal')
   
@@ -1614,8 +1688,8 @@ efficacy_v2_in <- eff %>%
 
 ```{r rdt-results}
 # present the rdt results for the different visits
-  eff_results <- efficacy %>%
-    select(extid, cluster, pan_result, pf_result, visit, efficacy_status) %>%
+  eff_results <- df %>%
+    select(extid, cluster, pan_result, pf_result, visit, efficacy_status, assignment) %>%
     mutate(combination = case_when(pan_result == 'Positive' & pf_result == 'Positive' ~ 'pan + pf +',
                                    pan_result == 'Negative' & pf_result == 'Negative' ~ 'pan - pf -',
                                    pan_result == 'Positive' & pf_result == 'Negative' ~ 'pan + pf -',
@@ -1855,7 +1929,7 @@ efficacy_v2_in <- eff %>%
 
   eff_results_v7 <- eff_results %>%
     filter(visit == 'V7', 
-           efficacy_status == 'in')
+           efficacy_status == 'completion')
   
   # make combination into individual columns
   eff_results_v7_edited <- eff_results_v7 %>%
@@ -1922,7 +1996,14 @@ In preparation for V2, migrations, deaths, refusals, and eos children needed to 
 knitr::kable(v1_removed_extid_table)
 ```
 
-After removing migrations, deaths, refusals, and eos from above, we enter V2 with a target of `r num_v1_clean`. See below:
+After removing migrations, deaths, refusals, and eos from above, we have the following in and out children:
+
+```{r}
+knitr::kable(v1_status_table)
+```
+
+
+And we enter V2 with a target of `r num_v1_clean`. See below:
 
   * `r v1_total_visited` (V1 submissions) + `r num_v1_not_visited` (extids not visited) - `r v1_removed_extids` (removed extids) = `r  sum(v1_total_visited + num_v1_not_visited - v1_removed_extids)`
   
@@ -1946,7 +2027,14 @@ In preparation for V3, migrations, deaths, refusals, and eos children needed to 
 knitr::kable(v2_removed_extid_table)
 ```
 
-After removing migrations, deaths, refusals, and eos, we enter V3 with a target of `r num_v2_clean`. See below:
+After removing migrations, deaths, refusals, and eos from above, we have the following in and out children:
+
+```{r}
+knitr::kable(v2_status_table)
+```
+
+
+And we enter V3 with a target of `r num_v2_clean`. See below:
 
   * `r v2_total_visited` (V2 submissions) + `r num_v2_not_visited` (extids not visited) - `r v2_removed_extids` (removed extids) = `r  sum(v2_total_visited + num_v2_not_visited - v2_removed_extids)`
   
@@ -1960,7 +2048,7 @@ In V3 `r v3_total_visited` children were visited. If the target for efficacy was
 
 This number discrepancy can be explained by the following:
   
-  * `r num_v3_not_visited` children were not visited in V3 (aka missed the visit).  
+  * `r num_v3_not_visited` children were not visited in V3 (aka missed the visit). _Note: only `r num_v3_not_visited_keep` of the missed children was efficacy status 'in' and the rest were efficacy status out._  
   
 While we expected to visit `r num_v2_clean` children, we actually only visited `r v3_total_visited` children because `r num_v2_not_visited` children should have been visited but were missed. Now that we have determined why our target number for V3 is different than the number of people we actually visited, we need to determine the V4 target.
 
@@ -1970,9 +2058,16 @@ In preparation for V4, migrations, deaths, refusals, and eos children needed to 
 knitr::kable(v3_removed_extid_table)
 ```
 
-After removing migrations, deaths, refusals, and eos, we enter V4 with a target of `r num_v3_clean`. See below:
+After removing migrations, deaths, refusals, and eos from above, we have the following in and out children:
 
-  * `r v3_total_visited` (V3 submissions) + `r num_v3_not_visited_keep` - `r v3_removed_extids` (removed extids) = `r  sum(v3_total_visited + num_v3_not_visited_keep - v3_removed_extids)`
+```{r}
+knitr::kable(v3_status_table)
+```
+
+
+And we enter V4 with a target of `r num_v3_clean`. See below:
+
+  * `r v3_total_visited` (V3 submissions) + `r num_v3_not_visited_keep` (missed extid who is efficacy status 'in') - `r v3_removed_extids` (removed extids) = `r  sum(v3_total_visited + num_v3_not_visited_keep - v3_removed_extids)`
   
 ***
 
@@ -2101,6 +2196,231 @@ reactable(not_enrol_out_table, columns = list(), pagination = FALSE)
 reactable(not_enrol_ref_table, columns = list(), pagination = FALSE)
 ```
 
+## Flowcharts
+Flowcharts are currently under review.
+
+### Arm 1
+```{r flowchart_assignment_1}
+
+# number of efficacy preselected children per arm
+efficacy_selected_1 <- df %>% 
+  filter(extid %in% efficacy_selection$extid,
+         assignment==1) %>% 
+  summarise(efficacy_selected_1 = n_distinct(extid)) %>% 
+  pull(efficacy_selected_1)
+
+# calculate children visited
+extid_visited_1 <- df %>%
+  filter(!is.na(visit), 
+         assignment == 1) %>%
+  summarise(extid_visited_1 = n_distinct(extid)) %>%
+  pull(extid_visited_1)
+
+# calculate non-enrolled subjects
+non_enrolled_1 <- not_enrolled %>%
+  filter(assignment == 1) %>%
+  summarise(ext_not_enrolled_1 = n_distinct(extid)) %>%
+  pull(ext_not_enrolled_1)
+
+
+# calculate enrolled subjects
+enrolled_1 <- enrolled %>%
+  filter(assignment == 1) %>%
+  summarise(ext_enrolled_1 = n_distinct(extid)) %>%
+  pull(ext_enrolled_1)
+
+  enrolled_tested_v1_1 <- eff_results_v1_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V1') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_tested_v2_1 <- eff_results_v2_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V2') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_tested_v3_1 <- eff_results_v3_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V3') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_tested_v4_1 <- eff_results_v4_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V4') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_tested_v5_1 <- eff_results_v5_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V5') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_tested_v6_1 <- eff_results_v6_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V6') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_tested_v7_1 <- eff_results_v7_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V7') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_1 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           assignment == 1, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+
+# create flowchart
+flowchart_1 <- glue("
+  digraph flowchart {{
+    node [fontname = Helvetica, shape = box, style = filled, color = lightblue];
+
+    preselected [label = '{efficacy_selected_1} pre-selected children'];
+    extids_visited [label = '{extid_visited_1} children visited'];
+    non_enrolled [label = '{non_enrolled_1} non-enrolled children'];
+    enrolled [label = '{enrolled_1} enrolled subjects'];
+    reasons [label = '{enrolled_tested_v1_1} tested subjects in V1\n{enrolled_tested_v2_1} tested subjects in V2\n{enrolled_tested_v3_1} tested subjects in V3\n{enrolled_tested_v4_1} tested subjects in V4\n{enrolled_tested_v5_1} tested subjects in V5\n{enrolled_tested_v6_1} tested subjects in V6\n{enrolled_tested_v7_1} tested subjects in V7'];
+    eos_fu [label = '{enrolled_eos_fu_1} did not complete the study'];
+
+    # Define edges
+    preselected -> extids_visited;
+    extids_visited -> non_enrolled;
+    extids_visited -> enrolled;
+    enrolled -> reasons;
+    reasons -> eos_fu;
+  }}
+")
+
+grViz(flowchart_1)
+```
+
+### Arm 2
+```{r flowchart_assignment_2}
+
+# number of efficacy preselected children per arm
+efficacy_selected_2 <- df %>% 
+  filter(extid %in% efficacy_selection$extid,
+         assignment==2) %>% 
+  summarise(efficacy_selected_2 = n_distinct(extid)) %>% 
+  pull(efficacy_selected_2)
+
+# calculate children visited
+extid_visited_2 <- df %>%
+  filter(!is.na(visit), 
+         assignment == 2) %>%
+  summarise(extid_visited_2 = n_distinct(extid)) %>%
+  pull(extid_visited_2)
+
+# calculate non-enrolled subjects
+non_enrolled_2 <- not_enrolled %>%
+  filter(assignment == 2) %>%
+  summarise(ext_not_enrolled_2 = n_distinct(extid)) %>%
+  pull(ext_not_enrolled_2)
+
+
+# calculate enrolled subjects
+enrolled_2 <- enrolled %>%
+  filter(assignment == 2) %>%
+  summarise(ext_enrolled_2 = n_distinct(extid)) %>%
+  pull(ext_enrolled_2)
+
+  enrolled_tested_v1_2 <- eff_results_v1_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V1') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_tested_v2_2 <- eff_results_v2_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V2') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_tested_v3_2 <- eff_results_v3_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V3') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_tested_v4_2 <- eff_results_v4_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V4') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_tested_v5_2 <- eff_results_v5_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V5') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_tested_v6_2 <- eff_results_v6_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V6') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_tested_v7_2 <- eff_results_v7_clean %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V7') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_2 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           assignment == 2, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+
+# create flowchart
+flowchart_2 <- glue("
+  digraph flowchart {{
+    node [fontname = Helvetica, shape = box, style = filled, color = lightblue];
+
+    preselected [label = '{efficacy_selected_2} pre-selected children'];
+    extids_visited [label = '{extid_visited_2} children visited'];
+    non_enrolled [label = '{non_enrolled_2} non-enrolled children'];
+    enrolled [label = '{enrolled_2} enrolled subjects'];
+    reasons [label = '{enrolled_tested_v1_2} tested subjects in V1\n{enrolled_tested_v2_2} tested subjects in V2\n{enrolled_tested_v3_2} tested subjects in V3\n{enrolled_tested_v4_2} tested subjects in V4\n{enrolled_tested_v5_2} tested subjects in V5\n{enrolled_tested_v6_2} tested subjects in V6\n{enrolled_tested_v7_2} tested subjects in V7'];
+    eos_fu [label = '{enrolled_eos_fu_2} did not complete the study'];
+
+    # Define edges
+    preselected -> extids_visited;
+    extids_visited -> non_enrolled;
+    extids_visited -> enrolled;
+    enrolled -> reasons;
+    reasons -> eos_fu;
+  }}
+")
+
+grViz(flowchart_2)
+```
+
 
 # Efficacy targets
 ```{r target_show}
@@ -2118,7 +2438,7 @@ if (any(duplicated(total_efficacy_v7$extid))) {
   cat('Note: Excluding the duplicates, the real total number of people visited is',
       length(unique(total_efficacy_v7$extid)), '.\n')
 } else {
-  cat("Note: There are no duplicates based on extid in the data.")
+  cat("Note: There are no duplicates based on extid in the df.")
 }
 ```
 
@@ -2263,7 +2583,7 @@ if (any(duplicated(total_efficacy_v6$extid))) {
   cat('Note: Excluding the duplicates, the real total number of people visited is',
       length(unique(total_efficacy_v6$extid)), '.\n')
 } else {
-  cat("Note: There are no duplicates based on extid in the data.")
+  cat("Note: There are no duplicates based on extid in the df.")
 }
 ```
 
@@ -2407,7 +2727,7 @@ if (any(duplicated(total_efficacy_v5$extid))) {
   cat('Note: Excluding the duplicates, the real total number of people visited is',
       length(unique(total_efficacy_v5$extid)), '.\n')
 } else {
-  cat("Note: There are no duplicates based on extid in the data.")
+  cat("Note: There are no duplicates based on extid in the df.")
 }
 ```
 
@@ -2552,7 +2872,7 @@ if (any(duplicated(total_efficacy_v4$extid))) {
   cat('Note: Excluding the duplicates, the real total number of people visited is',
       length(unique(total_efficacy_v4$extid)), '.\n')
 } else {
-  cat("Note: There are no duplicates based on extid in the data.")
+  cat("Note: There are no duplicates based on extid in the df.")
 }
 ```
 
@@ -2696,7 +3016,7 @@ if (any(duplicated(total_efficacy_v3$extid))) {
   cat('Note: Excluding the duplicates, the real total number of people visited is',
       length(unique(total_efficacy_v3$extid)), '.\n')
 } else {
-  cat("Note: There are no duplicates based on extid in the data.")
+  cat("Note: There are no duplicates based on extid in the df.")
 }
 ```
 
@@ -2859,7 +3179,7 @@ if (any(duplicated(total_efficacy_v2$extid))) {
   cat('Note: Excluding the duplicates, the real total number of people visited is',
       length(unique(total_efficacy_v2$extid)), '.\n')
 } else {
-  cat("Note: There are no duplicates based on extid in the data.")
+  cat("Note: There are no duplicates based on extid in the df.")
 }
 ```
 
@@ -3020,7 +3340,7 @@ reactable(total_efficacy_status_v1, columns = list(
 if (any(duplicated(total_efficacy_v1$extid))) {
   cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(total_efficacy_v1$extid)), "\n.")
 } else {
-  cat("Note: There are no duplicates based on extid in the data.")
+  cat("Note: There are no duplicates based on extid in the df.")
 }
 ```
 
@@ -3141,7 +3461,7 @@ wrap_download(
 ```{r extid-explorer}
 element_id <- 'extid-explorerer'
 
-data_readable <- reactable(data_investigation, columns = list(), 
+df_readable <- reactable(df_investigation, columns = list(), 
                                               highlight = TRUE,
                                               resizable = TRUE,
                                               bordered = TRUE,
@@ -3151,7 +3471,7 @@ data_readable <- reactable(data_investigation, columns = list(),
                                               )
 
 wrap_download(
-  data_readable, 
+  df_readable, 
   element_id,
   'efficacy_extid_explorer.csv')
 ```

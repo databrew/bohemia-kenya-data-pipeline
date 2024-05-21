@@ -1,0 +1,486 @@
+# Kwale
+
+## demographicsurvey
+
+
+type              variable                                                    question                                                                                                                                             choices                                                                                                                                                                                                                                                                                                                                                   
+# Kwale
+
+## demographicsurvey
+
+
+----------------  ----------------------------------------------------------  ---------------------------------------------------------------------------------------------------------------------------------------------------  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Kwale
+
+## demographicsurvey
+
+
+start             start_time                                                                                                                                                                                                       NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+end               end_time                                                                                                                                                                                                         NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+deviceid          device_id                                                                                                                                                                                                        NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+phonenumber       devicephonenum                                                                                                                                                                                                   NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+today             todays_date                                                                                                                                                                                                      NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+username          username                                                                                                                                                                                                         NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        have_wid                                                    Do you have a QR code with your worker ID?                                                                                                           Yes; No                                                                                                                                                                                                                                                                                                                                                   
+# Kwale
+
+## demographicsurvey
+
+
+text              wid_manual                                                  Manually write your 4 digit field worker ID                                                                                                          NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+barcode           wid_qr                                                      Scan your field worker ID QR code                                                                                                                    NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+geopoint          location_geocode                                            Geocoding                                                                                                                                            NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        Subcounty                                                   Subcounty                                                                                                                                            Msambweni; Lungalunga                                                                                                                                                                                                                                                                                                                                     
+# Kwale
+
+## demographicsurvey
+
+
+text              Ward                                                        Ward                                                                                                                                                 NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+text              Village                                                     Village                                                                                                                                              NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+text              Hamlet                                                      Hamlet                                                                                                                                               NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        material_to_assign_hh_id                                    Do you have material to assign a household ID?                                                                                                       Yes; No                                                                                                                                                                                                                                                                                                                                                   
+# Kwale
+
+## demographicsurvey
+
+
+text              hh_id                                                       Write the 6-character household ID here                                                                                                              NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+integer           num_hh_members_in_hh                                        How many household members does this household have?                                                                                                 NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+integer           num_resident_members_in_hh                                  How many resident members does this household have?                                                                                                  NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+integer           num_non-resident_members_in_hh                              How many non-resident members does this household have?                                                                                              NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+text              first_name                                                  First name                                                                                                                                           NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+text              surname                                                     Surname                                                                                                                                              NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+text              year_of_birth                                               Year of birth:                                                                                                                                       NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        gender                                                      Gender:                                                                                                                                              Male; Female                                                                                                                                                                                                                                                                                                                                              
+# Kwale
+
+## demographicsurvey
+
+
+select_one        resident_status                                             Is this a resident member or non-resident member                                                                                                     Resident_member; Non_resident_member                                                                                                                                                                                                                                                                                                                      
+# Kwale
+
+## demographicsurvey
+
+
+select_one        hh_head                                                     Who is the household head?                                                                                                                           1; 2; 3; 4; 5                                                                                                                                                                                                                                                                                                                                             
+# Kwale
+
+## demographicsurvey
+
+
+select_one        hh_head_substitute                                          Who is the household head substitute?                                                                                                                1; 2; 3; 4; 5                                                                                                                                                                                                                                                                                                                                             
+# Kwale
+
+## demographicsurvey
+
+
+select_one        hh-head-substitute_hh-head-relationship                     What is the household head’s substitute’s relationship with household head (e.g. The household head substitute is the wife of the household head)?   Husband_wife; Son_daughter; Brother_sister; Father_mother; Son_daughter-in-law; Brother_sister-in-law; Uncle_aunt; Grandson_granddaughter; Stepchild; Adopted-son_daughter; Cousin; Nephew_Niece; Unrelated; Other                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+integer           num_of_houses                                               Total number of houses (constructions)                                                                                                               NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+integer           num_of_houses_used_to_sleep_in                              Total number of houses (constructions) used to sleep in                                                                                              NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        Main_structure_type                                         Main structure type where household members sleep                                                                                                    Conventional_house; Traditional_mud_house; Other                                                                                                                                                                                                                                                                                                          
+# Kwale
+
+## demographicsurvey
+
+
+select_one        Wall_material_in_the_main_house                             Wall material in the main house                                                                                                                      Cement_blocks; Clay_bricks; Coral_blocks; Wood; Adobe-mud; Palm_leaf; Iron_sheets; Tin; Cardboard; Plastic_Bags; Mixed_stone_and_mud; Other                                                                                                                                                                                                               
+# Kwale
+
+## demographicsurvey
+
+
+select_one        Roof_type_in_the_main_house                                 Roof type in the main house                                                                                                                          Concrete_slab; Tile; Zinc_sheet; Grass; Palm; Other                                                                                                                                                                                                                                                                                                       
+# Kwale
+
+## demographicsurvey
+
+
+select_one        main_water_source_for_consumption                           What is the main water source used for consumption (cooking and hygiene)?                                                                            Piped_water_inside_house; Piped_water_within_compound; Piped_water_outside_compound; Covered_well_inside_compound; Covered_well_outside_compound; Open_well_inside_compound; Open_well_outside_compound; Borehole_inside_compound; Borehole_outside_compound; directly_from_the_river_or_ponds; Rainwater; Mineral_bottled_water; Water_from_truck; Other 
+# Kwale
+
+## demographicsurvey
+
+
+select_one        time_to_reach_water_source                                  How much time does it take, in total, to reach the main water source, fetch water, and come back?                                                    Less_than_10min; 10-30min; 30-60min; More_than_one_hour                                                                                                                                                                                                                                                                                                   
+# Kwale
+
+## demographicsurvey
+
+
+select_one        toilet_facility                                             What kind of toilet facility do members of the household usually use?                                                                                Flush_to_piped_sewer_system; Flush_to_septic_tank; Flush_to_pit_latrine; Flush,_dont_know_where_to; Improved_ventilated_pit_latrine; Traditional_pit_latrine; Composting_toilet; Bucket_toilet; None-bush_field                                                                                                                                           
+# Kwale
+
+## demographicsurvey
+
+
+select_one        septic-tank_ever_being_emptied                              Has your [septic tank/pit latrine/composting toilet] ever been emptied?                                                                              Yes; No; Dk                                                                                                                                                                                                                                                                                                                                               
+# Kwale
+
+## demographicsurvey
+
+
+select_one        septic-tank_emptied_by_service-provider                     The last time it was emptied was it emptied by a service provider?                                                                                   Yes; No; Dk                                                                                                                                                                                                                                                                                                                                               
+# Kwale
+
+## demographicsurvey
+
+
+select_one        septic-tank_emptied-to                                      Where was it emptied to?                                                                                                                             Treatment_plant; Buried_in_a_covered_pit; Uncovered_pit-bush-field-open_ground; Surface_water; Dont_know; Other                                                                                                                                                                                                                                           
+# Kwale
+
+## demographicsurvey
+
+
+select_one        share_toilet-facility_with_other_households                 Do you share the toilet facility with other households?                                                                                              Yes; No                                                                                                                                                                                                                                                                                                                                                   
+# Kwale
+
+## demographicsurvey
+
+
+integer           num_of_households_you_share_with                            With how many households do you share it?                                                                                                            NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        toilet-facility_location                                    Where is the toilet facility located?                                                                                                                Inside_household; Outside_household_within_compound; In_neighbours_household_or_compound; Other                                                                                                                                                                                                                                                           
+# Kwale
+
+## demographicsurvey
+
+
+select_one        toilet-facility_close_to_water-body                         Is the toilet facility close (<10m) to a water body?                                                                                                 Yes; No                                                                                                                                                                                                                                                                                                                                                   
+# Kwale
+
+## demographicsurvey
+
+
+select_one        Main_energy_source                                          Main energy source used for household lighting                                                                                                       Electricity; Generator; Solar_panel; Gas; Kerosene_lamp; Candles; Batteries; Firewood; Other                                                                                                                                                                                                                                                              
+# Kwale
+
+## demographicsurvey
+
+
+select_multiple   household_possessions                                       Does the household possess any of the following? (mark all applicable):                                                                              Radio; TV; Cell_phone; Sofa; Table; Cupboard                                                                                                                                                                                                                                                                                                              
+# Kwale
+
+## demographicsurvey
+
+
+select_one        household_currently_owns_cattle                             Does the household currently own any cattle?                                                                                                         Yes; No                                                                                                                                                                                                                                                                                                                                                   
+# Kwale
+
+## demographicsurvey
+
+
+integer           Male_cattle_gt1_year                                        Male cattle >1 year                                                                                                                                  NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+integer           Female_cattle_gt1_year                                      Female cattle >1 year                                                                                                                                NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+integer           Cattle_male-and-female_lt1_year                             Cattle (male and female) < 1 year                                                                                                                    NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        actively_milk_any_of_cows                                   Do you actively milk any of your cows?                                                                                                               Yes; No                                                                                                                                                                                                                                                                                                                                                   
+# Kwale
+
+## demographicsurvey
+
+
+integer           num_cattle_you_actively_milk                                How many do you actively milk?                                                                                                                       NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        cattle_housing_during_nights_long-rains                     Where are the cattle housed at night during the long rains?                                                                                          inside_household_where_humans_sleep; outdoors_without_any_structure_around_them; outdoors_in_a_specific_area_structure                                                                                                                                                                                                                                    
+# Kwale
+
+## demographicsurvey
+
+
+select_one        cattle_housing_distance_from_household_where_humans_sleep   At what distance from the household where humans sleep do the cattle sleep?                                                                          Within_50_meters_from_the_household; gt50_meters_lt10_min_walk_from_the_household; gt50_meters_gt10_min_walk_from_the_household                                                                                                                                                                                                                           
+# Kwale
+
+## demographicsurvey
+
+
+select_one        cattle_housing_during_day_long-rains                        Where do the cattle spend the day during the long rains?                                                                                             Confined_inside_structure; Grazing                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        structure_distance_from_household                           At what distance from the household is the structure?                                                                                                Within_50_meters_from_the_household; gt50_meters_lt10_min_walk_from_the_household; gt50_meters_gt10_min_walk_from_the_household                                                                                                                                                                                                                           
+# Kwale
+
+## demographicsurvey
+
+
+select_one        grazing_distance_from_household                             At what distance from the household do animals generally graze?                                                                                      less_than_15_min; 15-30_min_walk; 30-60_min_walk; gt_60_min_walk                                                                                                                                                                                                                                                                                          
+# Kwale
+
+## demographicsurvey
+
+
+select_one        standing_water_in_grazing_area                              Is there any type of standing water or flowing water in the animal grazing area during the rainy season?                                             yes_standing_water; yes_flowing_water; yes_both_standing_flowing_water; no; dk                                                                                                                                                                                                                                                                            
+# Kwale
+
+## demographicsurvey
+
+
+select_one        type_of_water                                               What is the type of water?                                                                                                                           Permanent_water; Semi-permanent_water; Transient_water                                                                                                                                                                                                                                                                                                    
+# Kwale
+
+## demographicsurvey
+
+
+select_one        water-bodies_are_within_50m                                 Are there any water bodies within the 50m surrounding the household?                                                                                 Yes; No; Dk                                                                                                                                                                                                                                                                                                                                               
+# Kwale
+
+## demographicsurvey
+
+
+integer           num_water-bodies_within_50m                                 How many?                                                                                                                                            NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        type_of_water-body                                          What is the type of water body?                                                                                                                      River_stream; Pond; Construction_pits_man-made_holes; Rice_puddles; Dam; Mangrove_swamp_saltwater_marshes; Drains_ditches                                                                                                                                                                                                                                 
+# Kwale
+
+## demographicsurvey
+
+
+select_one        state_of_water-body                                         Is the water body permanent, semi-permanent or transient?                                                                                            Permanent_water; Semi-permanent_water; Transient_water                                                                                                                                                                                                                                                                                                    
+# Kwale
+
+## demographicsurvey
+
+
+geopoint          geolocation_of_water-body                                   Geocoding                                                                                                                                            NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        hh_receive_IRS_for_malaria_past_12_mths                     Did the household receive Indoors Residual Spraying for malaria in the past 12 months?                                                               Yes; No                                                                                                                                                                                                                                                                                                                                                   
+# Kwale
+
+## demographicsurvey
+
+
+select_one        hh_adults_gt18yrs_sleep_under_bednet                        Do all adult household members (> 18 years old) in the house usually sleep under a bed net?                                                          Yes; No                                                                                                                                                                                                                                                                                                                                                   
+# Kwale
+
+## demographicsurvey
+
+
+integer           num_hh_adults_sleep_under_bednet                            How many adult household members usually sleep under a bed net                                                                                       NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        children_lt18_sleep_bed_net                                 Do all children (< 18 years old) in the house usually sleep under a bed net?                                                                         Yes; No                                                                                                                                                                                                                                                                                                                                                   
+# Kwale
+
+## demographicsurvey
+
+
+integer           children_lt5_sleep_bed_net                                  How many children under 5 years old usually sleep under a bed net?                                                                                   NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+integer           children_btw5and15_sleep_bed_net                            How many children between 5- and 15-years old usually sleep under a bed net?                                                                         NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+integer           children_btw15and18_sleep_bed_net                           How many children between 15- and 18-years old usually sleep under a bed net?                                                                        NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+integer           num_bednets_in_hh                                           How many bed nets are there in the household?                                                                                                        NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        how_long_ago_did_you_obtain_the_net                         How long ago did you obtain the net?                                                                                                                 1_year_ago_or_less; Within_the_past_1-3_years; More_than_3_years; Not_sure                                                                                                                                                                                                                                                                                
+# Kwale
+
+## demographicsurvey
+
+
+text              health_facility_hh_members_usually_attend                   Which health facility do your household members usually attend?                                                                                      NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+text              nearest_health_facility_to_this_household                   Which is the nearest health facility to this household?                                                                                              NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        deaths_in_hh_past_12mths                                    Have there been any deaths in the household in the past 12 months?                                                                                   Yes; No                                                                                                                                                                                                                                                                                                                                                   
+# Kwale
+
+## demographicsurvey
+
+
+integer           num_deaths_in_hh_past_12mths                                How many?                                                                                                                                            NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+integer           dead_person_age                                             Specify the approximate age of the person that died                                                                                                  NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        dead_person_gender                                          Gender of the person that died                                                                                                                       Male; Female                                                                                                                                                                                                                                                                                                                                              
+# Kwale
+
+## demographicsurvey
+
+
+text              contact_number                                              Enter contact number:                                                                                                                                NA                                                                                                                                                                                                                                                                                                                                                        
+# Kwale
+
+## demographicsurvey
+
+
+select_one        prefer_not_to_share                                         Or select:                                                                                                                                           prefer_not_to_share_contact                                                                                                                                                                                                                                                                                                                               
