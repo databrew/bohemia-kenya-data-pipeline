@@ -1,0 +1,163 @@
+--- 
+title: "Bohemia Data Dictionary"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+documentclass: book
+bibliography:
+- book.bib
+- packages.bib
+description: "Data dictionary for Bohemia-related datasets\n"
+link-citations: yes
+---
+
+# About
+
+This docs is used for storing Bohemia Data Dictionary. With this dictionary you will be able to: 
+
+- Check all tables used for Kenya and Mozambique
+- Table & Schema Quick Search
+- Stay up to date with any schema changes!
+
+```{r, message=FALSE, echo=FALSE}
+library(dplyr)
+library(gsheet)
+library(knitr)
+library(reactable)
+
+
+
+MOZ_URL <- 'https://docs.google.com/spreadsheets/d/10fsAAnARFzLqn5OVHgVhxIfPkmplrgir7n7BOGLyhfI/edit#gid=0'
+KENYA_URL <- 'https://docs.google.com/spreadsheets/d/10fsAAnARFzLqn5OVHgVhxIfPkmplrgir7n7BOGLyhfI/edit#gid=456395473'
+
+```
+
+
+
+```{r, echo=FALSE, results='asis', message=FALSE}
+cat("# Mozambique \n")
+
+index <- gsheet::gsheet2tbl(MOZ_URL)
+for(i in 1:nrow(index)){
+  try({
+    this_name <- index$`form.full.name`[i]
+    this_id <- index$`form.ID`[i]
+    url_survey <- index$google_url[i]
+    url_choices <- index$choices_url[i]
+    # read the xls
+    survey <- gsheet::gsheet2tbl(url_survey)
+    choices <- gsheet::gsheet2tbl(url_choices)
+    # Clean up the survey
+    survey <- survey[,1:3]
+    names(survey) <- c('type', 'name', 'label')
+    survey$list_name <- ifelse(grepl('select', survey$type),
+                               gsub('select_one |select_multiple ', '', survey$type),
+                               NA)
+    # Clean up the choices
+    choices <- choices[,1:3]
+    names(choices) <- c('list_name', 'name', 'label')
+    out <- choices %>%
+      filter(!is.na(list_name)) %>%
+      filter(!is.na(name)) %>%
+      # mutate(name_label = paste0(name, ':', label)) %>%
+      mutate(name_label = paste0(name)) %>%
+      group_by(list_name) %>%
+      summarise(options = paste0(name_label, collapse = '; '))
+    # Join the choices to the survey
+    survey <- survey %>%
+      left_join(out)
+    # Remove the "group" variables
+    survey <- survey %>%
+      filter(!grepl('group', type))
+    # Remove list_name
+    survey$list_name <- NULL
+    # Rename variables
+    names(survey) <- c('type', 'variable', 'question', 'choices')
+    # Remove notes
+    survey <- survey %>%
+      filter(type != 'note') %>%
+      # remove calculates
+      filter(type != 'calculate') %>%
+      # remove repeats
+      filter(!grepl('repeat', type)) %>%
+      dplyr::mutate(choices = case_when(is.na(choices)~"", TRUE ~choices))
+    # Keep only first word
+    survey$type <- unlist(
+      lapply(strsplit(survey$type, split = ' '), function(x){x[1]}))
+    # Pass this over to the rmarkdown
+    sub_title <- as.character(glue::glue("## {this_name}\n\n"))
+    form_id <- as.character(glue::glue("Form ID: {this_id}\n\n"))
+    cat(sub_title)
+    cat(form_id)
+    print(kable(survey))
+    cat("\n")
+  })
+}
+```
+
+
+```{r, echo=FALSE, results='asis', message=FALSE}
+cat("# Kwale \n")
+
+index <- gsheet::gsheet2tbl(KENYA_URL) %>%
+  dplyr::filter(status != 'deprecated') %>% 
+  dplyr::filter(!form.ID %in% (c('reconsuper', 'reconaregistration', 'reconbhousehold')))
+
+for(i in 1:nrow(index)){
+  try({
+    this_name <- index$`form.full.name`[i]
+    this_id <- index$`form.ID`[i]
+    url_survey <- index$google_url[i]
+    url_choices <- index$choices_url[i]
+    # read the xls
+    survey <- gsheet::gsheet2tbl(url_survey)
+    choices <- gsheet::gsheet2tbl(url_choices)
+    # Clean up the survey
+    survey <- survey[,1:3]
+    names(survey) <- c('type', 'name', 'label')
+    survey$list_name <- ifelse(grepl('select', survey$type),
+                               gsub('select_one |select_multiple ', '', survey$type),
+                               NA)
+    # Clean up the choices
+    choices <- choices[,1:3]
+    names(choices) <- c('list_name', 'name', 'label')
+    out <- choices %>%
+      filter(!is.na(list_name)) %>%
+      filter(!is.na(name)) %>%
+      # mutate(name_label = paste0(name, ':', label)) %>%
+      mutate(name_label = paste0(name)) %>%
+      group_by(list_name) %>%
+      summarise(options = paste0(name_label, collapse = '; '))
+    # Join the choices to the survey
+    survey <- survey %>%
+      left_join(out)
+    # Remove the "group" variables
+    survey <- survey %>%
+      filter(!grepl('group', type))
+    # Remove list_name
+    survey$list_name <- NULL
+    # Rename variables
+    names(survey) <- c('type', 'variable', 'question', 'choices')
+    # Remove notes
+    survey <- survey %>%
+      filter(type != 'note') %>%
+      # remove calculates
+      filter(type != 'calculate') %>%
+      # remove repeats
+      filter(!grepl('repeat', type)) %>%
+      dplyr::mutate(choices = case_when(is.na(choices)~"", TRUE ~choices))
+    # Keep only first word
+    survey$type <- unlist(
+      lapply(strsplit(survey$type, split = ' '), function(x){x[1]}))
+    # Pass this over to the rmarkdown
+    sub_title <- as.character(glue::glue("## {this_name}\n\n"))
+    form_id <- as.character(glue::glue("Form ID: {this_id}\n\n"))
+    cat(sub_title)
+    cat(form_id)
+    print(kable(survey))
+    cat("\n")
+  })
+}
+
+```
+
+
