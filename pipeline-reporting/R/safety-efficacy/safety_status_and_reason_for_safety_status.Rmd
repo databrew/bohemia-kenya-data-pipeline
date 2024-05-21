@@ -2652,7 +2652,7 @@ knitr::kable(v2statuses)
 
 * OUT: `r num_v2_out` V2 Visited out - `r num_v2_out_died` died - `r num_v2_out_mig` migrated =  `r num_v2_out - num_v2_out_died - num_v2_out_mig` V2 Clean out + `r num_extid_v2_not_visited` missed people = `r num_v3_target_out_start + num_extid_v2_not_visited` OUT (participants who can still enter the study)
 * REFUSAL: `r num_v2_refusal` - `r num_v2_ref_removed` people in 100% removal households = `r num_v2_refusal - num_v2_ref_removed` REFUSAL (participants who refused but belong to hh that are still part of the study).
-* 32 women were starting safety status in, took drug, and became pregnant, meaning that they will leave safety and enter pfu. On the table above, they became status eos. Please visit the [PFU Report](https://d27fg4iv55pk9u.cloudfront.net/safety-efficacy/pfu_status_and_reason.html#V2_Numbers) to track these women. _Note: extid 14024-02 was removed from the count of `r v2_preg_pfu` pregnant women because she did not take drug._
+* 32 women were starting safety status in, took drug, and became pregnant, meaning that they will leave safety and enter pfu. On the table above, they became status eos. Please visit the [PFU Report](https://d27fg4iv55pk9u.cloudfront.net/safety-efficacy/pfu_status_and_reason.html#V2_Numbers) to track these women. _Note: extid 14024-02 was removed from the count of `r v2_preg_pfu` pregnant women because she did not take drug. Also, 08016-02 was incorrectly enrolled into PFU because she did not take drug, however because she had an SAE her PFU submission has to be kept (therefore do not use 08016-02 in PFU analyses)._
 
 We can check this in the following table:
 
@@ -2738,7 +2738,7 @@ knitr::kable(v3statuses)
 * EOS: `r num_extid_v3_eos` V3 Visited eos + `r num_extid_v3_eos_with` missed eos people - `r num_extid_v3_eos_rem` eos people apart of households with no one in - `r num_extid_v3_eos_died` died - `r num_extid_v3_eos_mig` migrated = `r num_extid_v3_eos + num_extid_v3_eos_with- num_extid_v3_eos_rem - num_extid_v3_eos_mig - num_extid_v3_eos_died`
 * OUT: `r num_v3_out` V3 Visited out - `r num_v3_out_died` died - `r num_v3_out_mig` migrated =  `r num_v3_out - num_v3_out_died - num_v3_out_mig` V3 Clean out + `r num_extid_v3_not_visited` missed people = `r num_v3_target_out_start + num_extid_v3_not_visited` OUT (participants who can still enter the study)
 * REFUSAL: `r num_v3_refusal` - `r num_v3_ref_removed` people in 100% removal households = `r num_v3_refusal - num_v3_ref_removed` REFUSAL (participants who refused but belong to hh that are still part of the study).
-* PREGNANCIES: `r v3_preg_pfu` women were starting safety status in, took drug, and became pregnant, meaning that they will leave safety and enter pfu. On the table above, they became status eos. Please visit the [PFU Report](https://d27fg4iv55pk9u.cloudfront.net/safety-efficacy/pfu_status_and_reason.html#V3_Numbers) to track these women.
+* PREGNANCIES: `r v3_preg_pfu` women were starting safety status in, took drug, and became pregnant, meaning that they will leave safety and enter pfu. On the table above, they became status eos. Please visit the [PFU Report](https://d27fg4iv55pk9u.cloudfront.net/safety-efficacy/pfu_status_and_reason.html#V3_Numbers) to track these women. _Note: extid 55077-02 was never actually pregnant, and while this data was removed from PFU, it was not fixed in Safety._
 
 We can check this in the following table:
 

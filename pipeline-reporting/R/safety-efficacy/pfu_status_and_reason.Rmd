@@ -974,7 +974,7 @@ if (any(duplicated(pfu_totals_v2$extid))) {
   cat("Note: There are no duplicates based on extid in the data.")
 }
 ```
-Note: in V2 we identified extid '14024-02' to have been pregnant but not have taken drug, so they were removed from PFU.
+Note: In V2 we identified extid '14024-02' to have been pregnant but not have taken drug, so they were removed from PFU. Also, 08016-02 was incorrectly enrolled into PFU because she did not take drug, however because she had an SAE her PFU submission has to be kept (therefore do not use 08016-02 in PFU analyses).
 
 ## eos reason
 ```{r v2_table_eos_reason}
