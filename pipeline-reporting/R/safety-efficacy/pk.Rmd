@@ -1,0 +1,162 @@
+---
+title: "PK Report"
+output: 
+  html_document:
+    toc: true
+    toc_float: 
+      collapsed: true
+    theme: cerulean
+date: '`r Sys.time()`'
+---
+
+Notes:
+
+- Report is refreshed hourly 9-5pm EAT, once 12AM EAT
+- Please reach out to nika.gorski@isglobal.org for bug reports
+
+
+```{r, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  comment = '', 
+  echo = FALSE,
+  message = FALSE,
+  cache=FALSE,
+  warning=FALSE
+)
+```
+
+```{r setup, include=FALSE}
+### PURPOSE:
+# This code aims to determine who is out, refusal, in, and eos after efficacy. This information comes from Safety, Safetynew, and Absence1stattempt. Then for each status (except of in), split each status into the "reason" or the "how" they got to that status.
+# load required libraries
+library(dplyr)
+library(reactable)
+library(data.table)
+library(cloudbrewr)
+library(fontawesome)
+library(shiny)
+library(tidyr)
+library(Gmisc, quietly = TRUE)
+library(glue)
+library(htmlTable)
+library(grid)
+library(magrittr)
+library(DiagrammeR)
+
+ENV_PIPELINE_STAGE <- Sys.getenv("PIPELINE_STAGE")
+DATA_STAGING_BUCKET_NAME <- 'databrew.org'
+DATA_LAKE_BUCKET_NAME <- 'bohemia-lake-db'
+PROJECT_SOURCE <- 'kwale'
+SE_FOLDER_TARGET <- glue::glue('{PROJECT_SOURCE}/clean-form')
+
+pad_hhid <- function(data){
+  if('hhid' %in% names(data)){
+    data %>%
+      dplyr::mutate(hhid = stringr::str_pad(hhid, 5, pad = "0"))
+  }else{
+    data
+  }
+}
+
+
+tryCatch({
+  logger::log_info('Attempt AWS login')
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = 'cloudbrewr-aws-role',
+    profile_name =  'cloudbrewr-aws-role',
+    pipeline_stage = ENV_PIPELINE_STAGE)
+
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+
+
+# load in the data
+
+pkday0 <- cloudbrewr::aws_s3_get_table(
+  bucket = DATA_STAGING_BUCKET_NAME,
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/pkday0/pkday0.csv')) %>%
+  pad_hhid()
+
+pkdays123 <- cloudbrewr::aws_s3_get_table(
+  bucket = DATA_STAGING_BUCKET_NAME,
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/pkdays123/pkdays123.csv')) %>%
+  pad_hhid()
+
+pkfollowup <- cloudbrewr::aws_s3_get_table(
+  bucket = DATA_STAGING_BUCKET_NAME,
+  key = glue::glue('{PROJECT_SOURCE}/clean-form/pkfollowup/pkfollowup.csv')) %>%
+  pad_hhid()
+
+# this is a function to create a download csv button
+wrap_download <- function(reactable_obj, element_id, output_filename){
+  onclick_command <- glue::glue(
+    "Reactable.downloadDataCSV('{element_id}', '{output_filename}')")
+  htmltools::browsable(
+    tagList(
+      tags$button(
+        tagList(fontawesome::fa("download"), "Download as CSV"),
+        onclick = onclick_command),
+      reactable_obj
+    ))
+}
+```
+
+```{r data-creation}
+pk0 <- pkday0 %>%
+  select(extid, pk_status, select_action) %>%
+  mutate(visit_day = 'visit 0') %>%
+  rename(pk_group = select_action)
+
+pk123 <- pkdays123 %>%
+  select(extid, visit_day, pk_status, pk_group)
+
+pkfu <- pkfollowup %>% 
+  select(extid, pk_status) %>% 
+  mutate(visit_day = 'follow up')
+
+pk <- bind_rows(pk0, pk123, pkfu)
+
+
+# 
+wide <- pk %>%
+  pivot_wider(
+    id_cols = extid, 
+    names_from = visit_day,
+    values_from = pk_status
+  ) 
+```
+
+
+```{r flowchart}
+
+# PK pre-selected inviduals
+## need to find this list from Aryton
+
+
+# screened participants
+
+# not enrolled
+
+  # eos day 0
+
+  # eos day 1
+
+  # eos day 2
+
+  # eos day 3
+
+# enrolled
+
+  # sampled day 1
+
+  # sampled day 2
+
+  # sampled day 3
+
+  # followed up
+
+```
+
