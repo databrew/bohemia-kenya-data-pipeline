@@ -596,6 +596,7 @@ v1_death_hhs <- v1safety %>%
       starting_safety_status == 'out' & safety_status == 'eos' ~ 'out to eos',
       starting_safety_status == 'in' & safety_status == 'eos' ~ 'in to eos',
       starting_safety_status == 'in' & safety_status == 'in' ~ 'in to in',
+      starting_safety_status == 'in' & safety_status == 'refusal' ~ 'in to refusal',
       starting_safety_status == 'in' & safety_status == 'completion' ~ 'in to completion',
       TRUE ~ 'other'
     )) 
@@ -604,7 +605,6 @@ v1_death_hhs <- v1safety %>%
     group_by(pathway) %>%
     summarize(count = n()) %>%
     add_row(pathway = 'total', count = sum(.$count))
-
 ```
 
 ```{r safety_trial_profile_v2}
@@ -834,6 +834,7 @@ v2_death_hhs <- v2safety %>%
       starting_safety_status == 'out' & safety_status == 'out' ~ 'out to out',
       starting_safety_status == 'out' & safety_status == 'eos' ~ 'out to eos',
       starting_safety_status == 'in' & safety_status == 'eos' ~ 'in to eos',
+      starting_safety_status == 'in' & safety_status == 'refusal' ~ 'in to refusal',
       starting_safety_status == 'in' & safety_status == 'in' ~ 'in to in',
       starting_safety_status == 'in' & safety_status == 'completion' ~ 'in to completion',
       TRUE ~ 'other'
@@ -1118,7 +1119,8 @@ v3_eos_rem <- v3_removals %>%
       starting_safety_status == 'out' & safety_status == 'in' ~ 'out to in',
       starting_safety_status == 'out' & safety_status == 'out' ~ 'out to out',
       starting_safety_status == 'out' & safety_status == 'eos' ~ 'out to eos',
-      starting_safety_status == 'in' & safety_status == 'eos' ~ 'in to eos',
+      starting_safety_status == 'in' & safety_status == 'eos' ~ 'in to eos',      
+      starting_safety_status == 'in' & safety_status == 'refusal' ~ 'in to refusal',
       starting_safety_status == 'in' & safety_status == 'in' ~ 'in to in',
       starting_safety_status == 'in' & safety_status == 'completion' ~ 'in to completion',
       TRUE ~ 'other'
@@ -1151,7 +1153,7 @@ num_hhid_v4_og_visited <- length(unique(v4safety_og$hhid))
 
 
 # missed V4
-v4_not_visited <- anti_join(v3_clean, v4safety, by='extid') %>% 
+v4_not_visited <- anti_join(v4_target_real, v4safety, by='extid') %>% 
     select(cluster, extid, hhid) %>%
     mutate(visit = 'V4',
            safety_status = 'out',
@@ -1214,6 +1216,7 @@ v4_hhid_visited_extid_not <- semi_join(v4_not_visited, v4safety, by='hhid')
       starting_safety_status == 'out' & safety_status == 'out' ~ 'out to out',
       starting_safety_status == 'out' & safety_status == 'eos' ~ 'out to eos',
       starting_safety_status == 'in' & safety_status == 'eos' ~ 'in to eos',
+      starting_safety_status == 'in' & safety_status == 'refusal' ~ 'in to refusal',
       starting_safety_status == 'in' & safety_status == 'in' ~ 'in to in',
       starting_safety_status == 'in' & safety_status == 'completion' ~ 'in to completion',
       TRUE ~ 'other'
@@ -1245,7 +1248,7 @@ status_pathway <- v1_status_pathway_data %>%
          rowSums(select(., starts_with("path")) == "out to eos") >= 2 |
          rowSums(select(., starts_with("path")) == "in to eos") >= 2 |
          rowSums(select(., starts_with("path")) == "in to completion") >= 2)
-#write.csv(status_pathway, file='V1.0 repeat status pathways.csv')
+#write.csv(status_pathway, file='V2.0 repeat status pathways.csv')
 
 
 ```
@@ -1337,6 +1340,35 @@ status_pathway <- v1_status_pathway_data %>%
     filter(visit == 'V4',
            safety_reason == 'pregnant')
   v4_pregnant_women_stat <- length(unique(v4_pregnant_women$extid))
+  
+  # enrolled eos
+  enrol_v4_eos <- by_visit %>%
+    filter(extid %in% enrolled$extid,
+           status_V4 == 'eos')
+  
+  enrol_v4_eos_data <- data %>%
+    filter(extid %in% enrol_v4_eos$extid,
+           safety_status == 'eos') %>%
+    arrange(visit) %>%
+    group_by(extid) %>%
+    slice(1) %>%
+    ungroup() 
+  
+  enrol_v4_eos_table <- enrol_v4_eos_data %>%
+    arrange(visit) %>%
+    group_by(safety_reason, assignment) %>%
+    summarise('N' = n()) %>%
+    group_by(safety_reason) %>%
+    pivot_wider(names_from = assignment, values_from = N) %>%
+    ungroup() %>%
+    arrange(safety_reason) %>%
+    rename('EOS reason' = safety_reason) %>%
+    add_row('EOS reason' = 'total visited', 
+            '1' = sum(.$'1'),
+            '2' = sum(.$'2')) %>%
+    mutate(Total = `1` + `2`) %>%
+    rename('Assignment 1' = '1',
+           'Assignment 2' = '2')
 
 ```
 ```{r not_enrolled}
@@ -2503,7 +2535,7 @@ When we dive deeper to confirm that `r num_hhid_v0_clean - num_hhid_v1_total_vis
 
 > _NOTE: `r num_v1_hhid_visited_extid_not` households were visited but only had Safety New members enrolled. The other members of the household had no data submitted for that visit._
 
-Now that we have determined why the target hh and visited hh numbers differ, we will begin to find the V2 target number. To create the V2 target, we must remove the hh below:
+Now that we have determined why the target hh and visited hh numbers differ, we will begin to find the V2 target number. To create the V3 target, we must remove the hh below:
 
 * `r num_hhid_v1_ref_ref` households had all individuals refuse,  
 * `r num_hhid_v1_all_migrations` households had all individuals migrate,  
@@ -2604,7 +2636,7 @@ This means that `r num_hhid_v2_ref_ref + num_hhid_v2_all_migrations + num_hhid_v
 
 The V2 Clean data will then have the following households:
 
-* `r num_hhid_v2_total_visited` visited - `r num_hhid_v2_100_refusal` = `r num_hhid_v2_total_visited - num_hhid_v2_100_refusal` V1 Clean
+* `r num_hhid_v2_total_visited` visited - `r num_hhid_v2_100_refusal` = `r num_hhid_v2_total_visited - num_hhid_v2_100_refusal` V2 Clean
 
 Finally, to create the V3 target we want to keep all people who we visited that are not a part of the households removed and we need to include the households that were missed in V2:
 
@@ -2640,7 +2672,7 @@ Now that the data has been cleaned, we will calculate the V3 Target number by ad
 
 * `r num_v2_in_target` in + `r num_v3_target_out` out = `r num_v2_in_target + num_v3_target_out` V3 Target   
 
-We calculate the V3 Calculated Target by removing migrations, deaths, and 100% refusal households:
+However, for calculation purposes there will be a V3 Calculated Target which will include all people on the roster (in, out, refusals, and eos people who did not migrate, died or are part of a 100% refusal household):
 
 * `r num_extid_v3_target_real` V3 Calculated Target
 
@@ -2650,7 +2682,7 @@ To double check everything that has been done, the V2 visited people's safety st
 knitr::kable(v2statuses)
 ```
 
-* OUT: `r num_v2_out` V2 Visited out - `r num_v2_out_died` died - `r num_v2_out_mig` migrated =  `r num_v2_out - num_v2_out_died - num_v2_out_mig` V2 Clean out + `r num_extid_v2_not_visited` missed people = `r num_v3_target_out_start + num_extid_v2_not_visited` OUT (participants who can still enter the study)
+* OUT: `r num_v2_out` V2 Visited out - `r num_v2_out_died` died - `r num_v2_out_mig` migrated =  `r num_v2_out - num_v2_out_died - num_v2_out_mig` V2 Clean out + `r num_extid_v2_not_visited` missed people = `r num_v3_target_out_start` OUT (participants who can still enter the study)
 * REFUSAL: `r num_v2_refusal` - `r num_v2_ref_removed` people in 100% removal households = `r num_v2_refusal - num_v2_ref_removed` REFUSAL (participants who refused but belong to hh that are still part of the study).
 * 32 women were starting safety status in, took drug, and became pregnant, meaning that they will leave safety and enter pfu. On the table above, they became status eos. Please visit the [PFU Report](https://d27fg4iv55pk9u.cloudfront.net/safety-efficacy/pfu_status_and_reason.html#V2_Numbers) to track these women. _Note: extid 14024-02 was removed from the count of `r v2_preg_pfu` pregnant women because she did not take drug. Also, 08016-02 was incorrectly enrolled into PFU because she did not take drug, however because she had an SAE her PFU submission has to be kept (therefore do not use 08016-02 in PFU analyses)._
 
@@ -2669,7 +2701,7 @@ While the target number of households to visit in Safety V3 was `r num_hhid_v3_t
 
 * `r num_hhid_v3_target_real` target hhs - `r num_hhid_v3_total_visited` visited hhs = `r num_hhid_v3_target_real - num_hhid_v3_total_visited` missed 
 
-When we dive deeper to confirm that `r num_hhid_v3_target_real - num_hhid_v3_total_visited` household were missed, we find that `r num_hhid_v3_not_visited - num_v3_hhid_visited_extid_not` households were indeed not visited in V3.  
+When we dive deeper to confirm that `r num_hhid_v3_target_real - num_hhid_v3_total_visited` households were missed, we find that `r num_hhid_v3_not_visited - num_v3_hhid_visited_extid_not` households were indeed not visited in V3.  
 
 > _NOTE: `r num_v3_hhid_visited_extid_not` households were visited but only had Safety New members enrolled. The other members of the household had no data submitted for that visit._
 
@@ -2735,9 +2767,9 @@ To double check everything that has been done, the V3 visited people's safety st
 knitr::kable(v3statuses)
 ```
 
-* EOS: `r num_extid_v3_eos` V3 Visited eos + `r num_extid_v3_eos_with` missed eos people - `r num_extid_v3_eos_rem` eos people apart of households with no one in - `r num_extid_v3_eos_died` died - `r num_extid_v3_eos_mig` migrated = `r num_extid_v3_eos + num_extid_v3_eos_with- num_extid_v3_eos_rem - num_extid_v3_eos_mig - num_extid_v3_eos_died`
-* OUT: `r num_v3_out` V3 Visited out - `r num_v3_out_died` died - `r num_v3_out_mig` migrated =  `r num_v3_out - num_v3_out_died - num_v3_out_mig` V3 Clean out + `r num_extid_v3_not_visited` missed people = `r num_v3_target_out_start + num_extid_v3_not_visited` OUT (participants who can still enter the study)
-* REFUSAL: `r num_v3_refusal` - `r num_v3_ref_removed` people in 100% removal households = `r num_v3_refusal - num_v3_ref_removed` REFUSAL (participants who refused but belong to hh that are still part of the study).
+* EOS: `r num_extid_v3_eos` V3 Visited eos + `r num_extid_v3_eos_with` missed eos people - `r num_extid_v3_eos_rem` eos people part of households with no one in - `r num_extid_v3_eos_died` died - `r num_extid_v3_eos_mig` migrated = `r num_extid_v3_eos + num_extid_v3_eos_with- num_extid_v3_eos_rem - num_extid_v3_eos_mig - num_extid_v3_eos_died`
+* OUT: `r num_v3_out` V3 Visited out - `r num_v3_out_died` died - `r num_v3_out_mig` migrated =  `r num_v3_out - num_v3_out_died - num_v3_out_mig` V3 Clean OUT     
+* REFUSAL: `r num_v3_refusal` - `r num_v3_ref_removed` people in 100% removal households = `r num_v3_refusal - num_v3_ref_removed` V3 Clean REFUSAL (participants who refused but belong to hh that are still part of the study).
 * PREGNANCIES: `r v3_preg_pfu` women were starting safety status in, took drug, and became pregnant, meaning that they will leave safety and enter pfu. On the table above, they became status eos. Please visit the [PFU Report](https://d27fg4iv55pk9u.cloudfront.net/safety-efficacy/pfu_status_and_reason.html#V3_Numbers) to track these women. _Note: extid 55077-02 was never actually pregnant, and while this data was removed from PFU, it was not fixed in Safety._
 
 We can check this in the following table:
@@ -2755,9 +2787,7 @@ While the target number of households to visit in Safety V4 was `r num_hhid_v4_t
 
 * `r num_hhid_v4_target_real` target hhs - `r num_hhid_v4_total_visited` visited hhs = `r num_hhid_v4_target_real - num_hhid_v4_total_visited` missed 
 
-When we dive deeper to confirm that `r num_hhid_v4_target_real - num_hhid_v4_total_visited` household was missed, we find that `r num_hhid_v4_not_visited - num_v4_hhid_visited_extid_not` household was indeed not visited in V4.  
-
-> _NOTE: `r num_v4_hhid_visited_extid_not` households were visited but only had Safety New members enrolled. The other members of the household had no data submitted for that visit._
+When we dive deeper to confirm that `r num_hhid_v4_target_real - num_hhid_v4_total_visited` households were missed, we find that `r num_hhid_v4_not_visited - num_v4_hhid_visited_extid_not` households were indeed not visited in V4.  
 
 Since V4 is the final visit, there is no need to create a target for the next visit.
 
@@ -2765,12 +2795,9 @@ Since V4 is the final visit, there is no need to create a target for the next vi
 
 In total `r num_extid_v4_total_visited` people were visited in Safety V4 of which `r num_extid_v4_new_visited` were new and `r num_extid_v4_og_visited` were OG. 
 
-In the target for V4, new people were not accounted for, only the OG people. So when we compare the V4 calculated target and V4 OG visited we find that `r num_extid_v4_not_visited` people were not visited:  
+In the target for V4, new people were not accounted for, only the OG people. So when we compare the V4 calculated target and V4 OG visited we find that `r num_extid_v4_not_visited` people were not visited.
 
-* `r num_extid_v4_target_real` (calculated target) - `r num_extid_v4_og_visited` (OG visited) = `r num_extid_v4_target_real - num_extid_v4_og_visited` (missed people)
-* These individuals are coming from the `r length(unique(v4_not_visited$hhid)) - length(unique(v4_hhid_visited_extid_not$hhid))` missed households and `r length(unique(v4_hhid_visited_extid_not$hhid))` households which had no Safety submissions (just Safety New Members).
-
-Now that we understand why the target is different, let's look at how many people completed safety below:
+Now, let's look at how many people completed safety below:
 
 ```{r v4_safety_statuses}
 knitr::kable(v4statuses)
@@ -2802,6 +2829,8 @@ reactable(trial_by_visit, columns = list(), pagination = FALSE)
 reactable(enrol_eos_table, columns = list(), pagination = FALSE)
 
 reactable(enrol_comp_table, columns = list(), pagination = FALSE)
+
+reactable(enrol_v4_eos_table, columns = list(), pagination = FALSE)
 ```
 *Note: the `r v4_pregnant_women_stat` women found pregnant in V4 are included in the Enrolled reason completion table.*
 
