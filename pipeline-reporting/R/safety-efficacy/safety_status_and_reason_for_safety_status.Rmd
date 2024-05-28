@@ -2083,14 +2083,19 @@ non_enrolled_1 <- not_enrolled %>%
     nrow()
   
   # refusal
-  not_enrol_ref_1 <- not_enrolled %>%
+  not_enrol_ref_swahili_1 <- not_enrolled %>%
+    filter(assignment == 1) %>%
+    rowwise() %>%
+    filter(any(c_across(starts_with("status_V")) == "refusal")) %>%
+    filter(any(c_across(starts_with("reason_V")) == "does not speak English or Swahili")) %>%
+    ungroup()
+  
+  not_enrol_ref_1 <- not_enrolled %>% 
     filter(assignment == 1,
-           reason_V1 != 'does not speak English or Swahili' | 
-             reason_V2 != 'does not speak English or Swahili' | 
-             reason_V3 != 'does not speak English or Swahili' | 
-             reason_V4 != 'does not speak English or Swahili',
+           !(extid %in% not_enrol_ref_swahili_1$extid),
            status_V1 == 'refusal' | status_V2 == 'refusal' | 
-             status_V3 == 'refusal' | status_V4 == 'refusal') 
+             status_V3 == 'refusal' | status_V4 == 'refusal')
+
   num_not_enrol_ref_1 <- not_enrol_ref_1 %>% 
     distinct(extid) %>% 
     nrow()
@@ -2314,14 +2319,19 @@ non_enrolled_2 <- not_enrolled %>%
     nrow()
   
   # refusal
-  not_enrol_ref_2 <- not_enrolled %>%
+  not_enrol_ref_swahili_2 <- not_enrolled %>%
+    filter(assignment == 2) %>%
+    rowwise() %>%
+    filter(any(c_across(starts_with("status_V")) == "refusal")) %>%
+    filter(any(c_across(starts_with("reason_V")) == "does not speak English or Swahili")) %>%
+    ungroup()
+  
+  not_enrol_ref_2 <- not_enrolled %>% 
     filter(assignment == 2,
-           reason_V1 != 'does not speak English or Swahili' | 
-             reason_V2 != 'does not speak English or Swahili' | 
-             reason_V3 != 'does not speak English or Swahili' | 
-             reason_V4 != 'does not speak English or Swahili',
+           !(extid %in% not_enrol_ref_swahili_2$extid),
            status_V1 == 'refusal' | status_V2 == 'refusal' | 
-             status_V3 == 'refusal' | status_V4 == 'refusal') 
+             status_V3 == 'refusal' | status_V4 == 'refusal')
+
   num_not_enrol_ref_2 <- not_enrol_ref_2 %>% 
     distinct(extid) %>% 
     nrow()
@@ -2777,7 +2787,7 @@ We can check this in the following table:
 ```{r v3_safety_pathway}
 knitr::kable(v3_status_pathway)
 ```
-
+_Note: 95076-02 went 'in to eos' in both V2 and V3. Therefore, in to eos in this table should not be 569 but rather 568 because had the tablets been updated between the visits, this extid would have already been identified as eos._
 ***
 
 ### Safety V4
