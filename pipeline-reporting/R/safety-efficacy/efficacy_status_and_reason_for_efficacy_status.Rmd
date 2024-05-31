@@ -223,7 +223,7 @@ individuals <- efficacy %>%
            efficacy_status_V4, efficacy_status_V5, efficacy_status_V6, efficacy_status_V7,
            efficacy_reason_V1, efficacy_reason_V2, efficacy_reason_V3, 
            efficacy_reason_V4, efficacy_reason_V5, efficacy_reason_V6, efficacy_reason_V7, 
-           assignment, cluster) %>%
+          assignment, cluster) %>%
     rename(status_V1 = efficacy_status_V1,
            reason_V1 = efficacy_reason_V1,
            status_V2 = efficacy_status_V2,
@@ -267,7 +267,7 @@ efficacy_selected <- length(unique(efficacy_selection$extid))
 ############## V1 ##################
 v1 <- total_eff %>% 
   filter(visit == 'V1') %>% 
-  select(extid, hhid, visit, efficacy_status, efficacy_reason)
+  select(extid, hhid, visit, starting_efficacy_status, efficacy_status, efficacy_reason)
 
 v1_total_visited <- length(unique(v1$extid))
 
@@ -346,7 +346,7 @@ v1_status_table <- left_join(v1_out_in_table_visited, v1_out_in_table_target, by
 
 v2 <- total_eff %>% 
   filter(visit == 'V2') %>% 
-  select(extid, hhid, visit, efficacy_status, efficacy_reason)
+  select(extid, hhid, visit, starting_efficacy_status, efficacy_status, efficacy_reason)
 
 v2_total_visited <- length(unique(v2$extid))
 
@@ -417,7 +417,7 @@ v2_status_table <- left_join(v2_out_in_table_visited, v2_out_in_table_target, by
 
 v3 <- df %>% 
   filter(visit == 'V3') %>% 
-  select(extid, hhid, visit, efficacy_status, efficacy_reason, enrolment)
+  select(extid, hhid, visit, starting_efficacy_status, efficacy_status, efficacy_reason, enrolment)
 
 v3_total_visited <- length(unique(v3$extid))
 
@@ -498,7 +498,7 @@ v3_status_table <- left_join(v3_out_in_table_visited, v3_out_in_table_target, by
 
 v4 <- df %>% 
   filter(visit == 'V4') %>% 
-  select(extid, hhid, visit, efficacy_status, efficacy_reason)
+  select(extid, hhid, visit, starting_efficacy_status, efficacy_status, efficacy_reason)
 
 v4_total_visited <- length(unique(v4$extid))
 
@@ -550,7 +550,7 @@ num_v4_clean <- length(unique(v4_clean$extid))
 
 v5 <- total_eff %>% 
   filter(visit == 'V5') %>% 
-  select(extid, hhid, visit, efficacy_status, efficacy_reason)
+  select(extid, hhid, visit, starting_efficacy_status, efficacy_status, efficacy_reason)
 
 v5_total_visited <- length(unique(v5$extid))
 
@@ -602,7 +602,7 @@ num_v5_clean <- length(unique(v5_clean$extid))
 
 v6 <- total_eff %>% 
   filter(visit == 'V6') %>% 
-  select(extid, hhid, visit, efficacy_status, efficacy_reason)
+  select(extid, hhid, visit, starting_efficacy_status, efficacy_status, efficacy_reason)
 
 v6_total_visited <- length(unique(v6$extid))
 
@@ -654,7 +654,7 @@ num_v6_clean <- length(unique(v6_clean$extid))
 
 v7 <- total_eff %>% 
   filter(visit == 'V7') %>% 
-  select(extid, hhid, visit, efficacy_status, efficacy_reason)
+  select(extid, hhid, visit, starting_efficacy_status, efficacy_status, efficacy_reason)
 
 v7_total_visited <- length(unique(v7$extid))
 
@@ -710,7 +710,189 @@ v7_clean_extid_table <- v7_clean %>%
   rename('Efficacy Status' = efficacy_status)
 
 
+
 ```
+
+```{r pathway}
+## tracking efficacy statuses
+  v1_status_pathway_data <- v1 %>%
+    mutate(pathway = case_when(
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
+      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
+      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
+      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
+      TRUE ~ 'other'
+    ))
+  
+  v1_status_pathway <- v1_status_pathway_data %>%
+    group_by(pathway) %>%
+    summarize(count = n()) %>%
+    add_row(pathway = 'total', count = sum(.$count))
+  
+  v2_status_pathway_data <- v2 %>%
+    mutate(pathway = case_when(
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
+      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
+      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
+      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
+      TRUE ~ 'other'
+    ))
+  
+  v2_status_pathway <- v2_status_pathway_data %>%
+    group_by(pathway) %>%
+    summarize(count = n()) %>%
+    add_row(pathway = 'total', count = sum(.$count))
+
+  v3_status_pathway_data <- v3 %>%
+    mutate(pathway = case_when(
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
+      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
+      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
+      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
+      TRUE ~ 'other'
+    ))
+  
+  v3_status_pathway <- v3_status_pathway_data %>%
+    group_by(pathway) %>%
+    summarize(count = n()) %>%
+    add_row(pathway = 'total', count = sum(.$count))
+
+  v4_status_pathway_data <- v4 %>%
+    mutate(pathway = case_when(
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
+      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
+      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
+      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
+      TRUE ~ 'other'
+    ))
+  
+  v4_status_pathway <- v4_status_pathway_data %>%
+    group_by(pathway) %>%
+    summarize(count = n()) %>%
+    add_row(pathway = 'total', count = sum(.$count))
+  
+    v5_status_pathway_data <- v5 %>%
+    mutate(pathway = case_when(
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
+      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
+      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
+      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
+      TRUE ~ 'other'
+    ))
+  
+  v5_status_pathway <- v5_status_pathway_data %>%
+    group_by(pathway) %>%
+    summarize(count = n()) %>%
+    add_row(pathway = 'total', count = sum(.$count))
+  
+    v6_status_pathway_data <- v6 %>%
+    mutate(pathway = case_when(
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
+      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
+      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
+      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
+      TRUE ~ 'other'
+    ))
+  
+  v6_status_pathway <- v6_status_pathway_data %>%
+    group_by(pathway) %>%
+    summarize(count = n()) %>%
+    add_row(pathway = 'total', count = sum(.$count))
+  
+    v7_status_pathway_data <- v7 %>%
+    mutate(pathway = case_when(
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
+      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
+      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
+      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
+      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
+      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
+      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
+      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
+      TRUE ~ 'other'
+    ))
+  
+  v7_status_pathway <- v7_status_pathway_data %>%
+    group_by(pathway) %>%
+    summarize(count = n()) %>%
+    add_row(pathway = 'total', count = sum(.$count))
+
+
+status_pathway <- v1_status_pathway_data %>%
+  select(extid, pathway) %>%
+  rename(path_v1 = pathway) %>%
+  merge(v2_status_pathway_data, by='extid') %>%
+  select(extid, path_v1, pathway) %>%
+  rename(path_v2 = pathway) %>%
+  merge(v3_status_pathway_data, by='extid') %>%
+  select(extid, path_v1, path_v2, pathway) %>%
+  rename(path_v3 = pathway) %>%
+  merge(v4_status_pathway_data, by='extid') %>%
+  select(extid, path_v1, path_v2, path_v3, pathway) %>%
+  rename(path_v4 = pathway) %>%
+  merge(v5_status_pathway_data, by='extid') %>%
+  select(extid, path_v1, path_v2, path_v3, path_v4, pathway) %>%
+  rename(path_v5 = pathway) %>%
+  merge(v6_status_pathway_data, by='extid') %>%
+  select(extid, path_v1, path_v2, path_v3, path_v4, path_v5, pathway) %>%
+  rename(path_v6 = pathway) %>%
+  merge(v7_status_pathway_data, by='extid') %>%
+  select(extid, path_v1, path_v2, path_v3, path_v4, path_v5, path_v6, pathway) %>%
+  rename(path_v7 = pathway) %>%
+  filter(rowSums(select(., starts_with("path")) == "out to in") >= 2 |
+         rowSums(select(., starts_with("path")) == "out to refusal") >= 2 |
+         rowSums(select(., starts_with("path")) == "out to eos") >= 2 |
+         rowSums(select(., starts_with("path")) == "in to eos") >= 2 |
+         rowSums(select(., starts_with("path")) == "in to completion") >= 2)
+#write.csv(status_pathway, file='V1.0 repeat efficacy status pathways.csv')
+
+```
+
 
 ```{r enrolled}
 # create a dfset of enrolled participants (people who became efficacy status in)
@@ -904,19 +1086,16 @@ v7_clean_extid_table <- v7_clean %>%
              (status_V2 == 'out' |
                 is.na(status_V2)) &
              (status_V3 == 'out' |
-                is.na(status_V3)) &
-             (status_V4 == 'out' | 
-                is.na(status_V4)) &
-             (status_V5 == 'out' | 
-                is.na(status_V5)))
+                is.na(status_V3)))
   
   not_enrol_out_df <- df %>%
     filter(extid %in% not_enrol_out$extid,
            efficacy_status == 'out') %>%
-    arrange(visit) %>%
+    arrange(desc(visit)) %>%
     group_by(extid) %>%
     slice(1) %>%
-    ungroup() 
+    ungroup() %>% 
+    select(extid, visit, starting_efficacy_status, efficacy_status, efficacy_reason, assignment)
   
   not_enrol_out_table <- not_enrol_out_df %>%
     arrange(visit) %>%
@@ -2077,11 +2256,7 @@ In V4 `r v4_total_visited` children were visited. If the target for efficacy was
 
  * `r num_v3_clean` (V4 Target) - `r v4_total_visited` (V4 Visited) = `r num_v3_clean - v4_total_visited`
 
-This number can be explained by the following:
-  
-  * `r num_v4_not_visited` children were not visited in V4 (aka missed the visit).  
-  
-While we expected to visit `r num_v3_clean` children, we actually only visited `r v4_total_visited` children because `r num_v4_not_visited` children should have been visited but were missed. Now that we have determined why our target number for V4 is different than the number of people we actually visited, we need to determine the V5 target.
+Now, we will determine the V5 target.
 
 In preparation for V5, migrations, deaths, refusals, and eos children needed to be removed from the data. `r v4_removed_extids` kids were removed going into V5 for the following reasons:
 
@@ -2101,11 +2276,7 @@ In V5 `r v5_total_visited` children were visited. If the target for efficacy was
 
  * `r num_v4_clean` (V5 Target) - `r v5_total_visited` (V5 Visited) = `r num_v4_clean - v5_total_visited`
 
-This number can be explained by the following:
-  
-  * `r num_v5_not_visited` children were not visited in V5 (aka missed the visit).  
-  
-While we expected to visit `r num_v4_clean` children, we actually only visited `r v5_total_visited` children because `r num_v5_not_visited` children should have been visited but were missed. Now that we have determined why our target number for V5 is different than the number of people we actually visited, we need to determine the V6 target.
+Now we will determine the V6 target.
 
 In preparation for V6, migrations, deaths, refusals, and eos children needed to be removed from the data. `r v5_removed_extids` kids were removed going into V6 for the following reasons:
 
@@ -2125,11 +2296,7 @@ In V6 `r v6_total_visited` children were visited. If the target for efficacy was
 
  * `r num_v5_clean` (V6 Target) - `r v6_total_visited` (V6 Visited) = `r num_v5_clean - v6_total_visited`
 
-This number can be explained by the following:
-  
-  * `r num_v6_not_visited` children were not visited in V6 (aka missed the visit).  
-  
-While we expected to visit `r num_v5_clean` children, we actually only visited `r v6_total_visited` children because `r num_v6_not_visited` children should have been visited but were missed. Now that we have determined why our target number for V6 is different than the number of people we actually visited, we need to determine the V7 target.
+Now we will determine the V7 target.
 
 In preparation for V7, migrations, deaths, refusals, and eos children needed to be removed from the data. `r v6_removed_extids` kids were removed going into V7 for the following reasons:
 
@@ -2149,11 +2316,7 @@ In V7 `r v7_total_visited` children were visited. If the target for efficacy was
 
  * `r num_v6_clean` (V7 Target) - `r v7_total_visited` (V7 Visited) = `r num_v6_clean - v7_total_visited`
 
-This number can be explained by the following:
-  
-  * `r num_v7_not_visited` children were not visited in V7 (aka missed the visit).  
-  
-While we expected to visit `r num_v6_clean` children, we actually only visited `r v7_total_visited` children because `r num_v7_not_visited` children should have been visited but were missed. Now that we have determined why our target number for V7 is different than the number of people we actually visited, we have completed the study.
+Now, we have completed the study.
 
 Below we can find the reason people did not become completion (migrations, deaths, refusals, and eos reasons):
 
