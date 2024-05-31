@@ -1231,23 +1231,38 @@ v4_hhid_visited_extid_not <- semi_join(v4_not_visited, v4safety, by='hhid')
 
 ```{r safety_trial_overall}
 
-status_pathway <- v1_status_pathway_data %>%
-  select(extid, pathway) %>%
-  rename(path_v1 = pathway) %>%
-  merge(v2_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, pathway) %>%
-  rename(path_v2 = pathway) %>%
-  merge(v3_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, path_v2, pathway) %>%
-  rename(path_v3 = pathway) %>%
-  merge(v4_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, path_v2, path_v3, pathway) %>%
-  rename(path_v4 = pathway) %>%
-  filter(rowSums(select(., starts_with("path")) == "out to in") >= 2 |
-         rowSums(select(., starts_with("path")) == "out to refusal") >= 2 |
-         rowSums(select(., starts_with("path")) == "out to eos") >= 2 |
-         rowSums(select(., starts_with("path")) == "in to eos") >= 2 |
-         rowSums(select(., starts_with("path")) == "in to completion") >= 2)
+ # a trial profile tracks where every person went
+  by_path <- data %>%
+    pivot_wider(id_cols = c(extid, hhid, cluster, assignment), 
+                names_from = visit,
+                values_from = c(starting_safety_status, safety_status)) %>%
+    select(extid, hhid, safety_status_V1, starting_safety_status_V1, safety_status_V2, starting_safety_status_V2, safety_status_V3, starting_safety_status_V3, safety_status_V4, starting_safety_status_V4,  
+          assignment, cluster) 
+`
+
+status_pathway <- by_path %>%
+  filter(
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "out" & 
+            select(., starts_with("safety")) %>% 
+              mutate_all(~ coalesce(., "")) == 'in') >= 2 |
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "out" & 
+            select(., starts_with("safety")) %>% 
+              mutate_all(~ coalesce(., "")) == 'refusal') >= 2 |
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "out" & 
+            select(., starts_with("safety")) %>% 
+              mutate_all(~ coalesce(., "")) == 'eos') >= 2 |
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "in" & 
+            select(., starts_with("safety")) %>% 
+              mutate_all(~ coalesce(., "")) == 'eos') >= 2 |
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "in" & 
+            select(., starts_with("safety")) %>% 
+              mutate_all(~ coalesce(., "")) == 'completion') >= 2
+  )
 #write.csv(status_pathway, file='V2.0 repeat status pathways.csv')
 
 

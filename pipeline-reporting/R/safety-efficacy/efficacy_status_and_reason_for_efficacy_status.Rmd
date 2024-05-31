@@ -238,6 +238,14 @@ individuals <- efficacy %>%
            reason_V6 = efficacy_reason_V6,
            status_V7 = efficacy_status_V7,
            reason_V7 = efficacy_reason_V7)
+  
+  # a trial profile tracks where every person went
+  by_path <- df %>%
+    pivot_wider(id_cols = c(extid, hhid, cluster, assignment), 
+                names_from = visit,
+                values_from = c(starting_efficacy_status, efficacy_status)) %>%
+    select(extid, hhid, efficacy_status_V1, starting_efficacy_status_V1, efficacy_status_V2, starting_efficacy_status_V2, efficacy_status_V3, starting_efficacy_status_V3, efficacy_status_V4, starting_efficacy_status_V4, efficacy_status_V5, starting_efficacy_status_V5, efficacy_status_V6, starting_efficacy_status_V6, efficacy_status_V7, starting_efficacy_status_V7,  
+          assignment, cluster) 
 ```
 
 ```{r trial_by_visit}
@@ -715,181 +723,34 @@ v7_clean_extid_table <- v7_clean %>%
 
 ```{r pathway}
 ## tracking efficacy statuses
-  v1_status_pathway_data <- v1 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v1_status_pathway <- v1_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
-  
-  v2_status_pathway_data <- v2 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v2_status_pathway <- v2_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
 
-  v3_status_pathway_data <- v3 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v3_status_pathway <- v3_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
-
-  v4_status_pathway_data <- v4 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v4_status_pathway <- v4_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
-  
-    v5_status_pathway_data <- v5 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v5_status_pathway <- v5_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
-  
-    v6_status_pathway_data <- v6 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v6_status_pathway <- v6_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
-  
-    v7_status_pathway_data <- v7 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v7_status_pathway <- v7_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
+status_pathway <- by_path %>%
+  filter(
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "out" & 
+            select(., starts_with("efficacy")) %>% 
+              mutate_all(~ coalesce(., "")) == 'in') >= 2 |
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "out" & 
+            select(., starts_with("efficacy")) %>% 
+              mutate_all(~ coalesce(., "")) == 'refusal') >= 2 |
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "out" & 
+            select(., starts_with("efficacy")) %>% 
+              mutate_all(~ coalesce(., "")) == 'eos') >= 2 |
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "in" & 
+            select(., starts_with("efficacy")) %>% 
+              mutate_all(~ coalesce(., "")) == 'eos') >= 2 |
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "in" & 
+            select(., starts_with("efficacy")) %>% 
+              mutate_all(~ coalesce(., "")) == 'completion') >= 2
+  )
 
 
-status_pathway <- v1_status_pathway_data %>%
-  select(extid, pathway) %>%
-  rename(path_v1 = pathway) %>%
-  merge(v2_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, pathway) %>%
-  rename(path_v2 = pathway) %>%
-  merge(v3_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, path_v2, pathway) %>%
-  rename(path_v3 = pathway) %>%
-  merge(v4_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, path_v2, path_v3, pathway) %>%
-  rename(path_v4 = pathway) %>%
-  merge(v5_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, path_v2, path_v3, path_v4, pathway) %>%
-  rename(path_v5 = pathway) %>%
-  merge(v6_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, path_v2, path_v3, path_v4, path_v5, pathway) %>%
-  rename(path_v6 = pathway) %>%
-  merge(v7_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, path_v2, path_v3, path_v4, path_v5, path_v6, pathway) %>%
-  rename(path_v7 = pathway) %>%
-  filter(rowSums(select(., starts_with("path")) == "out to in") >= 2 |
-         rowSums(select(., starts_with("path")) == "out to refusal") >= 2 |
-         rowSums(select(., starts_with("path")) == "out to eos") >= 2 |
-         rowSums(select(., starts_with("path")) == "in to eos") >= 2 |
-         rowSums(select(., starts_with("path")) == "in to completion") >= 2)
-#write.csv(status_pathway, file='V1.0 repeat efficacy status pathways.csv')
+
+#write.csv(status_pathway, file='V2.0 repeat efficacy status pathways.csv')
 
 ```
 
