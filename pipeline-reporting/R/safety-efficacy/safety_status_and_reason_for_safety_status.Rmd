@@ -2361,8 +2361,8 @@ non_enrolled_2 <- not_enrolled %>%
     filter(assignment == 2,
            !extid %in% not_enrol_ref_2$extid,
            !extid %in% not_enrol_mig_died_2$extid,
-           reason_V1 %in% c('pregnant', 'severe illness', 'baby under 1 week', 
-                     'A baby that cannot walk yet') 
+           reason_V1 %in% c('pregnant', 'severe illness', 
+                            'baby under 1 week', 'A baby that cannot walk yet') 
              & status_V1 == 'out' | 
              reason_V2 %in% c('pregnant', 'severe illness', 'baby under 1 week', 
                      'A baby that cannot walk yet') 
@@ -2701,7 +2701,7 @@ We can check this in the following table:
 ```{r v2_safety_pathway}
 knitr::kable(v2_status_pathway)
 ```
-
+_NOTE: 45131-02, 45131-03, 45131-04, 45131-05, 45131-06, 45131-07, 45131-10, 45140-01, 45144-01, 45144-02, 45144-04, 45144-06, 45144-07 went 'out to in' in V1 and V2, altering the numbers of this table. 
 ***
 
 ### Safety V3
@@ -2787,7 +2787,7 @@ We can check this in the following table:
 ```{r v3_safety_pathway}
 knitr::kable(v3_status_pathway)
 ```
-_Note: 95076-02 went 'in to eos' in both V2 and V3. Therefore, in to eos in this table should not be 569 but rather 568 because had the tablets been updated between the visits, this extid would have already been identified as eos._
+_Note: 95076-02 went 'in to eos' in both V2 and V3. Therefore, in to eos in this table should not be 569 but rather 568 because had the tablets been updated between the visits, this extid would have already been identified as eos. Also, 83057-04 went 'out to refusal' in both V2 and V3, altering the values in the table. Finally, 83057-03, 83057-06, 83057-07, 83057-08, and 95066-02 went 'out to in' in bothV2 and V3 altering the numbers present in the table._
 ***
 
 ### Safety V4
