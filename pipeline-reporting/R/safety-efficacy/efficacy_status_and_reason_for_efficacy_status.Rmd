@@ -238,6 +238,14 @@ individuals <- efficacy %>%
            reason_V6 = efficacy_reason_V6,
            status_V7 = efficacy_status_V7,
            reason_V7 = efficacy_reason_V7)
+  
+  # a trial profile tracks where every person went
+  by_path <- df %>%
+    pivot_wider(id_cols = c(extid, hhid, cluster, assignment), 
+                names_from = visit,
+                values_from = c(starting_efficacy_status, efficacy_status)) %>%
+    select(extid, hhid, efficacy_status_V1, starting_efficacy_status_V1, efficacy_status_V2, starting_efficacy_status_V2, efficacy_status_V3, starting_efficacy_status_V3, efficacy_status_V4, starting_efficacy_status_V4, efficacy_status_V5, starting_efficacy_status_V5, efficacy_status_V6, starting_efficacy_status_V6, efficacy_status_V7, starting_efficacy_status_V7,  
+          assignment, cluster) 
 ```
 
 ```{r trial_by_visit}
@@ -715,181 +723,34 @@ v7_clean_extid_table <- v7_clean %>%
 
 ```{r pathway}
 ## tracking efficacy statuses
-  v1_status_pathway_data <- v1 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v1_status_pathway <- v1_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
-  
-  v2_status_pathway_data <- v2 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v2_status_pathway <- v2_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
 
-  v3_status_pathway_data <- v3 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v3_status_pathway <- v3_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
-
-  v4_status_pathway_data <- v4 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v4_status_pathway <- v4_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
-  
-    v5_status_pathway_data <- v5 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v5_status_pathway <- v5_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
-  
-    v6_status_pathway_data <- v6 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v6_status_pathway <- v6_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
-  
-    v7_status_pathway_data <- v7 %>%
-    mutate(pathway = case_when(
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'eos' & efficacy_status == 'eos' ~ 'previously eos',
-      starting_efficacy_status == 'refusal' & efficacy_status == 'refusal' ~ 'previously refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'refusal' ~ 'out to refusal',
-      starting_efficacy_status == 'out' & efficacy_status == 'in' ~ 'out to in',
-      starting_efficacy_status == 'out' & efficacy_status == 'out' ~ 'out to out',
-      starting_efficacy_status == 'out' & efficacy_status == 'eos' ~ 'out to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'eos' ~ 'in to eos',
-      starting_efficacy_status == 'in' & efficacy_status == 'refusal' ~ 'in to refusal',
-      starting_efficacy_status == 'in' & efficacy_status == 'in' ~ 'in to in',
-      starting_efficacy_status == 'in' & efficacy_status == 'completion' ~ 'in to completion',
-      TRUE ~ 'other'
-    ))
-  
-  v7_status_pathway <- v7_status_pathway_data %>%
-    group_by(pathway) %>%
-    summarize(count = n()) %>%
-    add_row(pathway = 'total', count = sum(.$count))
+status_pathway <- by_path %>%
+  filter(
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "out" & 
+            select(., starts_with("efficacy")) %>% 
+              mutate_all(~ coalesce(., "")) == 'in') >= 2 |
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "out" & 
+            select(., starts_with("efficacy")) %>% 
+              mutate_all(~ coalesce(., "")) == 'refusal') >= 2 |
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "out" & 
+            select(., starts_with("efficacy")) %>% 
+              mutate_all(~ coalesce(., "")) == 'eos') >= 2 |
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "in" & 
+            select(., starts_with("efficacy")) %>% 
+              mutate_all(~ coalesce(., "")) == 'eos') >= 2 |
+    rowSums(select(., starts_with("starting")) %>% 
+              mutate_all(~ coalesce(., "")) == "in" & 
+            select(., starts_with("efficacy")) %>% 
+              mutate_all(~ coalesce(., "")) == 'completion') >= 2
+  )
 
 
-status_pathway <- v1_status_pathway_data %>%
-  select(extid, pathway) %>%
-  rename(path_v1 = pathway) %>%
-  merge(v2_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, pathway) %>%
-  rename(path_v2 = pathway) %>%
-  merge(v3_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, path_v2, pathway) %>%
-  rename(path_v3 = pathway) %>%
-  merge(v4_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, path_v2, path_v3, pathway) %>%
-  rename(path_v4 = pathway) %>%
-  merge(v5_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, path_v2, path_v3, path_v4, pathway) %>%
-  rename(path_v5 = pathway) %>%
-  merge(v6_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, path_v2, path_v3, path_v4, path_v5, pathway) %>%
-  rename(path_v6 = pathway) %>%
-  merge(v7_status_pathway_data, by='extid') %>%
-  select(extid, path_v1, path_v2, path_v3, path_v4, path_v5, path_v6, pathway) %>%
-  rename(path_v7 = pathway) %>%
-  filter(rowSums(select(., starts_with("path")) == "out to in") >= 2 |
-         rowSums(select(., starts_with("path")) == "out to refusal") >= 2 |
-         rowSums(select(., starts_with("path")) == "out to eos") >= 2 |
-         rowSums(select(., starts_with("path")) == "in to eos") >= 2 |
-         rowSums(select(., starts_with("path")) == "in to completion") >= 2)
-#write.csv(status_pathway, file='V1.0 repeat efficacy status pathways.csv')
+
+#write.csv(status_pathway, file='V2.0 repeat efficacy status pathways.csv')
 
 ```
 
@@ -1868,7 +1729,7 @@ efficacy_v2_in <- eff %>%
 ```{r rdt-results}
 # present the rdt results for the different visits
   eff_results <- df %>%
-    select(extid, cluster, pan_result, pf_result, visit, efficacy_status, assignment) %>%
+    select(extid, cluster, pan_result, pf_result, visit, efficacy_status, assignment, desiccant_color, desiccant_color_2, rdt_control_window, rdt_control_window_b) %>%
     mutate(combination = case_when(pan_result == 'Positive' & pf_result == 'Positive' ~ 'pan + pf +',
                                    pan_result == 'Negative' & pf_result == 'Negative' ~ 'pan - pf -',
                                    pan_result == 'Positive' & pf_result == 'Negative' ~ 'pan + pf -',
@@ -2211,7 +2072,7 @@ After removing migrations, deaths, refusals, and eos from above, we have the fol
 ```{r}
 knitr::kable(v2_status_table)
 ```
-
+_NOTE: `r length(unique(status_pathway$extid))` extids were found to have transitioned 'out to in' in both V1 and V2, which is a mistake and was not corrected in the data._
 
 And we enter V3 with a target of `r num_v2_clean`. See below:
 
@@ -2367,7 +2228,8 @@ Flowcharts are currently under review.
 
 # number of efficacy preselected children per arm
 efficacy_selected_1 <- df %>% 
-  filter(extid %in% efficacy_selection$extid,
+  filter(extid %in% efficacy_selection$extid, 
+         # the efficacy selection list still contains children who aged out
          assignment==1) %>% 
   summarise(efficacy_selected_1 = n_distinct(extid)) %>% 
   pull(efficacy_selected_1)
@@ -2385,6 +2247,86 @@ non_enrolled_1 <- not_enrolled %>%
   summarise(ext_not_enrolled_1 = n_distinct(extid)) %>%
   pull(ext_not_enrolled_1)
 
+  # migrated or died
+  not_enrol_mig_died_1 <- not_enrolled %>%
+    filter(assignment == 1,
+           (reason_V1 == 'migrated' |
+              reason_V1 == 'died') |
+             (reason_V2 == 'migrated' |
+                reason_V2 == 'died') |
+             (reason_V3 == 'migrated' |
+                reason_V3 == 'died') |
+             (reason_V4 == 'migrated' |
+                reason_V4 == 'died'))
+  num_not_enrol_mig_died_1 <- not_enrol_mig_died_1 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # refusal
+  not_enrol_ref_1 <- not_enrolled %>% 
+    filter(assignment == 1,
+           status_V1 == 'refusal' | status_V2 == 'refusal' | 
+             status_V3 == 'refusal' | status_V4 == 'refusal')
+
+  num_not_enrol_ref_1 <- not_enrol_ref_1 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # not eligible (children who did not pass inclusion criteria. the inclusion criteria is to be a resident and not be in any other trials)
+  not_enrol_eligible_1 <- not_enrolled %>% 
+    filter(assignment == 1,
+           !extid %in% not_enrol_ref_1$extid,
+           !extid %in% not_enrol_mig_died_1$extid,
+           reason_V1 %in% c('not a resident', 'enrolled in other trials') 
+             & status_V1 == 'eos' | 
+             reason_V2 %in% c('not a resident', 'enrolled in other trials') 
+           & status_V2 == 'eos' | 
+    reason_V3 %in% c('not a resident', 'enrolled in other trials') & status_V3 == 'eos')
+  
+  num_not_enrol_eligible_1 <- not_enrol_eligible_1 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # other
+  not_enrol_other_1 <- not_enrolled %>% 
+    filter(assignment == 1,
+           !extid %in% not_enrol_ref_1$extid,
+           !extid %in% not_enrol_mig_died_1$extid,
+           !extid %in% not_enrol_eligible_1$extid,
+           (reason_V1 %in% c('not agree to efficacy procedures', 
+                             'decline participation') |
+          reason_V2 %in% c('not agree to efficacy procedures', 
+                             'decline participation') |
+          reason_V3 %in% c('not agree to efficacy procedures', 
+                             'decline participation') |
+          reason_V4 %in% c('not agree to efficacy procedures', 
+                             'decline participation') |
+          reason_V5 %in% c('not agree to efficacy procedures', 
+                             'decline participation') |
+          reason_V6 %in% c('not agree to efficacy procedures', 
+                             'decline participation') |
+          reason_V7 %in% c('not agree to efficacy procedures', 
+                             'decline participation')))
+  num_not_enrol_other_1 <- not_enrol_other_1 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+   # absent
+  not_enrol_absent_1 <- not_enrolled %>% 
+    filter(assignment == 1,
+           !extid %in% not_enrol_ref_1$extid,
+           !extid %in% not_enrol_mig_died_1$extid,
+           !extid %in% not_enrol_eligible_1$extid,
+           !extid %in% not_enrol_other_1$extid,
+           reason_V1 == 'absent' | reason_V2 == 'absent' | 
+             reason_V3 == 'absent' | reason_V4 == 'absent') 
+  num_not_enrol_absent_1 <- not_enrol_absent_1 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+
+
 
 # calculate enrolled subjects
 enrolled_1 <- enrolled %>%
@@ -2392,57 +2334,268 @@ enrolled_1 <- enrolled %>%
   summarise(ext_enrolled_1 = n_distinct(extid)) %>%
   pull(ext_enrolled_1)
 
-  enrolled_tested_v1_1 <- eff_results_v1_clean %>% 
+# calculate visited per visit 
+# calculate valid test per visit
+# calculate invalid test per visit
+
+  enrolled_tested_v1_1 <- eff_results %>% 
     filter(extid %in% enrolled$extid,
            assignment ==1,
            visit == 'V1') %>% 
     distinct(extid) %>% 
     nrow()
   
-  enrolled_tested_v2_1 <- eff_results_v2_clean %>% 
+  enrolled_valid_v1_1 <- eff_results %>% 
+    filter(visit == 'V1',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v1_1 <- eff_results %>% 
+    filter(visit == 'V1',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  # remember here that the number of treated and not took drug is only looking at in people so the others are not accounted for
+  
+# v2
+enrolled_tested_v2_1 <- eff_results %>% 
     filter(extid %in% enrolled$extid,
-           assignment ==1,
+           assignment == 1,
            visit == 'V2') %>% 
     distinct(extid) %>% 
     nrow()
   
-  enrolled_tested_v3_1 <- eff_results_v3_clean %>% 
+  enrolled_valid_v2_1 <- eff_results %>% 
+    filter(visit == 'V2',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v2_1 <- eff_results %>% 
+    filter(visit == 'V2',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  # remember here that the number of treated and not took drug is only looking at in people so the others are not accounted for
+  
+# v3
+  enrolled_tested_v3_1 <- eff_results %>% 
     filter(extid %in% enrolled$extid,
            assignment ==1,
            visit == 'V3') %>% 
     distinct(extid) %>% 
     nrow()
   
-  enrolled_tested_v4_1 <- eff_results_v4_clean %>% 
+  enrolled_valid_v3_1 <- eff_results %>% 
+    filter(visit == 'V3',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v3_1 <- eff_results %>% 
+    filter(visit == 'V3',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+
+# v4
+  enrolled_tested_v4_1 <- eff_results %>% 
     filter(extid %in% enrolled$extid,
            assignment ==1,
            visit == 'V4') %>% 
     distinct(extid) %>% 
     nrow()
   
-  enrolled_tested_v5_1 <- eff_results_v5_clean %>% 
+  enrolled_valid_v4_1 <- eff_results %>% 
+    filter(visit == 'V4',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v4_1 <- eff_results %>% 
+    filter(visit == 'V4',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+
+# v5  
+  enrolled_tested_v5_1 <- eff_results %>% 
     filter(extid %in% enrolled$extid,
            assignment ==1,
            visit == 'V5') %>% 
     distinct(extid) %>% 
     nrow()
   
-  enrolled_tested_v6_1 <- eff_results_v6_clean %>% 
+  enrolled_valid_v5_1 <- eff_results %>% 
+    filter(visit == 'V5',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v5_1 <- eff_results %>% 
+    filter(visit == 'V5',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+# v6
+  
+  enrolled_tested_v6_1 <- eff_results %>% 
     filter(extid %in% enrolled$extid,
            assignment ==1,
            visit == 'V6') %>% 
     distinct(extid) %>% 
     nrow()
   
-  enrolled_tested_v7_1 <- eff_results_v7_clean %>% 
+  
+  enrolled_valid_v6_1 <- eff_results %>% 
+    filter(visit == 'V6',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v6_1 <- eff_results %>% 
+    filter(visit == 'V6',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+# v7
+  enrolled_tested_v7_1 <- eff_results %>% 
     filter(extid %in% enrolled$extid,
            assignment ==1,
            visit == 'V7') %>% 
     distinct(extid) %>% 
     nrow()
   
-  enrolled_eos_fu_1 <- df %>% 
+  
+  enrolled_valid_v7_1 <- eff_results %>% 
+    filter(visit == 'V7',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'completion',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v7_1 <- eff_results %>% 
+    filter(visit == 'V7',
+           assignment == 1,
+           extid %in% enrolled$extid,
+           efficacy_status == 'completion',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+
+# calculate early termination 
+  
+  enrolled_eos_fu_v2_1 <- df %>% 
     filter(extid %in% enrolled$extid,
+           visit == 'V2',
+           assignment == 1, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_v3_1 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V3',
+           assignment == 1, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_v4_1 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V4',
+           assignment == 1, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_v5_1 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V5',
+           assignment == 1, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_v6_1 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V6',
+           assignment == 1, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_v7_1 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V7',
            assignment == 1, 
            enrolment == 'follow up',
            efficacy_status == 'eos') %>% 
@@ -2457,16 +2610,41 @@ flowchart_1 <- glue("
     preselected [label = '{efficacy_selected_1} pre-selected children'];
     extids_visited [label = '{extid_visited_1} children visited'];
     non_enrolled [label = '{non_enrolled_1} non-enrolled children'];
+    non_enrolled_reasons [label = 'Absent {num_not_enrol_absent_1}\nMigrated/Died {num_not_enrol_mig_died_1}\nRefusal {num_not_enrol_ref_1}\nNot eligible {num_not_enrol_eligible_1}\nOther {num_not_enrol_other_1}'];
     enrolled [label = '{enrolled_1} enrolled subjects'];
-    reasons [label = '{enrolled_tested_v1_1} tested subjects in V1\n{enrolled_tested_v2_1} tested subjects in V2\n{enrolled_tested_v3_1} tested subjects in V3\n{enrolled_tested_v4_1} tested subjects in V4\n{enrolled_tested_v5_1} tested subjects in V5\n{enrolled_tested_v6_1} tested subjects in V6\n{enrolled_tested_v7_1} tested subjects in V7'];
-    eos_fu [label = '{enrolled_eos_fu_1} did not complete the study'];
+    v1 [label = '{enrolled_tested_v1_1} visited in V1\nTreated in V1: {enrolled_valid_v1_1}\nDrug not taken in V1: {enrolled_invalid_v1_1}'];
+    v2 [label = '{enrolled_tested_v2_1} visited in V2\nTreated in V2: {enrolled_valid_v2_1}\nDrug not taken in V2: {enrolled_invalid_v2_1}'];
+    v3 [label = '{enrolled_tested_v3_1} visited in V3\nTreated in V3: {enrolled_valid_v3_1}\nDrug not taken in V3: {enrolled_invalid_v3_1}'];
+    v4 [label = '{enrolled_tested_v4_1} visited in V4\nTreated in V4: {enrolled_valid_v4_1}\nDrug not taken in V4: {enrolled_invalid_v4_1}'];
+    v5 [label = '{enrolled_tested_v5_1} visited in V5\nTreated in V5: {enrolled_valid_v5_1}\nDrug not taken in V5: {enrolled_invalid_v5_1}'];
+    v6 [label = '{enrolled_tested_v6_1} visited in V6\nTreated in V6: {enrolled_valid_v6_1}\nDrug not taken in V6: {enrolled_invalid_v6_1}'];
+    v7 [label = '{enrolled_tested_v7_1} visited in V7\nTreated in V7: {enrolled_valid_v7_1}\nDrug not taken in V7: {enrolled_invalid_v7_1}'];
+    eos_fu_v2 [label = 'Early termination in V2: {enrolled_eos_fu_v2_1}'];
+    eos_fu_v3 [label = 'Early termination in V3: {enrolled_eos_fu_v3_1}'];
+    eos_fu_v4 [label = 'Early termination in V4: {enrolled_eos_fu_v4_1}'];
+    eos_fu_v5 [label = 'Early termination in V5: {enrolled_eos_fu_v5_1}'];
+    eos_fu_v6 [label = 'Early termination in V6: {enrolled_eos_fu_v6_1}'];
+    eos_fu_v7 [label = 'Early termination in V7: {enrolled_eos_fu_v7_1}'];
+    
 
     # Define edges
     preselected -> extids_visited;
     extids_visited -> non_enrolled;
+    non_enrolled -> non_enrolled_reasons;
     extids_visited -> enrolled;
-    enrolled -> reasons;
-    reasons -> eos_fu;
+    enrolled -> v1;
+    v1 -> v2;
+    v2 -> eos_fu_v2;
+    v2 -> v3;
+    v3 -> eos_fu_v3;
+    v3 -> v4;
+    v4 -> eos_fu_v4;
+    v4 -> v5;
+    v5 -> eos_fu_v5;
+    v5 -> v6;
+    v6 -> eos_fu_v6;
+    v6 -> v7;
+    v7 -> eos_fu_v7;
   }}
 ")
 
@@ -2495,6 +2673,85 @@ non_enrolled_2 <- not_enrolled %>%
   filter(assignment == 2) %>%
   summarise(ext_not_enrolled_2 = n_distinct(extid)) %>%
   pull(ext_not_enrolled_2)
+
+# migrated or died
+  not_enrol_mig_died_2 <- not_enrolled %>%
+    filter(assignment == 2,
+           (reason_V1 == 'migrated' |
+              reason_V1 == 'died') |
+             (reason_V2 == 'migrated' |
+                reason_V2 == 'died') |
+             (reason_V3 == 'migrated' |
+                reason_V3 == 'died') |
+             (reason_V4 == 'migrated' |
+                reason_V4 == 'died'))
+  num_not_enrol_mig_died_2 <- not_enrol_mig_died_2 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # refusal
+  not_enrol_ref_2 <- not_enrolled %>% 
+    filter(assignment == 2,
+           status_V1 == 'refusal' | status_V2 == 'refusal' | 
+             status_V3 == 'refusal' | status_V4 == 'refusal')
+
+  num_not_enrol_ref_2 <- not_enrol_ref_2 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # not eligible (children who did not pass inclusion criteria. the inclusion criteria is to be a resident and not be in any other trials)
+  not_enrol_eligible_2 <- not_enrolled %>% 
+    filter(assignment == 2,
+           !extid %in% not_enrol_ref_2$extid,
+           !extid %in% not_enrol_mig_died_2$extid,
+           reason_V1 %in% c('not a resident', 'enrolled in other trials') 
+             & status_V1 == 'eos' | 
+             reason_V2 %in% c('not a resident', 'enrolled in other trials') 
+           & status_V2 == 'eos' | 
+    reason_V3 %in% c('not a resident', 'enrolled in other trials') & status_V3 == 'eos')
+  
+  num_not_enrol_eligible_2 <- not_enrol_eligible_2 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # other
+  not_enrol_other_2 <- not_enrolled %>% 
+    filter(assignment == 2,
+           !extid %in% not_enrol_ref_2$extid,
+           !extid %in% not_enrol_mig_died_2$extid,
+           !extid %in% not_enrol_eligible_2$extid,
+           (reason_V1 %in% c('not agree to efficacy procedures', 
+                             'decline participation') |
+          reason_V2 %in% c('not agree to efficacy procedures', 
+                             'decline participation') |
+          reason_V3 %in% c('not agree to efficacy procedures', 
+                             'decline participation') |
+          reason_V4 %in% c('not agree to efficacy procedures', 
+                             'decline participation') |
+          reason_V5 %in% c('not agree to efficacy procedures', 
+                             'decline participation') |
+          reason_V6 %in% c('not agree to efficacy procedures', 
+                             'decline participation') |
+          reason_V7 %in% c('not agree to efficacy procedures', 
+                             'decline participation')))
+  num_not_enrol_other_2 <- not_enrol_other_2 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+   # absent
+  not_enrol_absent_2 <- not_enrolled %>% 
+    filter(assignment == 2,
+           !extid %in% not_enrol_ref_2$extid,
+           !extid %in% not_enrol_mig_died_2$extid,
+           !extid %in% not_enrol_eligible_2$extid,
+           !extid %in% not_enrol_other_2$extid,
+           reason_V1 == 'absent' | reason_V2 == 'absent' | 
+             reason_V3 == 'absent' | reason_V4 == 'absent') 
+  num_not_enrol_absent_2 <- not_enrol_absent_2 %>% 
+    distinct(extid) %>% 
+    nrow()
+  
 
 
 # calculate enrolled subjects
@@ -2560,6 +2817,275 @@ enrolled_2 <- enrolled %>%
     distinct(extid) %>% 
     nrow()
 
+# calculate visited per visit 
+# calculate valid test per visit
+# calculate invalid test per visit
+
+  enrolled_tested_v1_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V1') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_valid_v1_2 <- eff_results %>% 
+    filter(visit == 'V1',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v1_2 <- eff_results %>% 
+    filter(visit == 'V1',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  # remember here that the number of treated and not took drug is only looking at in people so the others are not accounted for
+  
+# v2
+enrolled_tested_v2_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment == 2,
+           visit == 'V2') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_valid_v2_2 <- eff_results %>% 
+    filter(visit == 'V2',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v2_2 <- eff_results %>% 
+    filter(visit == 'V2',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  # remember here that the number of treated and not took drug is only looking at in people so the others are not accounted for
+  
+# v3
+  enrolled_tested_v3_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V3') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_valid_v3_2 <- eff_results %>% 
+    filter(visit == 'V3',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v3_2 <- eff_results %>% 
+    filter(visit == 'V3',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+
+# v4
+  enrolled_tested_v4_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V4') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_valid_v4_2 <- eff_results %>% 
+    filter(visit == 'V4',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v4_2 <- eff_results %>% 
+    filter(visit == 'V4',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+
+# v5  
+  enrolled_tested_v5_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V5') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_valid_v5_2 <- eff_results %>% 
+    filter(visit == 'V5',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v5_2 <- eff_results %>% 
+    filter(visit == 'V5',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+# v6
+  
+  enrolled_tested_v6_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V6') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_valid_v6_2 <- eff_results %>% 
+    filter(visit == 'V6',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v6_2 <- eff_results %>% 
+    filter(visit == 'V6',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'in',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+# v7
+  enrolled_tested_v7_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V7') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_valid_v7_2 <- eff_results %>% 
+    filter(visit == 'V7',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'completion',
+           (desiccant_color == 'Blue' | desiccant_color_2 == 'Blue') &
+             (rdt_control_window == 'b' | rdt_control_window_b == 'b') &
+             combination != 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  
+  enrolled_invalid_v7_2 <- eff_results %>% 
+    filter(visit == 'V7',
+           assignment == 2,
+           extid %in% enrolled$extid,
+           efficacy_status == 'completion',
+           combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+
+# calculate early termination 
+  
+  enrolled_eos_fu_v2_2 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V2',
+           assignment == 2, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_v3_2 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V3',
+           assignment == 2, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_v4_2 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V4',
+           assignment == 2, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_v5_2 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V5',
+           assignment == 2, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_v6_2 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V6',
+           assignment == 2, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_eos_fu_v7_2 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V7',
+           assignment == 2, 
+           enrolment == 'follow up',
+           efficacy_status == 'eos') %>% 
+    distinct(extid) %>% 
+    nrow()
+
+  
 # create flowchart
 flowchart_2 <- glue("
   digraph flowchart {{
@@ -2568,16 +3094,41 @@ flowchart_2 <- glue("
     preselected [label = '{efficacy_selected_2} pre-selected children'];
     extids_visited [label = '{extid_visited_2} children visited'];
     non_enrolled [label = '{non_enrolled_2} non-enrolled children'];
+    non_enrolled_reasons [label = 'Absent {num_not_enrol_absent_2}\nMigrated/Died {num_not_enrol_mig_died_2}\nRefusal {num_not_enrol_ref_2}\nNot eligible {num_not_enrol_eligible_2}\nOther {num_not_enrol_other_2}'];
     enrolled [label = '{enrolled_2} enrolled subjects'];
-    reasons [label = '{enrolled_tested_v1_2} tested subjects in V1\n{enrolled_tested_v2_2} tested subjects in V2\n{enrolled_tested_v3_2} tested subjects in V3\n{enrolled_tested_v4_2} tested subjects in V4\n{enrolled_tested_v5_2} tested subjects in V5\n{enrolled_tested_v6_2} tested subjects in V6\n{enrolled_tested_v7_2} tested subjects in V7'];
-    eos_fu [label = '{enrolled_eos_fu_2} did not complete the study'];
+    v1 [label = '{enrolled_tested_v1_2} visited in V1\nTreated in V1: {enrolled_valid_v1_2}\nDrug not taken in V1: {enrolled_invalid_v1_2}'];
+    v2 [label = '{enrolled_tested_v2_2} visited in V2\nTreated in V2: {enrolled_valid_v2_2}\nDrug not taken in V2: {enrolled_invalid_v2_2}'];
+    v3 [label = '{enrolled_tested_v3_2} visited in V3\nTreated in V3: {enrolled_valid_v3_2}\nDrug not taken in V3: {enrolled_invalid_v3_2}'];
+    v4 [label = '{enrolled_tested_v4_2} visited in V4\nTreated in V4: {enrolled_valid_v4_2}\nDrug not taken in V4: {enrolled_invalid_v4_2}'];
+    v5 [label = '{enrolled_tested_v5_2} visited in V5\nTreated in V5: {enrolled_valid_v5_2}\nDrug not taken in V5: {enrolled_invalid_v5_2}'];
+    v6 [label = '{enrolled_tested_v6_2} visited in V6\nTreated in V6: {enrolled_valid_v6_2}\nDrug not taken in V6: {enrolled_invalid_v6_2}'];
+    v7 [label = '{enrolled_tested_v7_2} visited in V7\nTreated in V7: {enrolled_valid_v7_2}\nDrug not taken in V7: {enrolled_invalid_v7_2}'];
+    eos_fu_v2 [label = 'Early termination in V2: {enrolled_eos_fu_v2_2}'];
+    eos_fu_v3 [label = 'Early termination in V3: {enrolled_eos_fu_v3_2}'];
+    eos_fu_v4 [label = 'Early termination in V4: {enrolled_eos_fu_v4_2}'];
+    eos_fu_v5 [label = 'Early termination in V5: {enrolled_eos_fu_v5_2}'];
+    eos_fu_v6 [label = 'Early termination in V6: {enrolled_eos_fu_v6_2}'];
+    eos_fu_v7 [label = 'Early termination in V7: {enrolled_eos_fu_v7_2}'];
+    
 
     # Define edges
     preselected -> extids_visited;
     extids_visited -> non_enrolled;
+    non_enrolled -> non_enrolled_reasons;
     extids_visited -> enrolled;
-    enrolled -> reasons;
-    reasons -> eos_fu;
+    enrolled -> v1;
+    v1 -> v2;
+    v2 -> eos_fu_v2;
+    v2 -> v3;
+    v3 -> eos_fu_v3;
+    v3 -> v4;
+    v4 -> eos_fu_v4;
+    v4 -> v5;
+    v5 -> eos_fu_v5;
+    v5 -> v6;
+    v6 -> eos_fu_v6;
+    v6 -> v7;
+    v7 -> eos_fu_v7;
   }}
 ")
 
