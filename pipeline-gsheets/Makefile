@@ -5,6 +5,7 @@ prep:
 	mkdir key
 	mkdir input
 	mkdir output
+	mkdir ento_labs_output
 
 get_key:
 	aws secretsmanager get-secret-value --secret-id ${SECRET_ID} --query SecretString --output text > key/key.json
@@ -30,6 +31,7 @@ update_google_sheets:
 	. gsheets_src/venv/bin/activate
 	python3 gsheets_src/anomalies_populate.py
 	python3 gsheets_src/ento_populate.py
+	python3 gsheets_src/ento_update.py
 
 store_ento_sheets_to_aws:
 	aws s3 sync ento_labs_output s3://bohemia-external-data-repository/ento/labs/
