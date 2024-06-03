@@ -201,9 +201,7 @@ GSHEETS_TARGET = 'ento-labs' + '-' + 'production'
 gc = pg.authorize(service_file='key/key.json')
 
 # get output
-outdir = './ento_labs_output'
-if not os.path.exists(outdir):
-    os.mkdir(outdir)
+outdir = 'ento_labs_output'
 
 # open gsheets
 sh = gc.open(GSHEETS_TARGET)
