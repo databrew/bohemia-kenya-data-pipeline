@@ -9,7 +9,7 @@ prep:
 get_key:
 	aws secretsmanager get-secret-value --secret-id ${SECRET_ID} --query SecretString --output text > key/key.json
 
-get_detected_anomalies:
+get_data:
 	aws s3 cp s3://${BUCKET_NAME}/bohemia_prod/anomalies_detection/anomalies_detection.csv input/anomalies_detection.csv
 	aws s3 cp s3://${BUCKET_NAME}/bohemia_prod/dwh/ento_labs_individual_mosquitoes_cdc/ento_labs_individual_mosquitoes_cdc.csv input/ento_labs_individual_mosquitoes_cdc.csv
 	aws s3 cp s3://${BUCKET_NAME}/bohemia_prod/dwh/ento_labs_pooled_mosquitoes_cdc/ento_labs_pooled_mosquitoes_cdc.csv input/ento_labs_pooled_mosquitoes_cdc.csv
@@ -31,5 +31,8 @@ update_google_sheets:
 	python3 gsheets_src/anomalies_populate.py
 	python3 gsheets_src/ento_populate.py
 
+store_ento_sheets_to_aws:
+	aws s3 sync ento_labs_output s3://bohemia-external-data-repository/ento/labs/
+
 	
-pipeline: prep get_key get_detected_anomalies get_curr_resolution get_ever_resolved update_google_sheets
+pipeline: prep get_key get_data get_curr_resolution get_ever_resolved update_google_sheets store_ento_sheets_to_aws
