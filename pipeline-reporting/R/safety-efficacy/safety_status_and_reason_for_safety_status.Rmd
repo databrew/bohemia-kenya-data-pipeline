@@ -1238,7 +1238,7 @@ v4_hhid_visited_extid_not <- semi_join(v4_not_visited, v4safety, by='hhid')
                 values_from = c(starting_safety_status, safety_status)) %>%
     select(extid, hhid, safety_status_V1, starting_safety_status_V1, safety_status_V2, starting_safety_status_V2, safety_status_V3, starting_safety_status_V3, safety_status_V4, starting_safety_status_V4,  
           assignment, cluster) 
-`
+
 
 status_pathway <- by_path %>%
   filter(
@@ -2339,28 +2339,38 @@ enrolled_1 <- enrolled %>%
     nrow()
   
   # number of women who became pregnant at a follow up visit and took drug in the prior visit
-  enrolled_preg_1 <- data %>% 
+  enrolled_preg_v2_1 <- data %>% 
     filter(assignment == 1,
-           pregnancy_status == 'in') %>% 
-    group_by(extid) %>% 
-    arrange(visit) %>% 
-    slice_head() 
-  
-  # Define a function to extract numeric part from visit strings
-  extract_numeric <- function(visit_string) {
-    as.numeric(sub("V", "", visit_string))
-  }
-  
-  enrolled_preg_1$visit_numeric <- extract_numeric(enrolled_preg_1$visit)
-  
-  took_drug_1 <- data %>% 
-  filter(extid %in% enrolled_preg_1$extid,
-         extract_numeric(visit) == enrolled_preg_1$visit_numeric - 1,
-         took_drug == 'yes') %>% 
+           visit == 'V2',
+           extid %in% enrolled$extid,
+           safety_status != 'out',
+           pregnancy_status == 'in') #12 
+  enrolled_preg_v2_1_num <- enrolled_preg_v2_1 %>% 
     distinct(extid) %>% 
     nrow()
-    
-
+  
+  enrolled_preg_v3_1 <- data %>% 
+    filter(assignment == 1,
+           visit == 'V3',
+           extid %in% enrolled$extid,
+           safety_status != 'out',
+           pregnancy_status == 'in',
+           !(extid %in% enrolled_preg_v2_1$extid)) # 26
+  enrolled_preg_v3_1_num <- enrolled_preg_v3_1 %>%  
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_preg_v4_1_num <- data %>% 
+    filter(assignment == 1,
+           visit == 'V4',
+           extid %in% enrolled$extid,
+           safety_status != 'out',
+           pregnancy_status == 'in',
+           !(extid %in% enrolled_preg_v3_1$extid),
+           !(extid %in% enrolled_preg_v2_1$extid)) %>% # 48
+    distinct(extid) %>% 
+    nrow()
+  
 # create flowchart
 flowchart_1 <- glue("
   digraph flowchart {{
@@ -2378,6 +2388,9 @@ flowchart_1 <- glue("
     v2_eos [label = 'Early termination in V2: {enrolled_eos_fu_v2_1}'];
     v3_eos [label = 'Early termination in V3: {enrolled_eos_fu_v3_1}'];
     v4_eos [label = 'Early termination in V4: {enrolled_eos_fu_v4_1}'];
+    v2_pregnant [label = 'Pregnant women in V2: {enrolled_preg_v2_1_num}'];
+    v3_pregnant [label = 'Pregnant women in V3: {enrolled_preg_v3_1_num}'];
+    v4_pregnant [label = 'Pregnant women in V4: {enrolled_preg_v4_1_num}'];
     
 
     # Define edges
@@ -2392,6 +2405,9 @@ flowchart_1 <- glue("
     v2_reasons -> v2_eos;
     v3_reasons -> v3_eos;
     v4_reasons -> v4_eos;
+    v2_eos -> v2_pregnant;
+    v3_eos -> v3_pregnant;
+    v4_eos -> v4_pregnant;
   }}
 ")
 
@@ -2545,11 +2561,40 @@ enrolled_2 <- enrolled %>%
   summarise(ext_enrolled_2 = n_distinct(extid)) %>%
   pull(ext_enrolled_2)
 
+# calculate treated, not treated, and visited for each visit
+  # v1: in V1 you have 1070 out people who did not enrol yet
+  enrolled_visited_v1_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V1',
+           safety_status != 'out') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
   enrolled_treated_v1_2 <- data %>% 
     filter(extid %in% enrolled$extid,
            assignment ==2,
            visit == 'V1',
-           took_drug == 'yes') %>% 
+           took_drug == 'yes',
+           safety_status != 'out') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_not_treated_v1_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V1',
+           !(safety_status %in% c('eos', 'out')),
+           took_drug == 'no') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+#v2: in V2 you have 295 people who are not eos who have an NA for took_drug because they are absent (adding this makes the total visited subjects)
+  enrolled_visited_v2_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V2',
+           safety_status != 'out') %>% 
     distinct(extid) %>% 
     nrow()
   
@@ -2557,7 +2602,26 @@ enrolled_2 <- enrolled %>%
     filter(extid %in% enrolled$extid,
            assignment ==2,
            visit == 'V2',
-           took_drug == 'yes') %>% 
+           took_drug == 'yes',
+           safety_status != 'out') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_not_treated_v2_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V2',
+           !(safety_status %in% c('eos', 'out')),
+           took_drug == 'no') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+#v3: in V3 you have 468 people who are not eos who have an NA for took_drug (468 absences)
+  enrolled_visited_v3_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V3',
+           safety_status != 'out') %>% 
     distinct(extid) %>% 
     nrow()
   
@@ -2565,46 +2629,99 @@ enrolled_2 <- enrolled %>%
     filter(extid %in% enrolled$extid,
            assignment ==2,
            visit == 'V3',
-           took_drug == 'yes') %>% 
+           took_drug == 'yes',
+           safety_status != 'out') %>% 
     distinct(extid) %>% 
     nrow()
   
-  enrolled_comp_2 <- data %>% 
+  enrolled_not_treated_v3_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V3',
+           !(safety_status %in% c('eos', 'out')),
+           took_drug == 'no') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+#v4: there were only 9222 people who started safety status in while the other people visited were out, refusal, or previously eos
+  enrolled_visited_v4_2 <- data %>% 
     filter(assignment ==2,
+           visit == 'V4',
+           safety_status != 'out') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_comp_v4_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V4',
            safety_status == 'completion') %>% 
     distinct(extid) %>% 
     nrow()
-  
-  enrolled_eos_fu_2 <- data %>% 
+
+# calculate early termination for V2, V3, V4
+  # V2
+  enrolled_eos_fu_v2_2 <- data %>% 
     filter(extid %in% enrolled$extid,
            assignment == 2, 
            enrolment == 'follow up',
-           safety_status == 'eos') %>% 
+           safety_status == 'eos',
+           visit == 'V2') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # V3
+  enrolled_eos_fu_v3_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment == 2, 
+           enrolment == 'follow up',
+           safety_status == 'eos',
+           visit == 'V3') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  # V4
+  enrolled_eos_fu_v4_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment == 2, 
+           enrolment == 'follow up',
+           !(starting_safety_status %in% c('out', 'eos', 'refusal')),
+           safety_status == 'eos',
+           visit == 'V4') %>% 
     distinct(extid) %>% 
     nrow()
   
   # number of women who became pregnant at a follow up visit and took drug in the prior visit
-  enrolled_preg_2 <- data %>% 
+  enrolled_preg_v2_2 <- data %>% 
     filter(assignment == 2,
-           pregnancy_status == 'in') %>% 
-    group_by(extid) %>% 
-    arrange(visit) %>% 
-    slice_head() 
-  
-  # Define a function to extract numeric part from visit strings
-  extract_numeric <- function(visit_string) {
-    as.numeric(sub("V", "", visit_string))
-  }
-  
-  enrolled_preg_2$visit_numeric <- extract_numeric(enrolled_preg_2$visit)
-  
-  took_drug_2 <- data %>% 
-  filter(extid %in% enrolled_preg_2$extid,
-         extract_numeric(visit) == enrolled_preg_2$visit_numeric - 1,
-         took_drug == 'yes') %>% 
+           visit == 'V2',
+           extid %in% enrolled$extid,
+           safety_status != 'out',
+           pregnancy_status == 'in') #21
+  enrolled_preg_v2_2_num <- enrolled_preg_v2_2 %>% 
     distinct(extid) %>% 
     nrow()
-    
+  
+  enrolled_preg_v3_2 <- data %>% 
+    filter(assignment == 2,
+           visit == 'V3',
+           extid %in% enrolled$extid,
+           safety_status != 'out',
+           pregnancy_status == 'in') # 49
+  enrolled_preg_v3_2_num <- enrolled_preg_v3_2 %>%  
+    distinct(extid) %>% 
+    nrow()
+  
+  enrolled_preg_v4_2_num <- data %>% 
+    filter(assignment == 2,
+           visit == 'V4',
+           extid %in% enrolled$extid,
+           safety_status != 'out',
+           pregnancy_status == 'in',
+           !(extid %in% enrolled_preg_v3_2$extid),
+           !(extid %in% enrolled_preg_v2_2$extid)) %>% # 18
+    distinct(extid) %>% 
+    nrow()
 
 # create flowchart
 flowchart_2 <- glue("
@@ -2616,18 +2733,33 @@ flowchart_2 <- glue("
     non_enrolled [label = '{non_enrolled_2} non-enrolled subjects'];
     enrolled [label = '{enrolled_2} enrolled subjects'];
     non_reasons [label = 'Absent {num_not_enrol_absent_2}\nMigrated/Died {num_not_enrol_mig_died_2}\nRefusal {num_not_enrol_ref_2}\nNot eligible {num_not_enrol_eligible_2}\nOther {num_not_enrol_other_2}'];
-    reasons [label = '{enrolled_treated_v1_2} treated subjects in V1\n{enrolled_treated_v2_2} treated subjects in V2\n{enrolled_treated_v3_2} treated subjects in V3\n{enrolled_comp_2} completed the study'];
-    eos_fu [label = '{enrolled_eos_fu_2} did not complete the study'];
-    pregnant [label = '{took_drug_2} women became pregnant (PFU)'];
+    v1_reasons [label = '{enrolled_visited_v1_2} visited subjects in V1\n{enrolled_treated_v1_2} treated subjects in V1\n{enrolled_not_treated_v1_2} did not take drug in V1'];
+    v2_reasons [label = '{enrolled_visited_v2_2} visited subjects in V2\n{enrolled_treated_v2_2} treated subjects in V2\n{enrolled_not_treated_v2_2} did not take drug in V2'];
+    v3_reasons [label = '{enrolled_visited_v3_2} visited subjects in V3\n{enrolled_treated_v3_2} treated subjects in V3\n{enrolled_not_treated_v3_2} did not take drug in V3'];
+    v4_reasons [label = '{enrolled_visited_v4_2} visited subjects in V4\n{enrolled_comp_v4_2} completed the study'];
+    v2_eos [label = 'Early termination in V2: {enrolled_eos_fu_v2_2}'];
+    v3_eos [label = 'Early termination in V3: {enrolled_eos_fu_v3_2}'];
+    v4_eos [label = 'Early termination in V4: {enrolled_eos_fu_v4_2}'];
+    v2_pregnant [label = 'Pregnant women in V2: {enrolled_preg_v2_2_num}'];
+    v3_pregnant [label = 'Pregnant women in V3: {enrolled_preg_v3_2_num}'];
+    v4_pregnant [label = 'Pregnant women in V4: {enrolled_preg_v4_2_num}'];
+    
 
     # Define edges
     households_visited -> visited_subjects;
     visited_subjects -> non_enrolled;
     visited_subjects -> enrolled;
     non_enrolled -> non_reasons;
-    enrolled -> reasons;
-    reasons -> eos_fu;
-    eos_fu -> pregnant;
+    enrolled -> v1_reasons;
+    v1_reasons -> v2_reasons;
+    v2_reasons -> v3_reasons;
+    v3_reasons -> v4_reasons;
+    v2_reasons -> v2_eos;
+    v3_reasons -> v3_eos;
+    v4_reasons -> v4_eos;
+    v2_eos -> v2_pregnant;
+    v3_eos -> v3_pregnant;
+    v4_eos -> v4_pregnant;
   }}
 ")
 
