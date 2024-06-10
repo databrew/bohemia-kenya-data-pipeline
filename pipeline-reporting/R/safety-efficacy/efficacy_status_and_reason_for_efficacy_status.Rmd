@@ -175,7 +175,6 @@ individuals <- efficacy %>%
       TRUE ~ 'follow up'
     ),
           efficacy_reason = case_when(
-            efficacy_status == 'in' ~ 'in',
             not_continue_eos == '1' ~ 'decline participation',
             not_agree_efficacy_procedures_eos == '1' ~ 'not agree to efficacy procedures',
             non_resident_eos == '1' ~ 'not a resident',
@@ -189,6 +188,7 @@ individuals <- efficacy %>%
             sign_icf_status == '0' ~ 'sign icf status',
             minor_assent_status == '0' ~ 'minor assent',
             ltfu == 'TRUE' ~ 'ltfu: > 60 days',
+            efficacy_status == 'in' ~ 'in',
             #ltfu_eos == '1' ~ 'ltfu: > 60 days',
             TRUE ~ NA_character_  # To handle cases that don't match any condition
     ))
@@ -1729,7 +1729,7 @@ efficacy_v2_in <- eff %>%
 ```{r rdt-results}
 # present the rdt results for the different visits
   eff_results <- df %>%
-    select(extid, cluster, pan_result, pf_result, visit, efficacy_status, assignment, desiccant_color, desiccant_color_2, rdt_control_window, rdt_control_window_b) %>%
+    select(extid, cluster, pan_result, pf_result, visit, starting_efficacy_status, efficacy_status, efficacy_reason, assignment, desiccant_color, desiccant_color_2, rdt_control_window, rdt_control_window_b) %>%
     mutate(combination = case_when(pan_result == 'Positive' & pf_result == 'Positive' ~ 'pan + pf +',
                                    pan_result == 'Negative' & pf_result == 'Negative' ~ 'pan - pf -',
                                    pan_result == 'Positive' & pf_result == 'Negative' ~ 'pan + pf -',
@@ -2337,6 +2337,7 @@ enrolled_1 <- enrolled %>%
 # calculate visited per visit 
 # calculate valid test per visit
 # calculate invalid test per visit
+# calculate number of absences per visit
 
   enrolled_tested_v1_1 <- eff_results %>% 
     filter(extid %in% enrolled$extid,
@@ -2362,10 +2363,20 @@ enrolled_1 <- enrolled %>%
            assignment == 1,
            extid %in% enrolled$extid,
            efficacy_status == 'in',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
     distinct(extid) %>% 
     nrow()
-  # remember here that the number of treated and not took drug is only looking at in people so the others are not accounted for
+  
+  enrol_absent_v1_1 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V1',
+           efficacy_reason == 'absent') %>% 
+    distinct(extid) %>% 
+    nrow()
   
 # v2
 enrolled_tested_v2_1 <- eff_results %>% 
@@ -2392,10 +2403,21 @@ enrolled_tested_v2_1 <- eff_results %>%
            assignment == 1,
            extid %in% enrolled$extid,
            efficacy_status == 'in',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
     distinct(extid) %>% 
     nrow()
-  # remember here that the number of treated and not took drug is only looking at in people so the others are not accounted for
+  # remember here that the number of Valid test and not took drug is only looking at in people so the others are not accounted for
+  
+  enrol_absent_v2_1 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V2',
+           efficacy_reason == 'absent') %>% 
+    distinct(extid) %>% 
+    nrow()
   
 # v3
   enrolled_tested_v3_1 <- eff_results %>% 
@@ -2415,6 +2437,7 @@ enrolled_tested_v2_1 <- eff_results %>%
              combination != 'blank test responses') %>% 
     distinct(extid) %>% 
     nrow()
+  # this number seems to be off because 07063-03 has a dessicant color of blue but a rdt panel of a. Also this person was ltfu but is still in? 
   
   
   enrolled_invalid_v3_1 <- eff_results %>% 
@@ -2422,7 +2445,18 @@ enrolled_tested_v2_1 <- eff_results %>%
            assignment == 1,
            extid %in% enrolled$extid,
            efficacy_status == 'in',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrol_absent_v3_1 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V3',
+           efficacy_reason == 'absent') %>% 
     distinct(extid) %>% 
     nrow()
   
@@ -2452,7 +2486,18 @@ enrolled_tested_v2_1 <- eff_results %>%
            assignment == 1,
            extid %in% enrolled$extid,
            efficacy_status == 'in',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrol_absent_v4_1 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V4',
+           efficacy_reason == 'absent') %>% 
     distinct(extid) %>% 
     nrow()
 
@@ -2481,7 +2526,18 @@ enrolled_tested_v2_1 <- eff_results %>%
            assignment == 1,
            extid %in% enrolled$extid,
            efficacy_status == 'in',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrol_absent_v5_1 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V5',
+           efficacy_reason == 'absent') %>% 
     distinct(extid) %>% 
     nrow()
   
@@ -2512,7 +2568,18 @@ enrolled_tested_v2_1 <- eff_results %>%
            assignment == 1,
            extid %in% enrolled$extid,
            efficacy_status == 'in',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrol_absent_v6_1 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V6',
+           efficacy_reason == 'absent') %>% 
     distinct(extid) %>% 
     nrow()
   
@@ -2542,9 +2609,14 @@ enrolled_tested_v2_1 <- eff_results %>%
            assignment == 1,
            extid %in% enrolled$extid,
            efficacy_status == 'completion',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
     distinct(extid) %>% 
     nrow()
+  
+  # do not include absences here because they are counted in the eos section 
 
 # calculate early termination 
   
@@ -2601,6 +2673,16 @@ enrolled_tested_v2_1 <- eff_results %>%
            efficacy_status == 'eos') %>% 
     distinct(extid) %>% 
     nrow()
+  
+  # calculate v7 completion
+  enrolled_comp_1 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V7',
+           assignment == 1, 
+           enrolment == 'follow up',
+           efficacy_status == 'completion') %>% 
+    distinct(extid) %>% 
+    nrow()
 
 # create flowchart
 flowchart_1 <- glue("
@@ -2612,13 +2694,13 @@ flowchart_1 <- glue("
     non_enrolled [label = '{non_enrolled_1} non-enrolled children'];
     non_enrolled_reasons [label = 'Absent {num_not_enrol_absent_1}\nMigrated/Died {num_not_enrol_mig_died_1}\nRefusal {num_not_enrol_ref_1}\nNot eligible {num_not_enrol_eligible_1}\nOther {num_not_enrol_other_1}'];
     enrolled [label = '{enrolled_1} enrolled subjects'];
-    v1 [label = '{enrolled_tested_v1_1} visited in V1\nTreated in V1: {enrolled_valid_v1_1}\nDrug not taken in V1: {enrolled_invalid_v1_1}'];
-    v2 [label = '{enrolled_tested_v2_1} visited in V2\nTreated in V2: {enrolled_valid_v2_1}\nDrug not taken in V2: {enrolled_invalid_v2_1}'];
-    v3 [label = '{enrolled_tested_v3_1} visited in V3\nTreated in V3: {enrolled_valid_v3_1}\nDrug not taken in V3: {enrolled_invalid_v3_1}'];
-    v4 [label = '{enrolled_tested_v4_1} visited in V4\nTreated in V4: {enrolled_valid_v4_1}\nDrug not taken in V4: {enrolled_invalid_v4_1}'];
-    v5 [label = '{enrolled_tested_v5_1} visited in V5\nTreated in V5: {enrolled_valid_v5_1}\nDrug not taken in V5: {enrolled_invalid_v5_1}'];
-    v6 [label = '{enrolled_tested_v6_1} visited in V6\nTreated in V6: {enrolled_valid_v6_1}\nDrug not taken in V6: {enrolled_invalid_v6_1}'];
-    v7 [label = '{enrolled_tested_v7_1} visited in V7\nTreated in V7: {enrolled_valid_v7_1}\nDrug not taken in V7: {enrolled_invalid_v7_1}'];
+    v1 [label = '{enrolled_tested_v1_1} visited in V1\nValid test in V1: {enrolled_valid_v1_1}\nInvalid test in V1: {enrolled_invalid_v1_1}\nAbsent in V1: {enrol_absent_v1_1}'];
+    v2 [label = '{enrolled_tested_v2_1} visited in V2\nValid test in V2: {enrolled_valid_v2_1}\nInvalid test in V2: {enrolled_invalid_v2_1}\nAbsent in V2: {enrol_absent_v2_1}'];
+    v3 [label = '{enrolled_tested_v3_1} visited in V3\nValid test in V3: {enrolled_valid_v3_1}\nInvalid test in V3: {enrolled_invalid_v3_1}\nAbsent in V3: {enrol_absent_v3_1}'];
+    v4 [label = '{enrolled_tested_v4_1} visited in V4\nValid test in V4: {enrolled_valid_v4_1}\nInvalid test in V4: {enrolled_invalid_v4_1}\nAbsent in V4: {enrol_absent_v4_1}'];
+    v5 [label = '{enrolled_tested_v5_1} visited in V5\nValid test in V5: {enrolled_valid_v5_1}\nInvalid test in V5: {enrolled_invalid_v5_1}\nAbsent in V5: {enrol_absent_v5_1}'];
+    v6 [label = '{enrolled_tested_v6_1} visited in V6\nValid test in V6: {enrolled_valid_v6_1}\nInvalid test in V6: {enrolled_invalid_v6_1}\nAbsent in V6: {enrol_absent_v6_1}'];
+    v7 [label = '{enrolled_tested_v7_1} visited in V7\nValid test in V7: {enrolled_valid_v7_1}\nInvalid test in V7: {enrolled_invalid_v7_1}\n{enrolled_comp_1} completed the study'];
     eos_fu_v2 [label = 'Early termination in V2: {enrolled_eos_fu_v2_1}'];
     eos_fu_v3 [label = 'Early termination in V3: {enrolled_eos_fu_v3_1}'];
     eos_fu_v4 [label = 'Early termination in V4: {enrolled_eos_fu_v4_1}'];
@@ -2820,6 +2902,7 @@ enrolled_2 <- enrolled %>%
 # calculate visited per visit 
 # calculate valid test per visit
 # calculate invalid test per visit
+  # calculate absences per visit (except v7 since this is included in eos section)
 
   enrolled_tested_v1_2 <- eff_results %>% 
     filter(extid %in% enrolled$extid,
@@ -2845,10 +2928,20 @@ enrolled_2 <- enrolled %>%
            assignment == 2,
            extid %in% enrolled$extid,
            efficacy_status == 'in',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
     distinct(extid) %>% 
     nrow()
-  # remember here that the number of treated and not took drug is only looking at in people so the others are not accounted for
+  
+  enrol_absent_v1_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V1',
+           efficacy_reason == 'absent') %>% 
+    distinct(extid) %>% 
+    nrow()
   
 # v2
 enrolled_tested_v2_2 <- eff_results %>% 
@@ -2875,10 +2968,20 @@ enrolled_tested_v2_2 <- eff_results %>%
            assignment == 2,
            extid %in% enrolled$extid,
            efficacy_status == 'in',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
     distinct(extid) %>% 
     nrow()
-  # remember here that the number of treated and not took drug is only looking at in people so the others are not accounted for
+  
+  enrol_absent_v2_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V2',
+           efficacy_reason == 'absent') %>% 
+    distinct(extid) %>% 
+    nrow()
   
 # v3
   enrolled_tested_v3_2 <- eff_results %>% 
@@ -2905,7 +3008,18 @@ enrolled_tested_v2_2 <- eff_results %>%
            assignment == 2,
            extid %in% enrolled$extid,
            efficacy_status == 'in',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrol_absent_v3_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V3',
+           efficacy_reason == 'absent') %>% 
     distinct(extid) %>% 
     nrow()
   
@@ -2935,7 +3049,18 @@ enrolled_tested_v2_2 <- eff_results %>%
            assignment == 2,
            extid %in% enrolled$extid,
            efficacy_status == 'in',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrol_absent_v4_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V4',
+           efficacy_reason == 'absent') %>% 
     distinct(extid) %>% 
     nrow()
 
@@ -2964,7 +3089,18 @@ enrolled_tested_v2_2 <- eff_results %>%
            assignment == 2,
            extid %in% enrolled$extid,
            efficacy_status == 'in',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrol_absent_v5_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V5',
+           efficacy_reason == 'absent') %>% 
     distinct(extid) %>% 
     nrow()
   
@@ -2995,7 +3131,18 @@ enrolled_tested_v2_2 <- eff_results %>%
            assignment == 2,
            extid %in% enrolled$extid,
            efficacy_status == 'in',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
+  enrol_absent_v6_2 <- eff_results %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V6',
+           efficacy_reason == 'absent') %>% 
     distinct(extid) %>% 
     nrow()
   
@@ -3025,6 +3172,9 @@ enrolled_tested_v2_2 <- eff_results %>%
            assignment == 2,
            extid %in% enrolled$extid,
            efficacy_status == 'completion',
+           ((desiccant_color %in% c('Pink', 'Colorless') & 
+              desiccant_color_2 %in% c('Pink', 'Colorless')) |
+              (rdt_control_window == 'a' & rdt_control_window_b == 'a')),
            combination == 'blank test responses') %>% 
     distinct(extid) %>% 
     nrow()
@@ -3084,6 +3234,16 @@ enrolled_tested_v2_2 <- eff_results %>%
            efficacy_status == 'eos') %>% 
     distinct(extid) %>% 
     nrow()
+  
+  # calculate v7 completion
+  enrolled_comp_2 <- df %>% 
+    filter(extid %in% enrolled$extid,
+           visit == 'V7',
+           assignment == 2, 
+           enrolment == 'follow up',
+           efficacy_status == 'completion') %>% 
+    distinct(extid) %>% 
+    nrow()
 
   
 # create flowchart
@@ -3096,13 +3256,13 @@ flowchart_2 <- glue("
     non_enrolled [label = '{non_enrolled_2} non-enrolled children'];
     non_enrolled_reasons [label = 'Absent {num_not_enrol_absent_2}\nMigrated/Died {num_not_enrol_mig_died_2}\nRefusal {num_not_enrol_ref_2}\nNot eligible {num_not_enrol_eligible_2}\nOther {num_not_enrol_other_2}'];
     enrolled [label = '{enrolled_2} enrolled subjects'];
-    v1 [label = '{enrolled_tested_v1_2} visited in V1\nTreated in V1: {enrolled_valid_v1_2}\nDrug not taken in V1: {enrolled_invalid_v1_2}'];
-    v2 [label = '{enrolled_tested_v2_2} visited in V2\nTreated in V2: {enrolled_valid_v2_2}\nDrug not taken in V2: {enrolled_invalid_v2_2}'];
-    v3 [label = '{enrolled_tested_v3_2} visited in V3\nTreated in V3: {enrolled_valid_v3_2}\nDrug not taken in V3: {enrolled_invalid_v3_2}'];
-    v4 [label = '{enrolled_tested_v4_2} visited in V4\nTreated in V4: {enrolled_valid_v4_2}\nDrug not taken in V4: {enrolled_invalid_v4_2}'];
-    v5 [label = '{enrolled_tested_v5_2} visited in V5\nTreated in V5: {enrolled_valid_v5_2}\nDrug not taken in V5: {enrolled_invalid_v5_2}'];
-    v6 [label = '{enrolled_tested_v6_2} visited in V6\nTreated in V6: {enrolled_valid_v6_2}\nDrug not taken in V6: {enrolled_invalid_v6_2}'];
-    v7 [label = '{enrolled_tested_v7_2} visited in V7\nTreated in V7: {enrolled_valid_v7_2}\nDrug not taken in V7: {enrolled_invalid_v7_2}'];
+    v1 [label = '{enrolled_tested_v1_2} visited in V1\nValid test in V1: {enrolled_valid_v1_2}\nInvalid test in V1: {enrolled_invalid_v1_2}\n Absent in V1: {enrol_absent_v1_2}'];
+    v2 [label = '{enrolled_tested_v2_2} visited in V2\nValid test in V2: {enrolled_valid_v2_2}\nInvalid test in V2: {enrolled_invalid_v2_2}\n Absent in V2: {enrol_absent_v2_2}'];
+    v3 [label = '{enrolled_tested_v3_2} visited in V3\nValid test in V3: {enrolled_valid_v3_2}\nInvalid test in V3: {enrolled_invalid_v3_2}\n Absent in V3: {enrol_absent_v3_2}'];
+    v4 [label = '{enrolled_tested_v4_2} visited in V4\nValid test in V4: {enrolled_valid_v4_2}\nInvalid test in V4: {enrolled_invalid_v4_2}\n Absent in V4: {enrol_absent_v4_2}'];
+    v5 [label = '{enrolled_tested_v5_2} visited in V5\nValid test in V5: {enrolled_valid_v5_2}\nInvalid test in V5: {enrolled_invalid_v5_2}\n Absent in V5: {enrol_absent_v5_2}'];
+    v6 [label = '{enrolled_tested_v6_2} visited in V6\nValid test in V6: {enrolled_valid_v6_2}\nInvalid test in V6: {enrolled_invalid_v6_2}\n Absent in V6: {enrol_absent_v6_2}'];
+    v7 [label = '{enrolled_tested_v7_2} visited in V7\nValid test in V7: {enrolled_valid_v7_2}\nInvalid test in V7: {enrolled_invalid_v7_2}\n {enrolled_comp_2} completed the study'];
     eos_fu_v2 [label = 'Early termination in V2: {enrolled_eos_fu_v2_2}'];
     eos_fu_v3 [label = 'Early termination in V3: {enrolled_eos_fu_v3_2}'];
     eos_fu_v4 [label = 'Early termination in V4: {enrolled_eos_fu_v4_2}'];
