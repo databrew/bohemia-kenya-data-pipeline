@@ -211,6 +211,12 @@ absence1stattempt <- absence1stattempt %>%
                  safety_status != 'out' ~ 'enrolment',
               TRUE ~ 'follow up'),
            safety_reason = case_when(
+             person_died_eos == '1' |
+               person_out_died == '1' ~ 'died',
+             person_migrated == '1' & 
+               starting_safety_status == 'in' |
+               person_out_migrated == '1' |
+               v4_migrate_absent_eos == '1' ~ 'migrated',
              non_resident_eos == '1' ~ 'not resident',
              weight_eos == '1' |
                weight_eos_short == '1' ~ 'under weight',
@@ -240,12 +246,6 @@ absence1stattempt <- absence1stattempt %>%
              refuse_drug_eos == '1' |
                refuse_drug_eos_2 == '1' ~ 'participant withdrew informed consent (refuse drug)',
              not_continue_eos == '1' ~ 'not wish to continue',
-             person_died_eos == '1' |
-               person_out_died == '1' ~ 'died',
-             person_migrated == '1' & 
-               starting_safety_status == 'in' |
-               person_out_migrated == '1' |
-               v4_migrate_absent_eos == '1' ~ 'migrated',
              obvious_screening == 'ineligible' ~ 'Ineligible at obvious reasoning',
              obvious_screening == 'Baby' ~ 'A baby that cannot walk yet',
              obvious_screening == 'Witness' |
@@ -1369,22 +1369,6 @@ status_pathway <- by_path %>%
     slice(1) %>%
     ungroup() 
   
-  enrol_v4_eos_table <- enrol_v4_eos_data %>%
-    arrange(visit) %>%
-    group_by(safety_reason, assignment) %>%
-    summarise('N' = n()) %>%
-    group_by(safety_reason) %>%
-    pivot_wider(names_from = assignment, values_from = N) %>%
-    ungroup() %>%
-    arrange(safety_reason) %>%
-    rename('EOS reason' = safety_reason) %>%
-    add_row('EOS reason' = 'total visited', 
-            '1' = sum(.$'1'),
-            '2' = sum(.$'2')) %>%
-    mutate(Total = `1` + `2`) %>%
-    rename('Assignment 1' = '1',
-           'Assignment 2' = '2')
-
 ```
 ```{r not_enrolled}
 
@@ -2208,7 +2192,7 @@ enrolled_1 <- enrolled %>%
   summarise(ext_enrolled_1 = n_distinct(extid)) %>%
   pull(ext_enrolled_1)
 
-# calculate treated, not treated, and visited for each visit
+# calculate treated, not treated, and visited for each visit and absent
   # v1: in V1 you have 1070 out people who did not enrol yet
   enrolled_visited_v1_1 <- data %>% 
     filter(extid %in% enrolled$extid,
@@ -2263,6 +2247,15 @@ enrolled_1 <- enrolled %>%
     distinct(extid) %>% 
     nrow()
   
+  enrol_absent_v2_1 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V2',
+           safety_status != 'out',
+           safety_reason == 'absent') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
 #v3: in V3 you have 468 people who are not eos who have an NA for took_drug (468 absences)
   enrolled_visited_v3_1 <- data %>% 
     filter(extid %in% enrolled$extid,
@@ -2290,10 +2283,20 @@ enrolled_1 <- enrolled %>%
     distinct(extid) %>% 
     nrow()
   
+  enrol_absent_v3_1 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==1,
+           visit == 'V3',
+           safety_status != 'out',
+           safety_reason == 'absent') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
 #v4: there were only 9222 people who started safety status in while the other people visited were out, refusal, or previously eos
   enrolled_visited_v4_1 <- data %>% 
     filter(assignment ==1,
            visit == 'V4',
+           !starting_safety_status %in% c('refusal', 'eos'),
            safety_status != 'out') %>% 
     distinct(extid) %>% 
     nrow()
@@ -2382,8 +2385,8 @@ flowchart_1 <- glue("
     enrolled [label = '{enrolled_1} enrolled subjects'];
     non_reasons [label = 'Absent {num_not_enrol_absent_1}\nMigrated/Died {num_not_enrol_mig_died_1}\nRefusal {num_not_enrol_ref_1}\nNot eligible {num_not_enrol_eligible_1}\nOther {num_not_enrol_other_1}'];
     v1_reasons [label = '{enrolled_visited_v1_1} visited subjects in V1\n{enrolled_treated_v1_1} treated subjects in V1\n{enrolled_not_treated_v1_1} did not take drug in V1'];
-    v2_reasons [label = '{enrolled_visited_v2_1} visited subjects in V2\n{enrolled_treated_v2_1} treated subjects in V2\n{enrolled_not_treated_v2_1} did not take drug in V2'];
-    v3_reasons [label = '{enrolled_visited_v3_1} visited subjects in V3\n{enrolled_treated_v3_1} treated subjects in V3\n{enrolled_not_treated_v3_1} did not take drug in V3'];
+    v2_reasons [label = '{enrolled_visited_v2_1} visited subjects in V2\n{enrolled_treated_v2_1} treated subjects in V2\n{enrolled_not_treated_v2_1} did not take drug in V2\n{enrol_absent_v2_1} absent in V2'];
+    v3_reasons [label = '{enrolled_visited_v3_1} visited subjects in V3\n{enrolled_treated_v3_1} treated subjects in V3\n{enrolled_not_treated_v3_1} did not take drug in V3\n{enrol_absent_v3_1} absent in V3'];
     v4_reasons [label = '{enrolled_visited_v4_1} visited subjects in V4\n{enrolled_comp_v4_1} completed the study'];
     v2_eos [label = 'Early termination in V2: {enrolled_eos_fu_v2_1}'];
     v3_eos [label = 'Early termination in V3: {enrolled_eos_fu_v3_1}'];
@@ -2616,6 +2619,15 @@ enrolled_2 <- enrolled %>%
     distinct(extid) %>% 
     nrow()
   
+  enrol_absent_v2_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V2',
+           safety_status != 'out',
+           safety_reason == 'absent') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
 #v3: in V3 you have 468 people who are not eos who have an NA for took_drug (468 absences)
   enrolled_visited_v3_2 <- data %>% 
     filter(extid %in% enrolled$extid,
@@ -2643,10 +2655,20 @@ enrolled_2 <- enrolled %>%
     distinct(extid) %>% 
     nrow()
   
+  enrol_absent_v3_2 <- data %>% 
+    filter(extid %in% enrolled$extid,
+           assignment ==2,
+           visit == 'V3',
+           safety_status != 'out',
+           safety_reason == 'absent') %>% 
+    distinct(extid) %>% 
+    nrow()
+  
 #v4: there were only 9222 people who started safety status in while the other people visited were out, refusal, or previously eos
   enrolled_visited_v4_2 <- data %>% 
     filter(assignment ==2,
            visit == 'V4',
+           !starting_safety_status %in% c('refusal', 'eos'),
            safety_status != 'out') %>% 
     distinct(extid) %>% 
     nrow()
@@ -2734,8 +2756,8 @@ flowchart_2 <- glue("
     enrolled [label = '{enrolled_2} enrolled subjects'];
     non_reasons [label = 'Absent {num_not_enrol_absent_2}\nMigrated/Died {num_not_enrol_mig_died_2}\nRefusal {num_not_enrol_ref_2}\nNot eligible {num_not_enrol_eligible_2}\nOther {num_not_enrol_other_2}'];
     v1_reasons [label = '{enrolled_visited_v1_2} visited subjects in V1\n{enrolled_treated_v1_2} treated subjects in V1\n{enrolled_not_treated_v1_2} did not take drug in V1'];
-    v2_reasons [label = '{enrolled_visited_v2_2} visited subjects in V2\n{enrolled_treated_v2_2} treated subjects in V2\n{enrolled_not_treated_v2_2} did not take drug in V2'];
-    v3_reasons [label = '{enrolled_visited_v3_2} visited subjects in V3\n{enrolled_treated_v3_2} treated subjects in V3\n{enrolled_not_treated_v3_2} did not take drug in V3'];
+    v2_reasons [label = '{enrolled_visited_v2_2} visited subjects in V2\n{enrolled_treated_v2_2} treated subjects in V2\n{enrolled_not_treated_v2_2} did not take drug in V2\n{enrol_absent_v2_2} absent in V2'];
+    v3_reasons [label = '{enrolled_visited_v3_2} visited subjects in V3\n{enrolled_treated_v3_2} treated subjects in V3\n{enrolled_not_treated_v3_2} did not take drug in V3\n{enrol_absent_v3_2} absent in V3'];
     v4_reasons [label = '{enrolled_visited_v4_2} visited subjects in V4\n{enrolled_comp_v4_2} completed the study'];
     v2_eos [label = 'Early termination in V2: {enrolled_eos_fu_v2_2}'];
     v3_eos [label = 'Early termination in V3: {enrolled_eos_fu_v3_2}'];
@@ -3087,8 +3109,6 @@ reactable(trial_by_visit, columns = list(), pagination = FALSE)
 reactable(enrol_eos_table, columns = list(), pagination = FALSE)
 
 reactable(enrol_comp_table, columns = list(), pagination = FALSE)
-
-reactable(enrol_v4_eos_table, columns = list(), pagination = FALSE)
 ```
 *Note: the `r v4_pregnant_women_stat` women found pregnant in V4 are included in the Enrolled reason completion table.*
 
