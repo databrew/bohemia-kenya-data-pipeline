@@ -56,6 +56,9 @@ DATA_LAKE_BUCKET_NAME <- 'bohemia-lake-db'
 PROJECT_SOURCE <- 'kwale'
 SE_FOLDER_TARGET <- glue::glue('{PROJECT_SOURCE}/clean-form')
 MIN_DATE <- lubridate::date('2023-11-05')
+
+#https://bohemiakenya.slack.com/archives/D0557L70B6J/p1718000013944239?thread_ts=1717478861.996399&cid=D0557L70B6J - shadhrack
+CLUSER_TO_EXCLUDE <- c('21')
 ```
 
 
@@ -878,7 +881,8 @@ df <- data_list %>%
 ## Overdosing/Underdosing Summary
 ```{r}
 tbl <- df %>% 
-    dplyr::filter(run_date >= MIN_DATE) %>% 
+    dplyr::filter(run_date >= MIN_DATE,
+                  !cluster %in% CLUSER_TO_EXCLUDE) %>% 
     dplyr::group_by(iptype, run_date) %>% 
     dplyr::summarise(`Individual Overdose` = n_distinct(extid[overdose==1]),
                      `Individual Underdose` = n_distinct(extid[underdose==1]))
@@ -894,6 +898,7 @@ curr_week <- floor_date(lubridate::today(), 'week')
 
 element_id <- 'pharmacy_overdosing'
 tbl <- reactable(df %>% 
+            dplyr::filter(!cluster %in% CLUSER_TO_EXCLUDE) %>%
             dplyr::filter(overdose == 1) %>% 
             dplyr::filter(run_date == max(.$run_date)) %>% 
             dplyr::select(-underdose, -overdose, -location) %>%
