@@ -200,10 +200,11 @@ absence1stattempt <- absence1stattempt %>%
   # join these two new dataframes
   total_safety <- bind_rows(joined_safety, joined_safetynew) %>%
     mutate(cluster = as.numeric(substr(extid, 1, 2)),
-           took_drug = coalesce(participant_take_drug, 
-                                participant_take_drug_2, 
-                                take_drug_safetynew, 
-                                take_drug_2_safetynew),
+           took_drug = case_when(
+             participant_take_drug == 'no' & participant_take_drug_2 == 'yes' ~ 'yes',
+             participant_take_drug == 'yes' ~ 'yes',
+             take_drug_safetynew == 'no' & take_drug_2_safetynew == 'yes' ~ 'yes',
+             take_drug_safetynew == 'yes' ~ 'yes'),
            safetystatus = safety_status,
            enrolment = case_when(
                 (starting_safety_status == 'out' |
