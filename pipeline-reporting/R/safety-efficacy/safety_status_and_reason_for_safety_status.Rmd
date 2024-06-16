@@ -1319,7 +1319,7 @@ status_pathway <- by_path %>%
   enrol_eos_table <- enrol_eos_data %>%
     arrange(visit) %>%
     group_by(safety_reason, assignment) %>%
-    distinct(extid) %>% # 95076-02 went in to eos in V2 and V3 making the flowcharts numbers different than the tables which is why this code is here
+    distinct(extid) %>% # 95076-02 went in to eos in V2 and V3 making the flowcharts numbers different than the tables which is why this is different
     summarise('N' = n()) %>%
     group_by(safety_reason) %>%
     pivot_wider(names_from = assignment, values_from = N) %>%
@@ -2347,37 +2347,29 @@ enrolled_1 <- enrolled %>%
     nrow()
   
   # number of women who became pregnant at a follow up visit and took drug in the prior visit
-  enrolled_preg_v2_1 <- data %>% 
+  pregnancy_data_1 <- data %>% 
     filter(assignment == 1,
-           visit == 'V2',
-           extid %in% enrolled$extid,
-           safety_status != 'out',
-           pregnancy_status == 'in') #12 
+           pregnancy_status == 'in') %>% 
+    arrange(visit) %>% 
+    group_by(extid) %>% 
+    slice(1) %>%
+  ungroup()
+  
+  enrolled_preg_v2_1 <- pregnancy_data_1 %>% 
+    filter(visit == 'V2') #12 
   enrolled_preg_v2_1_num <- enrolled_preg_v2_1 %>% 
     distinct(extid) %>% 
     nrow()
-  
-  enrolled_preg_v3_1 <- data %>% 
-    filter(assignment == 1,
-           visit == 'V3',
-           extid %in% enrolled$extid,
-           safety_status != 'out',
-           pregnancy_status == 'in',
-           !(extid %in% enrolled_preg_v2_1$extid)) # 26
-  enrolled_preg_v3_1_num <- enrolled_preg_v3_1 %>%  
+  enrolled_preg_v3_1 <- pregnancy_data_1 %>% 
+    filter(visit == 'V3') #12 
+  enrolled_preg_v3_1_num <- enrolled_preg_v3_1 %>% 
     distinct(extid) %>% 
     nrow()
-  
-  enrolled_preg_v4_1_num <- data %>% 
-    filter(assignment == 1,
-           visit == 'V4',
-           extid %in% enrolled$extid,
-           safety_status != 'out',
-           pregnancy_status == 'in',
-           !(extid %in% enrolled_preg_v3_1$extid),
-           !(extid %in% enrolled_preg_v2_1$extid)) %>% # 48
+  enrolled_preg_v4_1 <- pregnancy_data_1 %>% 
+    filter(visit == 'V4') #12
+  enrolled_preg_v4_1_num <- enrolled_preg_v4_1 %>% 
     distinct(extid) %>% 
-    nrow()
+    nrow() 
   
 # create flowchart
 flowchart_1 <- glue("
@@ -2723,37 +2715,31 @@ enrolled_2 <- enrolled %>%
     nrow()
   
   # number of women who became pregnant at a follow up visit and took drug in the prior visit
-  enrolled_preg_v2_2 <- data %>% 
+  
+  pregnancy_data_2 <- data %>% 
     filter(assignment == 2,
-           visit == 'V2',
-           extid %in% enrolled$extid,
-           safety_status != 'out',
-           pregnancy_status == 'in') #21
+           pregnancy_status == 'in') %>% 
+    arrange(visit) %>% 
+    group_by(extid) %>% 
+    slice(1) %>%
+  ungroup()
+  
+  enrolled_preg_v2_2 <- pregnancy_data_2 %>% 
+    filter(visit == 'V2') #12 
   enrolled_preg_v2_2_num <- enrolled_preg_v2_2 %>% 
     distinct(extid) %>% 
     nrow()
-  
-  enrolled_preg_v3_2 <- data %>% 
-    filter(assignment == 2,
-           visit == 'V3',
-           extid %in% enrolled$extid,
-           safety_status != 'out',
-           pregnancy_status == 'in') # 49
-  enrolled_preg_v3_2_num <- enrolled_preg_v3_2 %>%  
+  enrolled_preg_v3_2 <- pregnancy_data_2 %>% 
+    filter(visit == 'V3') #12 
+  enrolled_preg_v3_2_num <- enrolled_preg_v3_2 %>% 
     distinct(extid) %>% 
     nrow()
-  
-  enrolled_preg_v4_2_num <- data %>% 
-    filter(assignment == 2,
-           visit == 'V4',
-           extid %in% enrolled$extid,
-           safety_status != 'out',
-           pregnancy_status == 'in',
-           !(extid %in% enrolled_preg_v3_2$extid),
-           !(extid %in% enrolled_preg_v2_2$extid)) %>% # 18
+  enrolled_preg_v4_2 <- pregnancy_data_2 %>% 
+    filter(visit == 'V4') #12
+  enrolled_preg_v4_2_num <- enrolled_preg_v4_2 %>% 
     distinct(extid) %>% 
-    nrow()
-
+    nrow() 
+  
 # create flowchart
 flowchart_2 <- glue("
   digraph flowchart {{
