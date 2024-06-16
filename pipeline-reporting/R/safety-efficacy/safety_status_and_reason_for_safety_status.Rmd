@@ -1319,6 +1319,7 @@ status_pathway <- by_path %>%
   enrol_eos_table <- enrol_eos_data %>%
     arrange(visit) %>%
     group_by(safety_reason, assignment) %>%
+    distinct(extid) %>% # 95076-02 went in to eos in V2 and V3 making the flowcharts numbers different than the tables which is why this code is here
     summarise('N' = n()) %>%
     group_by(safety_reason) %>%
     pivot_wider(names_from = assignment, values_from = N) %>%
@@ -2317,6 +2318,7 @@ enrolled_1 <- enrolled %>%
            assignment == 1, 
            enrolment == 'follow up',
            safety_status == 'eos',
+           safety_reason != 'previously eos',
            visit == 'V2') %>% 
     distinct(extid) %>% 
     nrow()
@@ -2327,6 +2329,7 @@ enrolled_1 <- enrolled %>%
            assignment == 1, 
            enrolment == 'follow up',
            safety_status == 'eos',
+           safety_reason != 'previously eos',
            visit == 'V3') %>% 
     distinct(extid) %>% 
     nrow()
@@ -2337,6 +2340,7 @@ enrolled_1 <- enrolled %>%
            assignment == 1, 
            enrolment == 'follow up',
            !(starting_safety_status %in% c('out', 'eos', 'refusal')),
+           safety_reason != 'previously eos',
            safety_status == 'eos',
            visit == 'V4') %>% 
     distinct(extid) %>% 
@@ -2688,7 +2692,9 @@ enrolled_2 <- enrolled %>%
     filter(extid %in% enrolled$extid,
            assignment == 2, 
            enrolment == 'follow up',
+           safety_reason != 'previously eos',
            safety_status == 'eos',
+           
            visit == 'V2') %>% 
     distinct(extid) %>% 
     nrow()
@@ -2699,6 +2705,7 @@ enrolled_2 <- enrolled %>%
            assignment == 2, 
            enrolment == 'follow up',
            safety_status == 'eos',
+           safety_reason != 'previously eos',
            visit == 'V3') %>% 
     distinct(extid) %>% 
     nrow()
@@ -2709,6 +2716,7 @@ enrolled_2 <- enrolled %>%
            assignment == 2, 
            enrolment == 'follow up',
            !(starting_safety_status %in% c('out', 'eos', 'refusal')),
+           safety_reason != 'previously eos',
            safety_status == 'eos',
            visit == 'V4') %>% 
     distinct(extid) %>% 
