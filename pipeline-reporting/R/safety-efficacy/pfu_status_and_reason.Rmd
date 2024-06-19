@@ -183,12 +183,12 @@ pfu_reason <- pfu_enrolment %>%
     dplyr::select(extid, hhid, pregnancy_status_V2,
                   pregnancy_status_V3, pregnancy_status_V4, pregnancy_status_V5, 
                   pregnancy_status_V6, pregnancy_status_V7, 
-                  pregnancy_status_V8, pregnancy_status_reason_V2, 
+                  pregnancy_status_V8, pregnancy_status_V9, pregnancy_status_reason_V2, 
                   pregnancy_status_reason_V3, pregnancy_status_reason_V4, 
                   pregnancy_status_reason_V5, 
                   pregnancy_status_reason_V6, 
                   pregnancy_status_reason_V7,
-                  pregnancy_status_reason_V8, cluster) %>%
+                  pregnancy_status_reason_V8, pregnancy_status_reason_V9, cluster) %>%
     rename(status_V2 = pregnancy_status_V2,
            status_V3 = pregnancy_status_V3,
            status_V4 = pregnancy_status_V4,
@@ -196,13 +196,15 @@ pfu_reason <- pfu_enrolment %>%
            status_V6 = pregnancy_status_V6,
            status_V7 = pregnancy_status_V7,
            status_V8 = pregnancy_status_V8,
+           status_V9 = pregnancy_status_V9,
            reason_V2 = pregnancy_status_reason_V2,
            reason_V3 = pregnancy_status_reason_V3,
            reason_V4 = pregnancy_status_reason_V4,
            reason_V5 = pregnancy_status_reason_V5,
            reason_V6 = pregnancy_status_reason_V6,
            reason_V7 = pregnancy_status_reason_V7,
-           reason_V8 = pregnancy_status_reason_V8)
+           reason_V8 = pregnancy_status_reason_V8,
+           reason_V9 = pregnancy_status_reason_V9)
 
 ```
 
@@ -364,6 +366,25 @@ target_table <- target_table %>%
       mutate('Percent complete' = (as.numeric(`Number of people visited`)) / as.numeric(nrow(pfu_v8)) * 100) %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%'))
+  
+## V9 ########################
+  pfu_v9 <- pfu %>%
+    filter(visit == 'V9') 
+
+  # change Status from logical to character
+  pfu_v9$Status <- as.character(pfu_v9$Status)
+
+  pfu_totals_v9 <- pfu_v9 %>%
+      group_by(pregnancy_status) %>%
+      summarise('Number of people visited' = n()) %>%
+      arrange(pregnancy_status) %>%
+      rename('PFU status' = pregnancy_status) %>%
+      add_row('PFU status' = 'total people visited', 
+              'Number of people visited' = sum(.$'Number of people visited')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of people visited`)) / as.numeric(nrow(pfu_v9)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%'))
+
 
 ```
 
@@ -495,6 +516,24 @@ pregnancy_v8 <- data %>%
     mutate('Percent' = round(`Percent`, 2)) %>%
     mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
 
+  ## V9 ##########################
+
+pregnancy_v9 <- data %>%
+    filter(visit == 'V9')
+  
+  # create a table that shows how many people are follow up and enrolment in V2
+  # make a table of reasons people are eos
+  table_visit_type_v9 <- pregnancy_v9 %>%
+    group_by(enrolment) %>%
+    summarise('Number of people' = n()) %>%
+    arrange(enrolment) %>%
+    rename('Visit type' = enrolment) %>%
+    add_row('Visit type' = 'total', 'Number of people' = sum(.$'Number of people')) %>%
+    mutate('Percent' = (as.numeric(`Number of people`)) / as.numeric(nrow(pregnancy_v9)) * 100) %>%
+    mutate('Percent' = round(`Percent`, 2)) %>%
+    mutate('Percent' = paste0(`Percent`, '%')) # Replace zero values with NA
+
+
 ```
 
 ```{r eos_reason}
@@ -618,7 +657,22 @@ pregnancy_v8 <- data %>%
       mutate('Percent complete' = round(`Percent complete`, 2)) %>%
       mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
 
-  
+## V9 ####################
+
+  pfu_eos_v9 <- data %>%
+    filter(visit == 'V9',
+           pregnancy_status == 'eos')
+
+  eos_reasons_v9 <- pfu_eos_v9 %>%
+      group_by(pregnancy_status_reason) %>%
+      summarise('Number of eos people' = n()) %>%
+      arrange(pregnancy_status_reason) %>%
+      rename('Reason for eos' = pregnancy_status_reason) %>%
+      add_row('Reason for eos' = 'total visited', 'Number of eos people' = sum(.$'Number of eos people')) %>%
+      mutate('Percent complete' = (as.numeric(`Number of eos people`)) / as.numeric(nrow(pfu_eos_v9)) * 100) %>%
+      mutate('Percent complete' = round(`Percent complete`, 2)) %>%
+      mutate('Percent complete' = paste0(`Percent complete`, '%')) # Replace zero values with NA
+
 ```
 
 # PFU targets
@@ -626,6 +680,63 @@ pregnancy_v8 <- data %>%
 reactable(target_table, columns = list(), pagination = FALSE)
 ```
 _Note: these targets are currently being edited by Nika and Aryton and the individual and household target may be slightly off._
+
+# V9 Numbers
+```{r v9_table_status}
+reactable(pfu_totals_v9, columns = list(
+  `Percent complete` = colDef(align = "right")
+))
+
+# make a note of the real total number of people visited without repeats
+if (any(duplicated(pfu_totals_v9$extid))) {
+  cat("Note: Excluding the duplicates, the real total number of people visited is", length(unique(pfu_totals_v9$extid)), "\n.")
+} else {
+  cat("Note: There are no duplicates based on extid in the data.")
+}
+
+```
+
+## Visit type
+```{r v9_visit_type}
+reactable(table_visit_type_v9, columns = list(
+  `Percent` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+```
+
+## eos reason
+```{r v9_table_eos_reason}
+reactable(eos_reasons_v9, columns = list(
+  `Percent complete` = colDef(align = 'right')
+), pagination = FALSE) #pagination makes the entire table show on one page
+
+# write which reasons do not appear in the table
+# Specify the names you want to check for
+names_to_check <- c('died',
+                    'migrated',
+                    'not wish to continue',
+                    'no longer pregnant - baby born alive',
+                    'no longer pregnant - miscarriage',
+                    'no longer pregnant - abortion (self-induced)',
+                    'no longer pregnant - baby was born dead',
+                    'no longer pregnant - prefer not to answer')
+
+# Initialize a vector to store names not found
+not_found_names <- character(0)
+
+# Check each name
+for (name in names_to_check) {
+  if (!name %in% eos_reasons_v9$reason) {
+    not_found_names <- c(not_found_names, name)
+  }
+}
+
+# Generate a message based on the results (only if names are not found)
+if (length(not_found_names) > 0) {
+  cat("The following reasons are not shown: ", paste0(not_found_names, collapse = " / "))
+}
+```
+
+
 
 
 # V8 Numbers
