@@ -1361,7 +1361,7 @@ status_pathway <- by_path %>%
     filter(extid %in% enrolled$extid,
            status_V4 == 'eos')
   
-  enrol_v4_eos_data <- data %>%
+  enrol_v4_eos_data <- df %>%
     filter(extid %in% enrol_v4_eos$extid,
            safety_status == 'eos') %>%
     arrange(visit) %>%
