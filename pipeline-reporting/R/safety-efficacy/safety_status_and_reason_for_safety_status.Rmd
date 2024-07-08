@@ -209,10 +209,16 @@ absence1stattempt <- absence1stattempt %>%
   total_safety <- bind_rows(joined_safety, joined_safetynew) %>%
     mutate(cluster = as.numeric(substr(extid, 1, 2)),
            took_drug = case_when(
-             participant_take_drug == 'no' & participant_take_drug_2 == 'yes' ~ 'yes',
-             participant_take_drug == 'yes' ~ 'yes',
-             take_drug_safetynew == 'no' & take_drug_2_safetynew == 'yes' ~ 'yes',
-             take_drug_safetynew == 'yes' ~ 'yes'),
+           participant_take_drug == 'no' 
+           & participant_take_drug_2 == 'yes' ~ 'yes',
+           participant_take_drug == 'yes' ~ 'yes',
+           take_drug_safetynew == 'no' 
+           & take_drug_2_safetynew == 'yes' ~ 'yes',
+           take_drug_safetynew == 'yes' ~ 'yes',
+           take_drug_safetynew == 'no' 
+           & is.na(take_drug_2_safetynew) ~ 'no',
+           participant_take_drug == 'no' 
+           & is.na(participant_take_drug_2) ~ 'no'),
            safetystatus = safety_status,
            enrolment = case_when(
                 (starting_safety_status == 'out' |
@@ -2188,7 +2194,7 @@ enrolled_1 <- enrolled %>%
   # v1: in V1 you have 1070 out people who did not enrol yet
   enrolled_visited_v1_1 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==1,
+           intervention == 'Treatment',
            visit == 'V1',
            safety_status != 'out') %>% 
     distinct(extid) %>% 
@@ -2196,7 +2202,7 @@ enrolled_1 <- enrolled %>%
   
   enrolled_treated_v1_1 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==1,
+           intervention == 'Treatment',
            visit == 'V1',
            took_drug == 'yes',
            safety_status != 'out') %>% 
@@ -2205,7 +2211,7 @@ enrolled_1 <- enrolled %>%
   
   enrolled_not_treated_v1_1 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==1,
+           intervention == 'Treatment',
            visit == 'V1',
            !(safety_status %in% c('eos', 'out')),
            took_drug == 'no') %>% 
@@ -2215,7 +2221,7 @@ enrolled_1 <- enrolled %>%
 #v2: in V2 you have 295 people who are not eos who have an NA for took_drug because they are absent (adding this makes the total visited subjects)
   enrolled_visited_v2_1 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==1,
+           intervention == 'Treatment',
            visit == 'V2',
            safety_status != 'out') %>% 
     distinct(extid) %>% 
@@ -2223,7 +2229,7 @@ enrolled_1 <- enrolled %>%
   
   enrolled_treated_v2_1 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==1,
+           intervention == 'Treatment',
            visit == 'V2',
            took_drug == 'yes',
            safety_status != 'out') %>% 
@@ -2232,7 +2238,7 @@ enrolled_1 <- enrolled %>%
   
   enrolled_not_treated_v2_1 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==1,
+           intervention == 'Treatment',
            visit == 'V2',
            !(safety_status %in% c('eos', 'out')),
            took_drug == 'no') %>% 
@@ -2241,7 +2247,7 @@ enrolled_1 <- enrolled %>%
   
   enrol_absent_v2_1 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==1,
+           intervention == 'Treatment',
            visit == 'V2',
            safety_status != 'out',
            safety_reason == 'absent') %>% 
@@ -2251,7 +2257,7 @@ enrolled_1 <- enrolled %>%
 #v3: in V3 you have 468 people who are not eos who have an NA for took_drug (468 absences)
   enrolled_visited_v3_1 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==1,
+           intervention == 'Treatment',
            visit == 'V3',
            safety_status != 'out') %>% 
     distinct(extid) %>% 
@@ -2259,7 +2265,7 @@ enrolled_1 <- enrolled %>%
   
   enrolled_treated_v3_1 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==1,
+           intervention == 'Treatment',
            visit == 'V3',
            took_drug == 'yes',
            safety_status != 'out') %>% 
@@ -2268,7 +2274,7 @@ enrolled_1 <- enrolled %>%
   
   enrolled_not_treated_v3_1 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==1,
+           intervention == 'Treatment',
            visit == 'V3',
            !(safety_status %in% c('eos', 'out')),
            took_drug == 'no') %>% 
@@ -2277,7 +2283,7 @@ enrolled_1 <- enrolled %>%
   
   enrol_absent_v3_1 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==1,
+           intervention == 'Treatment',
            visit == 'V3',
            safety_status != 'out',
            safety_reason == 'absent') %>% 
@@ -2286,7 +2292,7 @@ enrolled_1 <- enrolled %>%
   
 #v4: there were only 9222 people who started safety status in while the other people visited were out, refusal, or previously eos
   enrolled_visited_v4_1 <- df %>% 
-    filter(intervention ==1,
+    filter(intervention == 'Treatment',
            visit == 'V4',
            !starting_safety_status %in% c('refusal', 'eos'),
            safety_status != 'out') %>% 
@@ -2295,7 +2301,7 @@ enrolled_1 <- enrolled %>%
   
   enrolled_comp_v4_1 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==1,
+           intervention == 'Treatment',
            visit == 'V4',
            safety_status == 'completion') %>% 
     distinct(extid) %>% 
@@ -2555,7 +2561,7 @@ enrolled_2 <- enrolled %>%
   # v1: in V1 you have 1070 out people who did not enrol yet
   enrolled_visited_v1_2 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==2,
+           intervention == 'Control',
            visit == 'V1',
            safety_status != 'out') %>% 
     distinct(extid) %>% 
@@ -2563,7 +2569,7 @@ enrolled_2 <- enrolled %>%
   
   enrolled_treated_v1_2 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==2,
+           intervention == 'Control',
            visit == 'V1',
            took_drug == 'yes',
            safety_status != 'out') %>% 
@@ -2572,7 +2578,7 @@ enrolled_2 <- enrolled %>%
   
   enrolled_not_treated_v1_2 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==2,
+           intervention == 'Control',
            visit == 'V1',
            !(safety_status %in% c('eos', 'out')),
            took_drug == 'no') %>% 
@@ -2582,7 +2588,7 @@ enrolled_2 <- enrolled %>%
 #v2: in V2 you have 295 people who are not eos who have an NA for took_drug because they are absent (adding this makes the total visited subjects)
   enrolled_visited_v2_2 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==2,
+           intervention == 'Control',
            visit == 'V2',
            safety_status != 'out') %>% 
     distinct(extid) %>% 
@@ -2590,7 +2596,7 @@ enrolled_2 <- enrolled %>%
   
   enrolled_treated_v2_2 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==2,
+           intervention == 'Control',
            visit == 'V2',
            took_drug == 'yes',
            safety_status != 'out') %>% 
@@ -2599,7 +2605,7 @@ enrolled_2 <- enrolled %>%
   
   enrolled_not_treated_v2_2 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==2,
+           intervention == 'Control',
            visit == 'V2',
            !(safety_status %in% c('eos', 'out')),
            took_drug == 'no') %>% 
@@ -2608,7 +2614,7 @@ enrolled_2 <- enrolled %>%
   
   enrol_absent_v2_2 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==2,
+           intervention == 'Control',
            visit == 'V2',
            safety_status != 'out',
            safety_reason == 'absent') %>% 
@@ -2618,7 +2624,7 @@ enrolled_2 <- enrolled %>%
 #v3: in V3 you have 468 people who are not eos who have an NA for took_drug (468 absences)
   enrolled_visited_v3_2 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==2,
+           intervention == 'Control',
            visit == 'V3',
            safety_status != 'out') %>% 
     distinct(extid) %>% 
@@ -2626,7 +2632,7 @@ enrolled_2 <- enrolled %>%
   
   enrolled_treated_v3_2 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==2,
+           intervention == 'Control',
            visit == 'V3',
            took_drug == 'yes',
            safety_status != 'out') %>% 
@@ -2635,7 +2641,7 @@ enrolled_2 <- enrolled %>%
   
   enrolled_not_treated_v3_2 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==2,
+           intervention == 'Control',
            visit == 'V3',
            !(safety_status %in% c('eos', 'out')),
            took_drug == 'no') %>% 
@@ -2644,7 +2650,7 @@ enrolled_2 <- enrolled %>%
   
   enrol_absent_v3_2 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==2,
+           intervention == 'Control',
            visit == 'V3',
            safety_status != 'out',
            safety_reason == 'absent') %>% 
@@ -2653,7 +2659,7 @@ enrolled_2 <- enrolled %>%
   
 #v4: there were only 9222 people who started safety status in while the other people visited were out, refusal, or previously eos
   enrolled_visited_v4_2 <- df %>% 
-    filter(intervention ==2,
+    filter(intervention == 'Control',
            visit == 'V4',
            !starting_safety_status %in% c('refusal', 'eos'),
            safety_status != 'out') %>% 
@@ -2662,7 +2668,7 @@ enrolled_2 <- enrolled %>%
   
   enrolled_comp_v4_2 <- df %>% 
     filter(extid %in% enrolled$extid,
-           intervention ==2,
+           intervention == 'Control',
            visit == 'V4',
            safety_status == 'completion') %>% 
     distinct(extid) %>% 
