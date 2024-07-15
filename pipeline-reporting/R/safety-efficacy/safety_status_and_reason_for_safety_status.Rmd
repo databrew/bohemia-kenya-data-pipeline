@@ -1511,10 +1511,12 @@ trial_profile <- df %>%
   )) %>%
   select(extid, visit, enrolled, intervention) %>%
   filter(!(is.na(intervention))) %>%
-    arrange(visit) %>%
-    group_by(extid) %>%
-    slice(1) %>%
-    ungroup()
+  group_by(intervention) %>%
+    distinct(extid, .keep_all = TRUE) #%>%
+    # arrange(visit) %>%
+    # group_by(extid) %>%
+    # slice(1) %>%
+    # ungroup()
 
 total_trial_table <- trial_profile %>%
     arrange(visit) %>%
