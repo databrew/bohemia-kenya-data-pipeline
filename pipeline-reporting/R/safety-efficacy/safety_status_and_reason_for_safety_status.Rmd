@@ -316,13 +316,13 @@ clean_safetynew_repeat <- safetynew_repeat_individual %>%
   
 # a trial profile tracks where every person went
   by_visit <- df %>%
-    pivot_wider(id_cols = c(extid, hhid, cluster, intervention.x, intervention.y), 
+    pivot_wider(id_cols = c(extid, hhid, cluster, intervention.y), 
                 names_from = visit,
                 values_from = c(safety_status, safety_reason)) %>%
     select(extid, hhid, safety_status_V1, safety_status_V2, 
            safety_status_V3, safety_status_V4, safety_reason_V1,
            safety_reason_V2, safety_reason_V3, safety_reason_V4,
-           intervention.x, intervention.y, cluster) %>%
+           intervention.y, cluster) %>%
     rename(status_V1 = safety_status_V1,
            reason_V1 = safety_reason_V1,
            status_V2 = safety_status_V2,
@@ -1383,85 +1383,117 @@ status_pathway <- by_path %>%
   
   not_enrolled_data <- df %>%
     filter(extid %in% not_enrolled$extid) %>%
-    arrange(desc(visit)) %>%
+    pivot_wider(id_cols = c(extid, hhid, cluster, intervention.y),
+                names_from = visit,
+                values_from = c(safety_status, safety_reason)) %>%
     group_by(extid) %>%
-    slice(1) %>%
-    ungroup() 
+    mutate(most_recent_status = case_when(
+
+      any(c_across(starts_with("safety_status")) %in% 'eos') ~ 'eos',
+
+      any(c_across(starts_with("safety_status")) == 'refusal') ~ 'refusal',
+
+      any(c_across(starts_with("safety_status")) == 'in') ~ 'in',
+      
+      any(c_across(starts_with("safety_status")) == 'out') ~ 'out',
+      
+      TRUE ~ NA_character_ # Default case
+    )) %>% 
+    mutate(not_enrolled_reason = case_when(
+
+      any(c_across(starts_with("safety_reason")) %in% c('migrated')) ~ 'migrated',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('died')) ~ 'died',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('not resident')) ~ 'not resident',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('under weight')) ~ 'under weight',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('study drug')) ~ 'study drug',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('concom meds')) ~ 'concom meds',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('severe illness')) ~ 'severe illness',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('baby under 1 week')) ~ 'baby under 1 week',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('pregnant')) ~ 'became pregnant',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('pregnancy test refusal')) ~ 'pregnancy test refusal',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('other trials')) ~ 'other trials',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('visited loa loa')) ~ 'visited loa loa',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('A baby that cannot walk yet')) ~ 'A baby that cannot walk yet',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('does not speak English or Swahili')) ~ 'does not speak English or Swahili',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('no witness')) ~ 'no witness',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('participant withdrew informed consent (refuse drug)')) ~ 'participant withdrew informed consent (refuse drug)',
+
+      any(c_across(starts_with("safety_reason")) %in% c('not agree to safety procedures')) ~ 'not agree to safety procedures',
+      
+      any(c_across(starts_with("safety_reason")) == 'a person who does not want to participate') ~ 'a person who does not want to participate',
+      
+      any(c_across(starts_with("safety_reason")) == 'not consented or provided their thumbprint ') ~ 'not consented or provided their thumbprint ',
+      
+      any(c_across(starts_with("safety_reason")) == 'minor not sign assent') ~ 'minor not sign assent',
+      
+      any(c_across(starts_with("safety_reason")) == 'not agree or sign informed consent ') ~ 'not agree or sign informed consent ',
+
+      any(c_across(starts_with("safety_reason")) == 'absent') ~ 'absent',
+      # Default case
+      TRUE ~ NA_character_
+    ))
+
+    # arrange(desc(visit)) %>%
+    # group_by(extid) %>%
+    # slice(1) %>%
+    # ungroup() 
   
   not_enrolled_table <- not_enrolled_data %>%
-    arrange(visit) %>%
-    group_by(safety_status, intervention.y) %>%
+    group_by(most_recent_status, intervention.y) %>%
     summarise('N' = n()) %>%
-    group_by(safety_status) %>%
+    group_by(most_recent_status) %>%
     pivot_wider(names_from = intervention.y, values_from = N) %>%
     ungroup() %>%
-    arrange(safety_status) %>%
-    rename('NOT ENROLLED status' = safety_status) %>%
+    arrange(most_recent_status) %>%
+    rename('NOT ENROLLED status' = most_recent_status) %>%
     add_row('NOT ENROLLED status' = 'total visited', 
             'Control' = sum(.$'Control'),
             'Treatment' = sum(.$'Treatment')) %>%
     mutate(Total = `Control` + `Treatment`) 
 
 # EOS
-
-  not_enrol_eos <- by_visit %>%
-    filter(extid %in% not_enrolled$extid,
-           status_V2 == 'eos' |
-             status_V3 == 'eos' |
-             status_V4 == 'eos')
   
-  not_enrol_eos_data <- df %>%
-    filter(extid %in% not_enrol_eos$extid,
-           safety_status == 'eos') %>%
-    arrange(visit) %>%
-    group_by(extid) %>%
-    slice(1) %>%
-    ungroup() 
-  
-  not_enrol_eos_table <- not_enrol_eos_data %>%
-    arrange(visit) %>%
-    group_by(safety_reason, intervention.y) %>%
+  not_enrol_eos_table <- not_enrolled_data %>%
+    filter(most_recent_status == 'eos') %>%
+    group_by(not_enrolled_reason, intervention.y) %>%
     summarise('N' = n()) %>%
-    group_by(safety_reason) %>%
+    group_by(not_enrolled_reason) %>%
     pivot_wider(names_from = intervention.y, values_from = N, values_fill = 0) %>%
     ungroup() %>%
-    arrange(safety_reason) %>%
-    rename('EOS reason' = safety_reason) %>%
+    arrange(not_enrolled_reason) %>%
+    rename('EOS reason' = not_enrolled_reason) %>%
     add_row('EOS reason' = 'total visited', 
             'Control' = sum(.$'Control'),
             'Treatment' = sum(.$'Treatment')) %>%
-    mutate(Total = `Control` + `Treatment`) 
+    mutate(Total = `Control` + `Treatment`)
 
 # OUT
   
-  not_enrol_out <- by_visit %>%
+  not_enrol_out_table <- not_enrolled_data %>%
     filter(extid %in% not_enrolled$extid,
-           (status_V1 == 'out' |
-              is.na(status_V1)) &
-             (status_V2 == 'out' |
-                is.na(status_V2)) &
-             (status_V3 == 'out' |
-                is.na(status_V3)) &
-             (status_V4 == 'out' | 
-                is.na(status_V4)))
-  
-  not_enrol_out_data <- df %>%
-    filter(extid %in% not_enrol_out$extid,
-           safety_status == 'out') %>%
-    arrange(visit) %>%
-    group_by(extid) %>%
-    slice(1) %>%
-    ungroup() 
-  
-  not_enrol_out_table <- not_enrol_out_data %>%
-    arrange(visit) %>%
-    group_by(safety_reason, intervention.y) %>%
+           most_recent_status == 'out') %>% 
+    group_by(not_enrolled_reason, intervention.y) %>%
     summarise('N' = n()) %>%
-    group_by(safety_reason) %>%
+    group_by(not_enrolled_reason) %>%
     pivot_wider(names_from = intervention.y, values_from = N, values_fill = 0) %>%
     ungroup() %>%
-    arrange(safety_reason) %>%
-    rename('OUT reason' = safety_reason) %>%
+    arrange(not_enrolled_reason) %>%
+    rename('OUT reason' = not_enrolled_reason) %>%
     add_row('OUT reason' = 'total visited', 
             'Control' = sum(.$'Control'),
             'Treatment' = sum(.$'Treatment')) %>%
@@ -1494,6 +1526,20 @@ status_pathway <- by_path %>%
             'Control' = sum(.$'Control'),
             'Treatment' = sum(.$'Treatment')) %>%
     mutate(Total = `Control` + `Treatment`) 
+  # could get the below to work by changing order of the not_enrolled_data code..
+  # not_enrol_ref_table <- not_enrolled_data %>%
+  #   filter(most_recent_status == 'refusal') %>% 
+  #   group_by(not_enrolled_reason, intervention.y) %>%
+  #   summarise('N' = n()) %>%
+  #   group_by(not_enrolled_reason) %>%
+  #   pivot_wider(names_from = intervention.y, values_from = N, values_fill = 0) %>%
+  #   ungroup() %>%
+  #   arrange(not_enrolled_reason) %>%
+  #   rename('REFUSAL reason' = not_enrolled_reason) %>%
+  #   add_row('REFUSAL reason' = 'total visited', 
+  #           'Control' = sum(.$'Control'),
+  #           'Treatment' = sum(.$'Treatment')) %>%
+  #   mutate(Total = `Control` + `Treatment`) 
 
 ```
 
