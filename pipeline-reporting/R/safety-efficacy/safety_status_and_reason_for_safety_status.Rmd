@@ -2127,9 +2127,11 @@ not_enrolled_saf <- df %>%
 
     any(c_across(starts_with("safety_status")) == 'refusal') & !(extid %in% not_enrol_ref_swahili_1$extid) ~ 'refusal',
 
-    any(c_across(starts_with("safety_reason")) %in% c('not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'pregnancy test refusal', 'other trials', 'visited loa loa')) & any(c_across(starts_with('safety_status')) == 'eos') | any(c_across(starts_with('safety_reason')) %in% c('pregnant', 'severe illness', 'baby under 1 week', 'A baby that cannot walk yet')) & any(c_across(starts_with('safety_status')) == 'out') ~ 'non eligible',
+    any(c_across(starts_with("safety_reason")) %in% c('not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'pregnancy test refusal', 'other trials', 'visited loa loa')) & any(c_across(starts_with('safety_status')) == 'eos') | any(c_across(starts_with('safety_reason')) %in% c('pregnant', 'severe illness', 'baby under 1 week', 'A baby that cannot walk yet')) & any(c_across(starts_with('safety_status')) == 'out') & !(extid %in% not_enrol_ref_swahili_1$extid) ~ 'refusal' ~ 'non eligible',
 
-    any(c_across(starts_with("safety_reason")) %in% c('does not speak English or Swahili', 'a person who does not want to participate', 'no witness', 'participant withdrew informed consent (refuse drug)', 'not agree to safety procedures')) ~ 'other',
+    any(c_across(starts_with("safety_reason")) %in% c('does not speak English or Swahili', 'a person who does not want to participate', 'participant withdrew informed consent (refuse drug)', 'not agree to safety procedures')) ~ 'other',
+    
+    any(c_across(starts_with("safety_reason")) %in% c('no witness')) & safety_reason_V3 == 'no witness' ~ 'other',
 
     any(c_across(starts_with("safety_reason")) == 'absent') ~ 'absent',
     # Default case
