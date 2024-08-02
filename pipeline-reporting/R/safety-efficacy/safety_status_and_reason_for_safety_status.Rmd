@@ -1405,44 +1405,48 @@ status_pathway <- by_path %>%
       
       any(c_across(starts_with("safety_reason")) %in% c('died')) ~ 'died',
       
-      any(c_across(starts_with("safety_reason")) %in% c('not resident')) ~ 'not resident',
+      any(c_across(starts_with("safety_reason")) == 'a person who does not want to participate') ~ 'a person who does not want to participate',
       
-      any(c_across(starts_with("safety_reason")) %in% c('under weight')) ~ 'under weight',
+      any(c_across(starts_with("safety_reason")) %in% c('does not speak English or Swahili')) ~ 'does not speak English or Swahili',
       
-      any(c_across(starts_with("safety_reason")) %in% c('study drug')) ~ 'study drug',
+      any(c_across(starts_with("safety_reason")) == 'minor not sign assent') ~ 'minor not sign assent',
+      
+      any(c_across(starts_with("safety_reason")) == 'not agree or sign informed consent ') ~ 'not agree or sign informed consent ',
+      
+      any(c_across(starts_with("safety_reason")) == 'not consented or provided their thumbprint ') ~ 'not consented or provided their thumbprint ',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('baby under 1 week')) ~ 'baby under 1 week',
       
       any(c_across(starts_with("safety_reason")) %in% c('concom meds')) ~ 'concom meds',
       
+      any(c_across(starts_with("safety_reason")) %in% c('not agree to safety procedures')) ~ 'not agree to safety procedures',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('not resident')) ~ 'not resident',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('not wish to continue')) ~ 'not wish to continue',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('other trials')) ~ 'other trials',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('participant withdrew informed consent (refuse drug)')) ~ 'participant withdrew informed consent (refuse drug)',
+      
       any(c_across(starts_with("safety_reason")) %in% c('severe illness')) ~ 'severe illness',
       
-      any(c_across(starts_with("safety_reason")) %in% c('baby under 1 week')) ~ 'baby under 1 week',
+      any(c_across(starts_with("safety_reason")) %in% c('spent night at the hospital')) ~ 'spent night at the hospital',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('study drug')) ~ 'study drug',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('under weight')) ~ 'under weight',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('visited loa loa')) ~ 'visited loa loa',
       
       any(c_across(starts_with("safety_reason")) %in% c('pregnant')) ~ 'became pregnant',
       
       any(c_across(starts_with("safety_reason")) %in% c('pregnancy test refusal')) ~ 'pregnancy test refusal',
       
-      any(c_across(starts_with("safety_reason")) %in% c('other trials')) ~ 'other trials',
-      
-      any(c_across(starts_with("safety_reason")) %in% c('visited loa loa')) ~ 'visited loa loa',
-      
       any(c_across(starts_with("safety_reason")) %in% c('A baby that cannot walk yet')) ~ 'A baby that cannot walk yet',
-      
-      any(c_across(starts_with("safety_reason")) %in% c('does not speak English or Swahili')) ~ 'does not speak English or Swahili',
       
       any(c_across(starts_with("safety_reason")) %in% c('no witness')) ~ 'no witness',
       
-      any(c_across(starts_with("safety_reason")) %in% c('participant withdrew informed consent (refuse drug)')) ~ 'participant withdrew informed consent (refuse drug)',
-
-      any(c_across(starts_with("safety_reason")) %in% c('not agree to safety procedures')) ~ 'not agree to safety procedures',
-      
-      any(c_across(starts_with("safety_reason")) == 'a person who does not want to participate') ~ 'a person who does not want to participate',
-      
-      any(c_across(starts_with("safety_reason")) == 'not consented or provided their thumbprint ') ~ 'not consented or provided their thumbprint ',
-      
-      any(c_across(starts_with("safety_reason")) == 'minor not sign assent') ~ 'minor not sign assent',
-      
-      any(c_across(starts_with("safety_reason")) == 'not agree or sign informed consent ') ~ 'not agree or sign informed consent ',
-
       any(c_across(starts_with("safety_reason")) == 'absent') ~ 'absent',
       # Default case
       TRUE ~ NA_character_
@@ -1528,7 +1532,7 @@ status_pathway <- by_path %>%
     mutate(Total = `Control` + `Treatment`) 
   # could get the below to work by changing order of the not_enrolled_data code..
   # not_enrol_ref_table <- not_enrolled_data %>%
-  #   filter(most_recent_status == 'refusal') %>% 
+  #   filter(most_recent_status == 'refusal') %>%
   #   group_by(not_enrolled_reason, intervention.y) %>%
   #   summarise('N' = n()) %>%
   #   group_by(not_enrolled_reason) %>%
@@ -1536,10 +1540,10 @@ status_pathway <- by_path %>%
   #   ungroup() %>%
   #   arrange(not_enrolled_reason) %>%
   #   rename('REFUSAL reason' = not_enrolled_reason) %>%
-  #   add_row('REFUSAL reason' = 'total visited', 
+  #   add_row('REFUSAL reason' = 'total visited',
   #           'Control' = sum(.$'Control'),
   #           'Treatment' = sum(.$'Treatment')) %>%
-  #   mutate(Total = `Control` + `Treatment`) 
+  #   mutate(Total = `Control` + `Treatment`)
 
 ```
 
