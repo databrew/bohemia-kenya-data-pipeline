@@ -2114,34 +2114,34 @@ not_enrol_ref_swahili_1 <- df %>%
   filter(any(c_across(starts_with("safety_status")) == "refusal")) %>%
   filter(any(c_across(starts_with("safety_reason")) == "does not speak English or Swahili")) %>%
   ungroup()
-
 not_enrolled_saf <- df %>%
-  filter(!extid %in% enrolled$extid) %>%
-  pivot_wider(id_cols = c(extid, hhid, cluster, intervention.y),
-              names_from = visit,
-              values_from = c(safety_status, safety_reason)) %>%
-  group_by(extid) %>%
-  mutate(not_enrolled_reason = case_when(
+    filter(!extid %in% enrolled$extid) %>%
+    pivot_wider(id_cols = c(extid, hhid, cluster, intervention.y),
+                names_from = visit,
+                values_from = c(safety_status, safety_reason)) %>%
+    group_by(extid) %>%
+    mutate(not_enrolled_reason = case_when(
 
-    any(c_across(starts_with("safety_reason")) %in% c('migrated', 'died')) ~ 'migrated/died',
+      any(c_across(starts_with("safety_reason")) %in% c('migrated', 'died')) ~ 'migrated/died',
 
-    any(c_across(starts_with("safety_status")) == 'refusal') & !(extid %in% not_enrol_ref_swahili_1$extid) ~ 'refusal',
+      any(c_across(starts_with("safety_status")) == 'refusal') & !(extid %in% not_enrol_ref_swahili_1$extid) ~ 'refusal',
 
-    any(c_across(starts_with("safety_reason")) %in% c('not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'pregnancy test refusal', 'other trials', 'visited loa loa')) & any(c_across(starts_with('safety_status')) == 'eos') | any(c_across(starts_with('safety_reason')) %in% c('pregnant', 'severe illness', 'baby under 1 week', 'A baby that cannot walk yet')) & any(c_across(starts_with('safety_status')) == 'out') & !(extid %in% not_enrol_ref_swahili_1$extid) ~ 'refusal' ~ 'non eligible',
+      any(c_across(starts_with("safety_reason")) %in% c('not resident', 'under weight', 'study drug', 'concom meds', 'severe illness', 'baby under 1 week', 'pregnant', 'pregnancy test refusal', 'other trials', 'visited loa loa')) & any(c_across(starts_with('safety_status')) == 'eos') | any(c_across(starts_with('safety_reason')) %in% c('pregnant', 'severe illness', 'baby under 1 week', 'A baby that cannot walk yet')) & any(c_across(starts_with('safety_status')) == 'out') & !(extid %in% not_enrol_ref_swahili_1$extid) ~ 'non eligible',
 
-    any(c_across(starts_with("safety_reason")) %in% c('does not speak English or Swahili', 'a person who does not want to participate', 'participant withdrew informed consent (refuse drug)', 'not agree to safety procedures')) ~ 'other',
-    
-    any(c_across(starts_with("safety_reason")) %in% c('no witness')) & safety_reason_V3 == 'no witness' ~ 'other',
+      any(c_across(starts_with("safety_reason")) %in% c('does not speak English or Swahili', 'participant withdrew informed consent (refuse drug)', 'not agree to safety procedures')) ~ 'other',
+      
+      any(c_across(starts_with("safety_reason")) %in% c('no witness')) & safety_reason_V3 == 'no witness' ~ 'other',
 
-    any(c_across(starts_with("safety_reason")) == 'absent') ~ 'absent',
-    # Default case
-    TRUE ~ NA_character_
-  )) %>%
-  group_by(intervention.y, not_enrolled_reason) %>%
-  tally %>%
-  mutate(sum = sum(n)) %>%
-  pivot_wider(names_from = not_enrolled_reason,
-              values_from = n)
+      any(c_across(starts_with("safety_reason")) == 'absent') ~ 'absent',
+      # Default case
+      TRUE ~ NA_character_
+    )) %>%
+    group_by(intervention.y, not_enrolled_reason) %>%
+    tally %>%
+    mutate(sum = sum(n)) %>%
+    pivot_wider(names_from = not_enrolled_reason,
+                values_from = n)
+
 
 num_not_enrol_mig_died_1 <- not_enrolled_saf %>%
   filter(intervention.y == 'Treatment') %>%
