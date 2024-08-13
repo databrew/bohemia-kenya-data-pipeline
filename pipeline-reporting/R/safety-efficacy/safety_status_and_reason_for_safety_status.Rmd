@@ -163,7 +163,9 @@ wrap_download <- function(reactable_obj, element_id, output_filename){
            sex, participant_take_drug, participant_take_drug_2, non_resident_eos, 
            weight_eos, weight_eos_short, study_drug_eos, concom_meds_eos, 
            concom_meds_eos_short, severe_illness_eos, severe_illness_eos_short, 
-           obvious_screening, baby_not_week_old_eos, pregnant_eos, 
+           obvious_screening, baby_not_week_old_eos, accept_preg_test_yn,
+           accept_preg_test_yn_short, accept_preg_test_yn_v4, preg_test_2_result, 
+           preg_test_2_result_short, preg_test_2_result_v4, pregnant_eos, 
            pregnancy_section_eos, pregnancy_section_eos_short, 
            preg_test_pos_eos_short, preg_test_2_eos_short, obvious_screening, 
            preg_test_refuse_eos_short, other_trials_eos, loa_loa_eos, 
@@ -185,7 +187,8 @@ clean_safetynew_repeat <- safetynew_repeat_individual %>%
     select(PARENT_KEY, extid, safety_status, dob, sex, participant_take_drug, 
            participant_take_drug_2, non_resident_eos, weight_eos, study_drug_eos, 
            concom_meds_eos, severe_illness_eos, obvious_screening, 
-           baby_not_week_old_eos, pregnant_eos, pregnancy_section_eos, 
+           baby_not_week_old_eos, accept_preg_test_yn, preg_test_2_result, 
+           pregnant_eos, pregnancy_section_eos, 
            obvious_screening, other_trials_eos, loa_loa_eos, 
            not_agree_safety_procedures_eos, refuse_drug_eos, refuse_drug_eos_2, 
            ind_witness_present, obvious_screening, ind_thumbprint_status, 
@@ -249,7 +252,13 @@ clean_safetynew_repeat <- safetynew_repeat_individual %>%
              preg_test_refuse_eos_short == '1' |
                preg_test_refuse_eos_v4 == '1' |
                preg_test_2_refuse_eos_v4 == '1' |
-               pregnancy_section_eos_v4 == '1' ~ 'pregnancy test refusal',
+               pregnancy_section_eos_v4 == '1'|
+             accept_preg_test_yn == 'refuse'|
+             accept_preg_test_yn_short == 'refuse' |
+             accept_preg_test_yn_v4 == 'refuse' |
+             preg_test_2_result == 'refuse' | 
+             preg_test_2_result_short == 'refuse' |
+             preg_test_2_result_v4 == 'refuse' ~ 'pregnancy test refusal',
              pregnant_eos == '1' |
                preg_test_pos_eos_short == '1' |
                preg_test_2_eos_short == '1' |
@@ -1441,7 +1450,7 @@ status_pathway <- by_path %>%
       
       any(c_across(starts_with("safety_reason")) %in% c('visited loa loa')) ~ 'visited loa loa',
       
-      any(c_across(starts_with("safety_reason")) %in% c('pregnant')) ~ 'became pregnant',
+      any(c_across(starts_with("safety_reason")) %in% c('pregnant')) ~ 'pregnant',
       
       any(c_across(starts_with("safety_reason")) %in% c('pregnancy test refusal')) ~ 'pregnancy test refusal',
       
