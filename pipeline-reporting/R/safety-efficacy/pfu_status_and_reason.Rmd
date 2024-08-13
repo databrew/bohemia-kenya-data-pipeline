@@ -12,7 +12,7 @@ date: '`r Sys.time()`'
 Notes:
 
 - Report is refreshed hourly 9-5pm EAT, once 12AM EAT
-- Please reach out to nikamgorski@gmail.com for bug reports
+- Please reach out to nika.gorski@isglobal.org for bug reports
 
 
 ```{r, echo=FALSE, message=FALSE}
