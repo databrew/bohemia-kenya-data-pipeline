@@ -150,6 +150,15 @@ purrr::map(config::get('odk_projects'), function(project_name){
                                              clean <- raw
                                            }
 
+                                           if(form_id == 'safety' & repeat_name == 'repeat_individual'){
+                                             logger::log_error('HERE')
+                                             clean <- manually_resolve_safety_repeat_lost_icfs(clean)
+                                           }
+
+                                           if(form_id == 'efficacy'){
+                                             clean <- manually_resolve_efficacy_lost_icfs(clean)
+                                           }
+
                                            data <- tibble(
                                              file_path = file_path,
                                              clean_file_path = clean_file_path,
