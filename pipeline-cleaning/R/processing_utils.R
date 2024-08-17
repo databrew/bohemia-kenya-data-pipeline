@@ -508,3 +508,74 @@ expand_resolution_file_with_connected_cols <- function(resolution_file) {
   return(output)
 
 }
+
+
+
+manually_resolve_efficacy_lost_icfs <- function(data){
+  efficacy_cols_keep <- c('SubmissionDate',
+                          'device_id', 'start_time',
+                          'end_time', 'todays_date', 'have_wid',
+                          'wid_manual', 'wid_qr', 'wid', 'visit', 'cluster_select',
+                          'cluster', 'Latitude', 'Longitude', 'Altitude', 'Accuracy',
+                          'hhid_scan_yn', 'hhid_scan', 'hhid_select', 'hhid', 'hhid_print',
+                          'member_select', 'person_string', 'starting_weight', 'firstname', 'lastname',
+                          'fullname', 'dob_pulled', 'dob_string', 'dob', 'age', 'sex', 'extid', 'village',
+                          'starting_efficacy_status', 'starting_safety_status', 'absent_last_visit', 'current_visit',
+                          'past_enrollment_visits', 'visits_done', 'repeat_visit_number', 'efficacy_inactive',
+                          'person_present', 'person_absent_reason', 'person_present_continue', 'person_absent',
+                          'person_died', 'person_died_efficacy_eos', 'person_unenrolled_died', 'person_died_safety_eos',
+                          'person_migrated_eos', 'person_unenrolled_migrated', 'second_consecutive_absence_eos',
+                          'person_absent_v7_eos', 'person_absent_reason_eos', 'person_out_absent', 'dob_age_correct',
+                          'continue_participation', 'not_continue_eos', 'confirmed_continue', 'icf_completed',
+                          'agree_efficacy_procedures', 'not_agree_efficacy_procedures_eos', 'pass_inclusion',
+                          'refusal', 'eos', 'out', 'in', 'completion', 'migrated_status', 'efficacy_status',
+                          'safety_status', 'instanceID', 'instanceName', 'KEY', 'SubmitterID', 'SubmitterName',
+                          'AttachmentsPresent', 'AttachmentsExpected', 'Status', 'ReviewState',
+                          'DeviceID', 'Edits', 'FormVersion')
+
+
+  efficacy_icf_exceptions <- cloudbrewr::aws_s3_get_table(
+    bucket = 'databrew.org',
+    key = 'anomalies/adhoc-fix/efficacy_no_icfs.csv')
+
+  data_list <- list()
+  data_list$set_to_na <- data %>%
+    dplyr::filter(KEY %in% efficacy_icf_exceptions$KEY) %>%
+    dplyr::mutate(across(!any_of(efficacy_cols_keep), ~ NA))
+  data_list$keep <- data %>%
+    dplyr::filter(!KEY %in% efficacy_icf_exceptions$KEY)
+
+
+  output_data <- purrr::reduce(data_list, dplyr::bind_rows)
+
+  return(output_data)
+}
+
+
+manually_resolve_safety_repeat_lost_icfs <- function(data){
+  safety_repeat_cols_keep <- c('position', 'taken', 'member_select', 'person_string', 'starting_safety_status', 'starting_pregnancy_status', 'starting_weight',
+                          'starting_height', 'firstname', 'lastname', 'fullname', 'dob_pulled', 'dob_string', 'dob', 'age', 'sex', 'extid', 'intervention',
+                          'out_v4', 'person_present', 'person_absent_reason', 'person_out_died', 'person_died_eos', 'v4_absent_eos', 'v4_migrate_absent_eos',
+                          'person_absent', 'person_out_migrated', 'person_migrated', 'person_left_household', 'person_present_continue',
+                          'continue_participation', 'confirmed_continue', 'obvious_screening_status', 'adult_or_child', 'icf_reference', 'ind_icf_completed',
+                          'agree_safety_procedures', 'not_agree_safety_procedures_eos', 'safety_inclusion_eos', 'safety_inclusion_pass', 'out', 'refusal',
+                          'eos', 'in', 'completion', 'safety_status', 'pregnancy_status', 'PARENT_KEY', 'KEY'
+  )
+
+  safety_icf_exceptions <- cloudbrewr::aws_s3_get_table(
+    bucket = 'databrew.org',
+    key = 'anomalies/adhoc-fix/safety_no_icfs.csv')
+
+  data_list <- list()
+  data_list$set_to_na <- data %>%
+      dplyr::filter(KEY %in% safety_icf_exceptions$KEY) %>%
+      dplyr::mutate(across(!any_of(safety_repeat_cols_keep), ~ NA))
+  data_list$keep <- data %>%
+    dplyr::filter(!KEY %in% safety_icf_exceptions$KEY)
+
+
+  output_data <- purrr::reduce(data_list, dplyr::bind_rows)
+
+  return(output_data)
+}
+
