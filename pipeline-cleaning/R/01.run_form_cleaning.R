@@ -150,8 +150,7 @@ purrr::map(config::get('odk_projects'), function(project_name){
                                              clean <- raw
                                            }
 
-                                           if(form_id == 'safety' & repeat_name == 'repeat_individual'){
-                                             logger::log_error('HERE')
+                                           if(form_id == 'safety' & (!is.na(repeat_name) & repeat_name == 'repeat_individual')){
                                              clean <- manually_resolve_safety_repeat_lost_icfs(clean)
                                            }
 

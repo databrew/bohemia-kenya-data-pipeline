@@ -541,7 +541,7 @@ manually_resolve_efficacy_lost_icfs <- function(data){
   data_list <- list()
   data_list$set_to_na <- data %>%
     dplyr::filter(KEY %in% efficacy_icf_exceptions$KEY) %>%
-    dplyr::mutate(across(!(efficacy_cols_keep), ~ NA))
+    dplyr::mutate(across(!any_of(efficacy_cols_keep), ~ NA))
   data_list$keep <- data %>%
     dplyr::filter(!KEY %in% efficacy_icf_exceptions$KEY)
 
@@ -569,7 +569,7 @@ manually_resolve_safety_repeat_lost_icfs <- function(data){
   data_list <- list()
   data_list$set_to_na <- data %>%
       dplyr::filter(KEY %in% safety_icf_exceptions$KEY) %>%
-      dplyr::mutate(across(!(safety_repeat_cols_keep), ~ NA))
+      dplyr::mutate(across(!any_of(safety_repeat_cols_keep), ~ NA))
   data_list$keep <- data %>%
     dplyr::filter(!KEY %in% safety_icf_exceptions$KEY)
 
