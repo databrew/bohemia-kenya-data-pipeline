@@ -150,6 +150,8 @@ purrr::map(config::get('odk_projects'), function(project_name){
                                              clean <- raw
                                            }
 
+                                           # Add this section for
+                                           # Slack URL https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1723051669922359
                                            if(form_id == 'safety' & (!is.na(repeat_name) & repeat_name == 'repeat_individual')){
                                              clean <- manually_resolve_safety_repeat_lost_icfs(clean)
                                            }

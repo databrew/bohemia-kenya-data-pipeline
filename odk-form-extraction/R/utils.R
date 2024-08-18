@@ -32,7 +32,9 @@ odk_submission_export_wrapper <- function(pid, fid) {
     ruODK::submission_export(pid = pid,
                              fid = fid,
                              local_dir = '/tmp',
-                             overwrite = TRUE)
+                             overwrite = TRUE,
+                             media = FALSE
+                            )
   }, error = function(e){
     msg <- as.character(glue::glue('{fid} is throwing an error: {e$message}'))
     logger::log_error(msg)
