@@ -4,10 +4,6 @@ default:
   output_folder: 'raw-form'
   odk_projects:
     - 'kwale'
-    - 'kwale_ento_testing'
-    - 'kwale_testing'
-    - 'test_of_test'
-    - 'health_economics_testing'
 develop:
   secret_name: 'test/odk-credentials'
 production:
