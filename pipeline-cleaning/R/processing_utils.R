@@ -511,6 +511,9 @@ expand_resolution_file_with_connected_cols <- function(resolution_file) {
 
 
 
+
+# This function is used for Eldo's request for manually fixing lost ICFs for efficacy
+# Slack URL https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1723051669922359
 manually_resolve_efficacy_lost_icfs <- function(data){
   efficacy_cols_keep <- c('SubmissionDate',
                           'device_id', 'start_time',
@@ -551,7 +554,8 @@ manually_resolve_efficacy_lost_icfs <- function(data){
   return(output_data)
 }
 
-
+# This function is used for Eldo's request for manually fixing lost ICFs for efficacy
+# Slack URL https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1723051669922359
 manually_resolve_safety_repeat_lost_icfs <- function(data){
   safety_repeat_cols_keep <- c('position', 'taken', 'member_select', 'person_string', 'starting_safety_status', 'starting_pregnancy_status', 'starting_weight',
                           'starting_height', 'firstname', 'lastname', 'fullname', 'dob_pulled', 'dob_string', 'dob', 'age', 'sex', 'extid', 'intervention',
