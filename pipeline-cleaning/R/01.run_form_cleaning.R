@@ -34,24 +34,23 @@ S3_RESOLUTION_OBJECT_KEY <- 'anomalies/gsheets-fix/odk_form_anomalies - resoluti
 BUCKET_NAME <- 'databrew.org'
 ROLE_NAME <- 'cloudbrewr-aws-role'
 
+# create connection to AWS
+tryCatch({
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = ROLE_NAME,
+    profile_name =  ROLE_NAME,
+    pipeline_stage = env_pipeline_stage)
+
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+
 purrr::map(config::get('odk_projects'), function(project_name){
   unlink('./projects', force = TRUE, recursive = TRUE)
   logger::log_info(glue::glue('Starting Extraction on {project_name}'))
   prefix <- glue::glue('/{project_name}')
-
-  # create connection to AWS
-  tryCatch({
-    # login to AWS - this will be bypassed if executed in CI/CD environment
-    cloudbrewr::aws_login(
-      role_name = ROLE_NAME,
-      profile_name =  ROLE_NAME,
-      pipeline_stage = env_pipeline_stage)
-
-  }, error = function(e){
-    logger::log_error('AWS Login Failed')
-    stop(e$message)
-  })
-
 
   # bulk retrieve all csv files
   tryCatch({
@@ -146,20 +145,19 @@ purrr::map(config::get('odk_projects'), function(project_name){
                                                standardize_col_value_case(data = ., col_names = 'lastname') %>%
                                                standardize_village() %>%
                                                get_corrected_age()
+
+                                             # Add this section for
+                                             # Slack URL https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1723051669922359
+                                             if(form_id == 'safety' & (!is.na(repeat_name) & repeat_name == 'repeat_individual')){
+                                               clean <- manually_resolve_safety_repeat_lost_icfs(clean)
+                                             }
+
+                                             if(form_id == 'efficacy'){
+                                               clean <- manually_resolve_efficacy_lost_icfs(clean)
+                                             }
                                            }else{
                                              clean <- raw
                                            }
-
-                                           # Add this section for
-                                           # Slack URL https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1723051669922359
-                                           if(form_id == 'safety' & (!is.na(repeat_name) & repeat_name == 'repeat_individual')){
-                                             clean <- manually_resolve_safety_repeat_lost_icfs(clean)
-                                           }
-
-                                           if(form_id == 'efficacy'){
-                                             clean <- manually_resolve_efficacy_lost_icfs(clean)
-                                           }
-
                                            data <- tibble(
                                              file_path = file_path,
                                              clean_file_path = clean_file_path,
