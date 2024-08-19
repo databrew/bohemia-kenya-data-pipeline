@@ -174,14 +174,14 @@
     },
     "cloudbrewr": {
       "Package": "cloudbrewr",
-      "Version": "1.0.0.0000",
+      "Version": "1.0.1.0000",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteUsername": "databrew",
       "RemoteRepo": "cloudbrewr",
       "RemoteRef": "main",
-      "RemoteSha": "524d6fb9efbfcf4fb916fad6e4cf476e43a59022"
+      "RemoteSha": "1968037df93cd2d73ea2ccaeb383cce0efca37f8"
     },
     "colorspace": {
       "Package": "colorspace",
