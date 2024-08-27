@@ -1,3 +1,4 @@
+# Descirption: This code is used to fetch Moz data and store it as clean-form in AWS (central)
 library(dplyr)
 library(data.table)
 
@@ -66,6 +67,27 @@ for (fp in list.files('R/bohemia_migrations/output/tmp',
     logger::log_error(glue::glue('Error in {e} in this filepath {fp}'))
   })
 }
+
+purrr::map(list.files('R/bohemia_migrations/output/mopeia.org/clean-form', full.names = TRUE),
+           function(x){
+  zip_name = glue::glue('{x}/{basename(x)}.zip')
+  zip(zipfile = zip_name, files = dir(x, full.names = TRUE), flags = '-r9Xj')
+})
+
+purrr::map(list.files('R/bohemia_migrations/output/bohemia.systems/clean-form', full.names = TRUE),
+           function(x){
+             zip_name = glue::glue('{x}/{basename(x)}.zip')
+             zip(zipfile = zip_name, files = dir(x, full.names = TRUE), flags = '-r9Xj')
+           })
+
+purrr::map(list.files('R/bohemia_migrations/output/mopeia.com/clean-form', full.names = TRUE),
+           function(x){
+             zip_name = glue::glue('{x}/{basename(x)}.zip')
+             zip(zipfile = zip_name, files = dir(x, full.names = TRUE), flags = '-r9Xj')
+           })
+
+
+
 
 
 cloudbrewr::aws_s3_bulk_store(

@@ -1,8 +1,10 @@
+# This code is used to fetch Moz data from Joe's AWS account manually (faster)
+# into databrew account. Each RData is fetched and stored as csv (and zip files) into AWS
+
 library(cloudbrewr)
 library(dplyr)
 
-
-# set your environment variable here
+# Cloudbrewr is not configured cross-account fetch temp key id from SSO page
 Sys.setenv(
   AWS_ACCESS_KEY_ID = 'ACCESS_KEY_ID',
   AWS_SECRET_ACCESS_KEY = 'SECRET_ACCESS_KEY',

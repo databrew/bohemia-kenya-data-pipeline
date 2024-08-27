@@ -1,3 +1,6 @@
+# This code is used to fetch moz data from Joe's AWS account manually (faster)
+# into databrew account. Each RData is fetched and stored as csv (and zip files) into AWS
+
 library(dplyr)
 library(data.table)
 
@@ -21,7 +24,7 @@ tryCatch({
 })
 
 
-
+# https://eu-west-3.console.aws.amazon.com/s3/buckets/bohemia2022?region=eu-west-3&bucketType=general&prefix=bohemia.systems/Aggregate/2022-04-28+15%3A44%3A20/&showversions=false
 load('R/bohemia_migrations/mopeia.com.data_list_aggregate.RData')
 mopeia.com <- robject
 
@@ -46,7 +49,7 @@ cloudbrewr::aws_s3_bulk_store(
 
 
 
-# manual and local download to avoid AWS cross-account transfer
+# https://eu-west-3.console.aws.amazon.com/s3/buckets/bohemia2022?region=eu-west-3&bucketType=general&prefix=mopeia.com/Aggregate/2023-09-11+09%3A04%3A53/&showversions=false
 load('R/bohemia_migrations/bohemia.systems.data_list_aggregate.RData')
 bohemia.systems <- robject
 

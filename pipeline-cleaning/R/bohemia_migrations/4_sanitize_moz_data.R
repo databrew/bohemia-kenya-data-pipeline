@@ -1,7 +1,5 @@
 # Author: atediarjo@gmail.com
-# This file is used to sanitize clean form from PII informaiton
-# 1. Data sanitation to `sanitized-form`
-# Load library
+# Description: This file is used to sanitize Moz form from PII informaiton
 library(digest)
 library(dplyr)
 library(janitor)
@@ -140,9 +138,8 @@ tryCatch({
 tryCatch({
   # do bulk store for speed
   logger::log_info('Bulk store to AWS S3')
-  cloudbrewr::aws_s3_bulk_store(bucket = config::get('bucket'),
-                                target = './projects/sanitized-form',
-                                prefix = '/kwale/sanitized-form')
+  cloudbrewr::aws_s3_bulk_store(bucket = 'bohemia-mozambique-data-repository',
+                                target = 'R/bohemia_migrations/sanitation')
 
   logger::log_success('Bulk upload completed')
 
