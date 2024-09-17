@@ -154,17 +154,25 @@ rep_list <- purrr::map(insecticideresistance_reps, function(x){
 
 parse_to_tubes <- function(data, repeat_target, col_target) {
   data %>% 
-    dplyr::select(KEY, SubmissionDate, test_mosquitoes_age, starts_with('num_alive'), starts_with('num_dead')) %>% 
+    dplyr::select(KEY, SubmissionDate, 
+                  test_mosquitoes_age, 
+                  num_mosquitoes_exposed, 
+                  starts_with('num_alive'), starts_with('num_dead')) %>% 
     dplyr::filter(!!sym(col_target) > 0) %>%
     dplyr::inner_join(rep_list[[repeat_target]], by = c('KEY' = 'PARENT_KEY')) %>% 
-    dplyr::group_by(KEY, SubmissionDate, test_mosquitoes_age) %>% 
+    dplyr::group_by(KEY, SubmissionDate, test_mosquitoes_age, num_mosquitoes_exposed) %>% 
     dplyr::mutate(sequence = row_number() -1) %>% 
     dplyr::mutate(sequence = sequence * 10) %>% 
     dplyr::mutate(mosq_in_tube := !!sym(col_target) - sequence) %>%
     dplyr::mutate(mosq_in_tube = case_when(mosq_in_tube >= 10 ~ 10, 
                                            mosq_in_tube < 0  ~ -1 * mosq_in_tube,
                                            TRUE ~ mosq_in_tube)) %>% 
-    dplyr::select(KEY, SubmissionDate, test_mosquitoes_age, ends_with('tube_qr'), mosq_in_tube) %>% 
+    dplyr::select(KEY, 
+                  SubmissionDate, 
+                  test_mosquitoes_age, 
+                  ends_with('tube_qr'), 
+                  mosq_in_tube, 
+                  num_mosquitoes_exposed) %>% 
     dplyr::rename_at(4, ~"tube_qr") %>% 
     dplyr::mutate(metric = col_target)
 }
@@ -186,22 +194,31 @@ data_list <- list(
 )
 
 
-ento_labs_template_entoinsecticideresistance <- data_list %>% 
+ento_labs_template_entoinsecticideresistance <- data_list %>%
     purrr::reduce(dplyr::bind_rows) %>%
-    tidyr::uncount(weights = mosq_in_tube, .remove = FALSE) %>% 
+    tidyr::uncount(weights = mosq_in_tube, .remove = FALSE) %>%
     dplyr::group_by(tube_qr) %>%
-    dplyr::mutate(mosq_number = row_number()) %>% 
-    dplyr::ungroup() %>% 
+    dplyr::mutate(mosq_number = row_number()) %>%
+    dplyr::ungroup() %>%
     dplyr::mutate(mosquito_id = glue::glue('{tube_qr}-{mosq_number}'))
-
-
+# 
+# 
 # create directory
 output_dir <-'tmp'
 unlink(output_dir, recursive = TRUE)
 dir.create(output_dir)
 
 output_filename <- glue::glue('{output_dir}/ento_labs_insecticide_resistance.csv')
-ento_labs_template_entoinsecticideresistance %>% fwrite(output_filename)
+ento_labs_template_entoinsecticideresistance %>% 
+  dplyr::inner_join(entoinsecticideresistance %>% 
+                      dplyr::select(KEY, 
+                                    synergist, 
+                                    synergist_assay, 
+                                    insecticide, 
+                                    insecticide_concentration, 
+                                    replicate)) %>%
+  
+  fwrite(output_filename)
 
 cloudbrewr::aws_s3_store(
   bucket = 'bohemia-lake-db',
