@@ -71,9 +71,50 @@ clean_pii_columns <- function(data){
      'member_select',
      'participant_name',
      'person_string',
-     'taken'
+     'taken',
+     'starting_roster',
+     'person_id',
+     'person_name_old1',
+     'person_name_old2',
+     'person_name_old3',
+     'person_name_old4',
+     'person_name_old5',
+     'person_name_old6',
+     'person_name_old7',
+     'person_name_old8',
+     'person_name_old9',
+     'person_name_old10',
+     'person_name_old11',
+     'person_name_old12',
+     'person_name_old13',
+     'person_name_old14',
+     'person_name_old15',
+     'person_name_old16',
+     'person_name_old17',
+     'person_name_old18',
+     'person_name_new1',
+     'person_name_new2',
+     'person_name_new3',
+     'person_name_new4',
+     'person_name_new5',
+     'person_name_new6',
+     'person_name_new7',
+     'person_name_new8',
+     'person_name_new9',
+     'person_name_new10',
+     'person_name_new11',
+     'person_name_new12',
+     'person_name_new13',
+     'person_name_new14',
+     'person_name_new15',
+     'person_name_new16',
+     'person_name_new17',
+     'person_name_new18'
   )
-  data %>% dplyr::select(-any_of(pii_columns))
+  data %>%
+    dplyr::select(-any_of(pii_columns)) %>%
+    # this is for Moz
+    dplyr::select(!contains('household_head|person_name|person_id'))
 }
 
 hash_columns <- function(data) {
@@ -87,6 +128,7 @@ hash_columns <- function(data) {
     'fa_wid_receiving',
     'fa_wid_sending',
     'hhid',
+    'household_id',
     'id_username',
     'pharma_wid_receiving',
     'pharma_wid_sending',

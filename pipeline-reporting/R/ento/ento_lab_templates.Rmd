@@ -46,7 +46,9 @@ input_key <- list(
   entorcmorphid = 'kwale/clean-form/entorcmorphid/entorcmorphid.csv',
   entoltmorphid = 'kwale/clean-form/entoltmorphid/entoltmorphid.csv',
   entorcfield = 'kwale/clean-form/entorcfield/entorcfield.csv',
-  entorcoviposition = 'kwale/clean-form/entorcoviposition/entorcoviposition.csv')
+  entorcoviposition = 'kwale/clean-form/entorcoviposition/entorcoviposition.csv',
+  entoinsecticideresistance = 'kwale/clean-form/entoinsecticideresistance/entoinsecticideresistance.csv'
+)
 
 
 
@@ -107,6 +109,11 @@ entorcoviposition <- cloudbrewr::aws_s3_get_table(
   bucket = bucket_source,
   key = input_key$entorcoviposition) %>% mutate(across(matches("date"), lubridate::date))
 
+
+entoinsecticideresistance <- cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = input_key$entoinsecticideresistance) %>% mutate(across(matches("date"), lubridate::date))
+
 assignment <- cloudbrewr::aws_s3_get_table(
   bucket = 'bohemia-lake-db',
   key = glue::glue('bohemia_ext_data/assignments/assignments.csv')) %>%
@@ -118,6 +125,92 @@ v0 <- cloudbrewr::aws_s3_get_table(
   pad_hhid() %>% 
   dplyr::distinct(hhid, cluster)
 ```
+
+
+```{r}
+# Insecticide resistance
+
+insecticideresistance_reps <-  list(
+  repeat_alive_funestus = 'kwale/clean-form/entoinsecticideresistance/entoinsecticideresistance-repeat_alive_funestus.csv',
+  repeat_alive_gambiae = 'kwale/clean-form/entoinsecticideresistance/entoinsecticideresistance-repeat_alive_gambiae.csv',
+  repeat_alive = 'kwale/clean-form/entoinsecticideresistance/entoinsecticideresistance-repeat_alive_mosq.csv',
+  repeat_alive_other_anopheles = 'kwale/clean-form/entoinsecticideresistance/entoinsecticideresistance-repeat_alive_other_anopheles.csv',
+  repeat_dead_funestus = 'kwale/clean-form/entoinsecticideresistance/entoinsecticideresistance-repeat_dead_mosq_funestus.csv',
+  repeat_dead_gambiae = 'kwale/clean-form/entoinsecticideresistance/entoinsecticideresistance-repeat_dead_mosq_gambiae.csv',
+  repeat_dead_other_anopheles = 'kwale/clean-form/entoinsecticideresistance/entoinsecticideresistance-repeat_dead_mosq_other_anopheles.csv',
+  repeat_dead = 'kwale/clean-form/entoinsecticideresistance/entoinsecticideresistance-repeat_dead_mosq.csv'
+)
+
+
+rep_list <- purrr::map(insecticideresistance_reps, function(x){
+  cloudbrewr::aws_s3_get_table(
+  bucket = bucket_source,
+  key = x) %>%
+  pad_hhid()
+})
+```
+
+```{r}
+
+parse_to_tubes <- function(data, repeat_target, col_target) {
+  data %>% 
+    dplyr::select(KEY, SubmissionDate, test_mosquitoes_age, starts_with('num_alive'), starts_with('num_dead')) %>% 
+    dplyr::filter(!!sym(col_target) > 0) %>%
+    dplyr::inner_join(rep_list[[repeat_target]], by = c('KEY' = 'PARENT_KEY')) %>% 
+    dplyr::group_by(KEY, SubmissionDate, test_mosquitoes_age) %>% 
+    dplyr::mutate(sequence = row_number() -1) %>% 
+    dplyr::mutate(sequence = sequence * 10) %>% 
+    dplyr::mutate(mosq_in_tube := !!sym(col_target) - sequence) %>%
+    dplyr::mutate(mosq_in_tube = case_when(mosq_in_tube >= 10 ~ 10, 
+                                           mosq_in_tube < 0  ~ -1 * mosq_in_tube,
+                                           TRUE ~ mosq_in_tube)) %>% 
+    dplyr::select(KEY, SubmissionDate, test_mosquitoes_age, ends_with('tube_qr'), mosq_in_tube) %>% 
+    dplyr::rename_at(4, ~"tube_qr") %>% 
+    dplyr::mutate(metric = col_target)
+}
+
+
+data_list <- list(
+  dead_funestus = entoinsecticideresistance %>% 
+    parse_to_tubes(repeat_target = 'repeat_dead_funestus', col_target = 'num_dead_funestus'),
+  dead_gambiae = entoinsecticideresistance %>% 
+    parse_to_tubes(repeat_target = 'repeat_dead_gambiae', col_target = 'num_dead_gambiae'),
+  dead_other_anopheles = entoinsecticideresistance %>% 
+    parse_to_tubes(repeat_target = 'repeat_dead_other_anopheles', col_target = 'num_dead_other_anopheles'),
+  alive_funestus = entoinsecticideresistance %>% 
+    parse_to_tubes(repeat_target = 'repeat_alive_funestus', col_target = 'num_alive_funestus'),
+  alive_gambiae = entoinsecticideresistance %>% 
+    parse_to_tubes(repeat_target = 'repeat_alive_gambiae', col_target = 'num_alive_gambiae'),
+  alive_other_anopheles = entoinsecticideresistance %>% 
+    parse_to_tubes(repeat_target = 'repeat_alive_other_anopheles', col_target = 'num_alive_other_anopheles')
+)
+
+
+ento_labs_template_entoinsecticideresistance <- data_list %>% 
+    purrr::reduce(dplyr::bind_rows) %>%
+    tidyr::uncount(weights = mosq_in_tube, .remove = FALSE) %>% 
+    dplyr::group_by(tube_qr) %>%
+    dplyr::mutate(mosq_number = row_number()) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(mosquito_id = glue::glue('{tube_qr}-{mosq_number}'))
+
+
+# create directory
+output_dir <-'tmp'
+unlink(output_dir, recursive = TRUE)
+dir.create(output_dir)
+
+output_filename <- glue::glue('{output_dir}/ento_labs_insecticide_resistance.csv')
+ento_labs_template_entoinsecticideresistance %>% fwrite(output_filename)
+
+cloudbrewr::aws_s3_store(
+  bucket = 'bohemia-lake-db',
+  key = 'bohemia_prod/dwh/ento_labs_insecticide_resistance/ento_labs_insecticide_resistance.csv',
+  filename = as.character(output_filename)
+)
+```
+
+
 
 ```{r}
 entorcoviposition <- entorcoviposition %>% 
