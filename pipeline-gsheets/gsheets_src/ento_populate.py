@@ -52,26 +52,31 @@ pooled_mosq_rc = pooled_mosq_rc.explode('Sample ID').reset_index(drop = True)
 # insecticide resistance
 ##################################
 entolabs_insecticide_resistance = pd.read_csv('input/ento_labs_insecticide_resistance.csv', converters = {"Household ID": str})
-entolabs_insecticide_resistance = entolabs_insecticide_resistance[[
-    'SubmissionDate', 
-    'test_mosquitoes_age', 
-    'tube_qr', 
-    'num_mosquitoes_exposed', 
-    'mosq_in_tube', 
-    'mosquito_id', 
-    'mosq_number']].\
+entolabs_insecticide_resistance = entolabs_insecticide_resistance.\
     rename(columns = {
         "SubmissionDate": "Date of Collection",
         "test_mosquitoes_age": "Method of Collection",
+        "synergist": "Synergist",
+        "synergist_assay": "Synergist Assay",
+        "insecticide": "Insecticide",	
+        "insecticide_concentration": "Insecticide Concentration",
+        "replicate": "Replicate",
         "tube_qr": "Tube ID",
         "num_mosquitoes_exposed": "Mosquitoes Exposed",
         "mosq_in_tube": "Number of Mosquitoes per Tube", 
         "mosquito_id": "Mosquito ID"
     }).fillna('').sort_values(['Date of Collection', 'Tube ID','mosq_number'])
+entolabs_insecticide_resistance['Dead/Alive'] = entolabs_insecticide_resistance['metric'].apply(lambda x: 'alive' if 'alive' in x else 'dead')
 
 entolabs_insecticide_resistance_cdc_sheet_prep = entolabs_insecticide_resistance[[
         "Date of Collection",
         "Method of Collection",
+        "Synergist",
+        "Synergist Assay",
+        "Insecticide",	
+        "Insecticide Concentration",
+        "Replicate",
+        "Dead/Alive",
         "Tube ID",
         "Mosquitoes Exposed",
         "Number of Mosquitoes per Tube", 
