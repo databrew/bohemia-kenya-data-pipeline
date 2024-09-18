@@ -234,7 +234,7 @@ VARNAME_DICT = {
                        'bloodmeal_maldi_tof_qc',
                        'bloodmeal_maldi_tof_query_date',
                        'l119f_gste2_detection_first_pcr_results',
-                        'l119f_gste2_detection_first_pcr_results',
+                        'l119f_gste2_detection_second_pcr_results',
                         'kdr_detection_first_pcr_results',
                         'kdr_detection_second_pcr_results',
                         'cyp6pa_detection_first_pcr_results',
