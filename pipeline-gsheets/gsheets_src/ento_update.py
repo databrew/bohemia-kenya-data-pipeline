@@ -204,6 +204,7 @@ VARNAME_DICT = {
             'mosquitoes_exposed',
             'num_mosquito_per_tube',
             'mosquito_id',
+            'is_mosquito_available',
             'species_pcr_complex_id',
             'species_pcr_sibling_species',
             'species_pcr_test_by',
@@ -223,24 +224,13 @@ VARNAME_DICT = {
             'plasmodium_maldi_tof_qc',
             'plasmodium_pcr_results',
             'plasmodium_pcr_test_by',
-            'bloodmeal_elisa_results',
-            'bloodmeal_elisa_spcecifics',
-            'bloodmeal_elisa_test_by',
-            'bloodmeal_maldi_tof_results',
-            'bloodmeal_maldi_tof_spcecifics',
-            'bloodmeal_maldi_tof_log_score',
-            'bloodmeal_maldi_tof_repeat_pcr',
-            'bloodmeal_maldi_tof_test_by',
-            'bloodmeal_maldi_tof_qc',
-            'bloodmeal_maldi_tof_query_date',
-            'l119f_gste2_detection_first_pcr_results',
-            'l119f_gste2_detection_second_pcr_results',
-            'kdr_detection_first_pcr_results',
-            'kdr_detection_second_pcr_results',
+            'l119f_gste2_detection_pcr_results',
+            'kdr_detection_pcr_results',
             'cyp6pa_detection_first_pcr_results',
             'cyp6pa_detection_second_pcr_results',
             'cyp6pb_detection_first_pcr_results',
-            'cyp6pb_detection_second_pcr_results'
+            'cyp6pb_detection_second_pcr_results',
+            '6.5kb_sv_detection_pcr_results'
         ]
 
 }

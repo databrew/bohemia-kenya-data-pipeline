@@ -163,10 +163,8 @@ parse_to_tubes <- function(data, repeat_target, col_target) {
     dplyr::group_by(KEY, SubmissionDate, test_mosquitoes_age, num_mosquitoes_exposed) %>% 
     dplyr::mutate(sequence = row_number() -1) %>% 
     dplyr::mutate(sequence = sequence * 10) %>% 
-    dplyr::mutate(mosq_in_tube := !!sym(col_target) - sequence) %>%
-    dplyr::mutate(mosq_in_tube = case_when(mosq_in_tube >= 10 ~ 10, 
-                                           mosq_in_tube < 0  ~ -1 * mosq_in_tube,
-                                           TRUE ~ mosq_in_tube)) %>% 
+    dplyr::mutate(mosq_in_tube := !!sym(col_target)) %>%
+    dplyr::mutate(mosq_in_tube = 10) %>% 
     dplyr::select(KEY, 
                   SubmissionDate, 
                   test_mosquitoes_age, 
