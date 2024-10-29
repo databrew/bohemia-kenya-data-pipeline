@@ -11,7 +11,7 @@ gc = pg.authorize(service_file='key/key.json')
 GSHEETS_TARGET = 'ento-labs' + '-' + os.getenv('PIPELINE_STAGE')
 
 def create_list_range(tube_id, num_species):
-    output = [tube_id + f"-{o:02d}" for o in list(range(0,num_species))]
+    output = [f"{tube_id}{o}" for o in list(range(0,num_species))]
     return(output)
 
 # individual mosquitoes CDC

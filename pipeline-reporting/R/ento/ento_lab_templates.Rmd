@@ -198,9 +198,9 @@ ento_labs_template_entoinsecticideresistance <- data_list %>%
     dplyr::group_by(tube_qr) %>%
     dplyr::mutate(mosq_number = row_number()) %>%
     dplyr::mutate(mosq_number = mosq_number - 1) %>%
-    dplyr::mutate(mosq_number_str = glue("{sprintf('%02d', mosq_number)}")) %>% 
+    dplyr::mutate(mosq_number_str = glue("{sprintf(mosq_number)}")) %>% 
     dplyr::ungroup() %>%
-    dplyr::mutate(mosquito_id = glue::glue('{tube_qr}-{mosq_number_str}'))
+    dplyr::mutate(mosquito_id = glue::glue('{tube_qr}{mosq_number_str}'))
 # 
 # 
 # create directory
