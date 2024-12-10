@@ -123,7 +123,7 @@ sh = gc.open(GSHEETS_TARGET)
 
 # CDC individual mosquitoes
 wks = sh.worksheet_by_title('CDC Individual Mosquitoes')
-wks.clear(start='A3', end = 'J20000')
+wks.clear(start='A3', end = 'K20000')
 wks.set_dataframe(individual_mosq_cdc[[
     'Date of collection', 
     'Sample tube ID',
@@ -142,12 +142,12 @@ wks.set_dataframe(individual_mosq_cdc[['parity_status']], start = (3,21),  copy_
 
 # Fill Date of Collection, Study Arm Houe
 wks = sh.worksheet_by_title('CDC Pooled Mosquitoes')
-wks.clear(start='A3', end = 'K20000')
+wks.clear(start='A3', end = 'L20000')
 wks.set_dataframe(pooled_mosq_cdc[[
     'Date of collection', 
     'Sample tube ID',
-    "Site of Collection",
     'Sample ID',
+    "Site of Collection",
     'Cluster', 
     'Arm', 
     'Household ID', 
@@ -165,7 +165,7 @@ wks.set_dataframe(pooled_mosq_cdc[[
 
 # open RC individual mosquitoes
 wks = sh.worksheet_by_title('RC Individual Mosquitoes')
-wks.clear(start='A3', end = 'I20000')
+wks.clear(start='A3', end = 'J20000')
 wks.set_dataframe(individual_mosq_rc[[
     'Date of collection', 
     'Sample tube ID',
@@ -183,7 +183,7 @@ wks.set_dataframe(individual_mosq_rc[['Oviposited', 'Day oviposited', 'Dead', 'D
 
 # open RC pooled mosquitoes
 wks = sh.worksheet_by_title('RC Pooled Mosquitoes')
-wks.clear(start='A3', end = 'J20000')
+wks.clear(start='A3', end = 'K20000')
 wks.set_dataframe(pooled_mosq_rc[[
     'Date of collection', 
     'Sample tube ID',
