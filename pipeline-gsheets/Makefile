@@ -17,6 +17,7 @@ get_data:
 	aws s3 cp s3://${BUCKET_NAME}/bohemia_prod/dwh/ento_labs_individual_mosquitoes_rc/ento_labs_individual_mosquitoes_rc.csv input/ento_labs_individual_mosquitoes_rc.csv
 	aws s3 cp s3://${BUCKET_NAME}/bohemia_prod/dwh/ento_labs_pooled_mosquitoes_rc/ento_labs_pooled_mosquitoes_rc.csv input/ento_labs_pooled_mosquitoes_rc.csv
 	aws s3 cp s3://${BUCKET_NAME}/bohemia_prod/dwh/ento_labs_insecticide_resistance/ento_labs_insecticide_resistance.csv input/ento_labs_insecticide_resistance.csv
+	aws s3 cp s3://databrew.org/kwale/clean-form/entorcmorphid/entorcmorphid.csv input/entorcmorphid.csv
 
 
 get_curr_resolution:

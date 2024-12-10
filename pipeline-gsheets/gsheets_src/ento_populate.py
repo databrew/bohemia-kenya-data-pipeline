@@ -14,13 +14,20 @@ def create_list_range(tube_id, num_species):
     output = [f"{tube_id}{o}" for o in list(range(0,num_species))]
     return(output)
 
+entorcmorphid = (pd.read_csv('input/ento_labs_individual_mosquitoes_cdc.csv', 
+                             converters = {"hhid": str} )[['hhid', 'hh_or_pit']])\
+    .rename(columns={'hh_or_pit': 'Site of Collection',
+                     'hhid': 'Household ID'})
+
 # individual mosquitoes CDC
 individual_mosq_cdc = pd.read_csv('input/ento_labs_individual_mosquitoes_cdc.csv', converters = {"Household ID": str} )
+individual_mosq_cdc = pd.merge(individual_mosq_cdc, entorcmorphid, on='Household ID', how='left')
 individual_mosq_cdc['Household ID'] = individual_mosq_cdc['Household ID'].apply(lambda x: 'HHID: ' + x if x != '' else x)
 individual_mosq_cdc = individual_mosq_cdc.fillna('').sort_values(['Date of collection', 'Sample tube ID'])
 
 # pooled mosquitoes CDC
 pooled_mosq_cdc = pd.read_csv('input/ento_labs_pooled_mosquitoes_cdc.csv', converters = {"Household ID": str} )
+pooled_mosq_cdc = pd.merge(pooled_mosq_cdc, entorcmorphid, on='Household ID', how='left')
 pooled_mosq_cdc['Household ID'] = pooled_mosq_cdc['Household ID'].apply(lambda x: 'HHID: ' + x if x != '' else x)
 pooled_mosq_cdc = pooled_mosq_cdc.fillna('').sort_values(['Date of collection', 'Sample tube ID'])
 pooled_mosq_cdc['Sample ID'] = pooled_mosq_cdc.apply(lambda x: create_list_range(
@@ -32,11 +39,13 @@ pooled_mosq_cdc = pooled_mosq_cdc.explode('Sample ID').reset_index(drop = True)
 
 # individual mosquitoes RC
 individual_mosq_rc = pd.read_csv('input/ento_labs_individual_mosquitoes_rc.csv', converters = {"Household ID": str} )
+individual_mosq_rc = pd.merge(individual_mosq_rc, entorcmorphid, on='Household ID', how='left')
 individual_mosq_rc['Household ID'] = individual_mosq_rc['Household ID'].apply(lambda x: 'HHID: ' + x if x != '' else x)
 individual_mosq_rc = individual_mosq_rc.fillna('').sort_values(['Date of collection', 'Sample tube ID'])
 
 # pooled mosquitoes RC
 pooled_mosq_rc = pd.read_csv('input/ento_labs_pooled_mosquitoes_rc.csv', converters = {"Household ID": str} )
+pooled_mosq_rc = pd.merge(pooled_mosq_rc, entorcmorphid, on='Household ID', how='left')
 pooled_mosq_rc['Household ID'] = pooled_mosq_rc['Household ID'].apply(lambda x: 'HHID: ' + x if x != '' else x)
 pooled_mosq_rc = pooled_mosq_rc.fillna('').sort_values(['Date of collection', 'Sample tube ID'])
 
@@ -97,6 +106,7 @@ wks.set_dataframe(entolabs_insecticide_resistance_cdc_sheet_prep, start = (3,1),
 indivdual_mosq_cdc_sheet_prep = individual_mosq_cdc[[
     'Date of collection', 
     'Cluster', 
+    "Site of Collection",
     'Arm', 
     'Household ID', 
     'Livestock enclosure ID',
@@ -117,6 +127,7 @@ wks.clear(start='A3', end = 'J20000')
 wks.set_dataframe(individual_mosq_cdc[[
     'Date of collection', 
     'Sample tube ID',
+    "Site of Collection",
     'Cluster', 
     'Arm', 
     'Household ID', 
@@ -135,6 +146,7 @@ wks.clear(start='A3', end = 'K20000')
 wks.set_dataframe(pooled_mosq_cdc[[
     'Date of collection', 
     'Sample tube ID',
+    "Site of Collection",
     'Sample ID',
     'Cluster', 
     'Arm', 
@@ -157,6 +169,7 @@ wks.clear(start='A3', end = 'I20000')
 wks.set_dataframe(individual_mosq_rc[[
     'Date of collection', 
     'Sample tube ID',
+    "Site of Collection",
     'Cluster', 
     'Arm', 
     'Household ID', 
@@ -175,6 +188,7 @@ wks.set_dataframe(pooled_mosq_rc[[
     'Date of collection', 
     'Sample tube ID',
     'Sample ID',
+    "Site of Collection",
     'Cluster', 
     'Arm', 
     'Household ID', 
