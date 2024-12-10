@@ -14,7 +14,7 @@ def create_list_range(tube_id, num_species):
     output = [f"{tube_id}{o}" for o in list(range(0,num_species))]
     return(output)
 
-entorcmorphid = (pd.read_csv('input/ento_labs_individual_mosquitoes_cdc.csv', 
+entorcmorphid = (pd.read_csv('input/entorcmorphid.csv', 
                              converters = {"hhid": str} )[['hhid', 'hh_or_pit']])\
     .rename(columns={'hh_or_pit': 'Site of Collection',
                      'hhid': 'Household ID'})
